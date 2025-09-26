@@ -1,4 +1,5 @@
 from .core.app import create_app
+from .core.logger import get_logger
 
 
 def main():
@@ -9,7 +10,8 @@ def main():
     """
     app = create_app()
     # For now, just ensure bootstrap can run without side effects.
-    print(app.settings)
+    logger = get_logger(__name__)
+    logger.info("Application bootstrapped successfully")
 
 
 if __name__ == "__main__":

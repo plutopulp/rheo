@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 
 from ..config.settings import Settings
+from .logger import setup_logging
 
 
 @dataclass(frozen=True)
@@ -21,5 +22,6 @@ def create_app(settings: Settings | None = None) -> App:
     Keep logic here minimal so boot is predictable and test-friendly.
     """
     settings = settings or Settings()
+    setup_logging(settings)
     app = App(settings=settings)
     return app
