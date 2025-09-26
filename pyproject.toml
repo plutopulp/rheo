@@ -5,18 +5,14 @@ description = ""
 authors = [
     {name = "plutopulp",email = "plutopulped@gmail.com"}
 ]
-readme = "README.md"
-requires-python = ">=3.13"
-dependencies = [
-]
-
 [tool.poetry]
 packages = [{include = "async_download_manager", from = "src"}]
+readme = "README.md"
 
 
-[build-system]
-requires = ["poetry-core>=2.0.0,<3.0.0"]
-build-backend = "poetry.core.masonry.api"
+[tool.poetry.dependencies]
+python = "^3.13"
+loguru = "^0.7.3"
 
 [tool.poetry.group.dev.dependencies]
 black = "^25.9.0"
@@ -26,3 +22,7 @@ pytest = "^8.4.2"
 
 [tool.isort]
 profile = 'black'
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
