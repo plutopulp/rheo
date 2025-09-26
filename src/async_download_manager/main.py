@@ -12,6 +12,7 @@ def main():
     # For now, just ensure bootstrap can run without side effects.
     logger = get_logger(__name__)
     logger.info("Application bootstrapped successfully")
+    return app
 
 
 if __name__ == "__main__":

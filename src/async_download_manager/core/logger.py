@@ -79,6 +79,11 @@ def get_logger(name: str):
     return logger.bind(name=name)
 
 
+def is_configured() -> bool:
+    """Check if logging has been configured."""
+    return _configured
+
+
 def reset_logging() -> None:
     """Reset logging configuration. Useful for testing."""
     global _configured
