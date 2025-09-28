@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from enum import Enum
+from pathlib import Path
 
 
 class Environment(Enum):
@@ -25,3 +26,4 @@ class Settings:
 
     environment: Environment = Environment.DEVELOPMENT
     log_level: str = "INFO"
+    download_dir: Path = Path(__file__).parent.parent.parent / "downloads"
