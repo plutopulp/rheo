@@ -10,6 +10,7 @@ packages = [{include = "async_download_manager", from = "src"}]
 readme = "README.md"
 
 
+
 [tool.poetry.dependencies]
 python = "^3.13"
 loguru = "^0.7.3"
@@ -21,7 +22,11 @@ flake8 = "^7.3.0"
 isort = "^6.0.1"
 pytest = "^8.4.2"
 pytest-asyncio = "^1.2.0"
+pytest-mock = "^3.12.0"
 aioresponses = "^0.7.8"
+
+[tool.poetry.scripts]
+adm = "async_download_manager.cli:cli"
 
 [tool.isort]
 profile = 'black'
