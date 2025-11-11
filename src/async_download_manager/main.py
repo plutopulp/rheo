@@ -6,7 +6,6 @@ from aiohttp import ClientSession
 from .config.settings import Environment, Settings
 from .core.app import create_app
 from .core.logger import get_logger
-from .core.manager import DownloadManager
 from .core.worker import DownloadWorker
 from .test_data import get_file_config
 from .utils.filename import generate_filename
