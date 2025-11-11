@@ -4,13 +4,13 @@ import aiohttp
 import pytest
 from aioresponses import aioresponses
 
-from async_download_manager.core.events import (
+from async_download_manager.downloads import DownloadWorker
+from async_download_manager.events import (
     WorkerCompletedEvent,
     WorkerFailedEvent,
     WorkerProgressEvent,
     WorkerStartedEvent,
 )
-from async_download_manager.core.worker import DownloadWorker
 
 
 class TestWorkerEventEmission:

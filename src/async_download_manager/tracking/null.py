@@ -1,6 +1,6 @@
 """Null object implementation of tracker."""
 
-from .base_tracker import BaseTracker
+from .base import BaseTracker
 
 
 class NullTracker(BaseTracker):

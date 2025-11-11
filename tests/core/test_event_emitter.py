@@ -2,7 +2,7 @@
 
 import pytest
 
-from async_download_manager.core.event_emitter import EventEmitter
+from async_download_manager.events import EventEmitter
 
 
 @pytest.fixture

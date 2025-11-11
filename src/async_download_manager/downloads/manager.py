@@ -12,11 +12,11 @@ import aiohttp
 
 from async_download_manager.utils.filename import generate_filename
 
-from .base_tracker import BaseTracker
-from .events import WorkerEvent
-from .exceptions import ManagerNotInitializedError, ProcessQueueError
-from .logger import get_logger
-from .models import FileConfig
+from ..domain.downloads import FileConfig
+from ..domain.exceptions import ManagerNotInitializedError, ProcessQueueError
+from ..events import WorkerEvent
+from ..infrastructure.logging import get_logger
+from ..tracking.base import BaseTracker
 from .queue import PriorityDownloadQueue
 from .worker import DownloadWorker
 

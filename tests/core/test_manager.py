@@ -5,10 +5,12 @@ import asyncio
 import pytest
 from aiohttp import ClientSession
 
-from async_download_manager.core.exceptions import ManagerNotInitializedError
-from async_download_manager.core.manager import DownloadManager
-from async_download_manager.core.queue import PriorityDownloadQueue
-from async_download_manager.core.worker import DownloadWorker
+from async_download_manager.domain.exceptions import ManagerNotInitializedError
+from async_download_manager.downloads import (
+    DownloadManager,
+    DownloadWorker,
+    PriorityDownloadQueue,
+)
 
 
 class TestDownloadManagerInitialization:

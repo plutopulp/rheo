@@ -1,8 +1,8 @@
 """Tests for pytest fixtures and logger configuration during tests."""
 
+from async_download_manager.app import App
 from async_download_manager.config.settings import Environment, Settings
-from async_download_manager.core.app import App
-from async_download_manager.core.logger import get_logger, is_configured
+from async_download_manager.infrastructure.logging import get_logger, is_configured
 
 
 def test_settings_fixture(test_settings):

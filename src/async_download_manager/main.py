@@ -3,10 +3,10 @@ import os
 
 from aiohttp import ClientSession
 
+from .app import create_app
 from .config.settings import Environment, Settings
-from .core.app import create_app
-from .core.logger import get_logger
-from .core.worker import DownloadWorker
+from .downloads import DownloadWorker
+from .infrastructure.logging import get_logger
 from .test_data import get_file_config
 from .utils.filename import generate_filename
 

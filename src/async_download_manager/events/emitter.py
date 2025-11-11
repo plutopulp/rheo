@@ -3,8 +3,8 @@
 import asyncio
 import typing as t
 
-from .base_emitter import BaseEmitter
-from .logger import get_logger
+from ..infrastructure.logging import get_logger
+from .base import BaseEmitter
 
 if t.TYPE_CHECKING:
     import loguru

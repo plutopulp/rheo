@@ -2,7 +2,7 @@
 
 from typing import Any, Callable
 
-from .base_emitter import BaseEmitter
+from .base import BaseEmitter
 
 
 class NullEmitter(BaseEmitter):

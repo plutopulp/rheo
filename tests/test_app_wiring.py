@@ -1,6 +1,6 @@
+from async_download_manager.app import App, create_app
 from async_download_manager.config.settings import Environment, Settings
-from async_download_manager.core.app import App, create_app
-from async_download_manager.core.logger import is_configured
+from async_download_manager.infrastructure.logging import is_configured
 
 
 def test_create_app_uses_default_settings():

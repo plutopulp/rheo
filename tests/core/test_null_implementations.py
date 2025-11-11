@@ -4,8 +4,8 @@ from typing import Any
 
 import pytest
 
-from async_download_manager.core.base_emitter import BaseEmitter
-from async_download_manager.core.base_tracker import BaseTracker
+from async_download_manager.events import BaseEmitter
+from async_download_manager.tracking import BaseTracker
 
 
 class TestNullTracker:

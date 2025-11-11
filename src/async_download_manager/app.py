@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
-from ..config.settings import Settings
-from .logger import setup_logging
+from .config.settings import Settings
+from .infrastructure.logging import setup_logging
 
 
 @dataclass(frozen=True)

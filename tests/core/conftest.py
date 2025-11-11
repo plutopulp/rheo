@@ -5,13 +5,14 @@ import pytest
 import pytest_asyncio
 from aiohttp import ClientSession
 
-from async_download_manager.core.manager import DownloadManager
-from async_download_manager.core.models import FileConfig
-from async_download_manager.core.null_emitter import NullEmitter
-from async_download_manager.core.null_tracker import NullTracker
-from async_download_manager.core.queue import PriorityDownloadQueue
-from async_download_manager.core.tracker import DownloadTracker
-from async_download_manager.core.worker import DownloadWorker
+from async_download_manager.domain.downloads import FileConfig
+from async_download_manager.downloads import (
+    DownloadManager,
+    DownloadWorker,
+    PriorityDownloadQueue,
+)
+from async_download_manager.events import NullEmitter
+from async_download_manager.tracking import DownloadTracker, NullTracker
 
 
 @pytest.fixture

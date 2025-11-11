@@ -1,5 +1,5 @@
 from async_download_manager.config.settings import Environment, Settings
-from async_download_manager.core.logger import (
+from async_download_manager.infrastructure.logging import (
     configure_logger,
     get_logger,
     reset_logging,

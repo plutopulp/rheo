@@ -8,8 +8,8 @@ import asyncio
 import typing as t
 from typing import TYPE_CHECKING
 
-from .logger import get_logger
-from .models import FileConfig
+from ..domain.downloads import FileConfig
+from ..infrastructure.logging import get_logger
 
 if TYPE_CHECKING:
     import loguru

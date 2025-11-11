@@ -2,9 +2,9 @@
 
 import pytest
 
+from async_download_manager.app import create_app
 from async_download_manager.config.settings import Environment, Settings
-from async_download_manager.core.app import create_app
-from async_download_manager.core.logger import reset_logging
+from async_download_manager.infrastructure.logging import reset_logging
 
 
 @pytest.fixture

@@ -11,14 +11,14 @@ from typing import TYPE_CHECKING, Union
 
 import aiohttp
 
-from .event_emitter import EventEmitter
-from .events import (
+from ..events import (
+    EventEmitter,
     WorkerCompletedEvent,
     WorkerFailedEvent,
     WorkerProgressEvent,
     WorkerStartedEvent,
 )
-from .logger import get_logger
+from ..infrastructure.logging import get_logger
 
 if TYPE_CHECKING:
     import loguru

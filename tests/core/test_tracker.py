@@ -5,15 +5,15 @@ from datetime import datetime
 
 import pytest
 
-from async_download_manager.core.events import (
+from async_download_manager.domain.downloads import DownloadStatus
+from async_download_manager.events import (
     DownloadCompletedEvent,
     DownloadFailedEvent,
     DownloadProgressEvent,
     DownloadQueuedEvent,
     DownloadStartedEvent,
 )
-from async_download_manager.core.models import DownloadStatus
-from async_download_manager.core.tracker import DownloadTracker
+from async_download_manager.tracking import DownloadTracker
 
 
 class TestDownloadTrackerInitialization:

@@ -4,8 +4,8 @@ import asyncio
 
 import pytest
 
-from async_download_manager.core.models import FileConfig
-from async_download_manager.core.queue import PriorityDownloadQueue
+from async_download_manager.domain.downloads import FileConfig
+from async_download_manager.downloads import PriorityDownloadQueue
 
 
 class TestPriorityDownloadQueueInitialization:

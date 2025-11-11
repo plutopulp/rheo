@@ -7,18 +7,18 @@ import asyncio
 import typing as t
 from collections import Counter
 
-from .base_tracker import BaseTracker
-from .event_emitter import EventEmitter
-from .events import (
+from ..domain.downloads import DownloadInfo, DownloadStats, DownloadStatus
+from ..events import (
     DownloadCompletedEvent,
     DownloadEvent,
     DownloadFailedEvent,
     DownloadProgressEvent,
     DownloadQueuedEvent,
     DownloadStartedEvent,
+    EventEmitter,
 )
-from .logger import get_logger
-from .models import DownloadInfo, DownloadStats, DownloadStatus
+from ..infrastructure.logging import get_logger
+from .base import BaseTracker
 
 # Conditional import for loguru typing
 if t.TYPE_CHECKING:
