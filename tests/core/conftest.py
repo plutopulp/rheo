@@ -1,6 +1,3 @@
-import tempfile
-from pathlib import Path
-
 import pytest
 import pytest_asyncio
 from aiohttp import ClientSession
@@ -38,21 +35,3 @@ def mock_aio_client(mocker):
     mock_client = mocker.Mock(spec=ClientSession)
     mock_client.closed = False
     return mock_client
-
-
-@pytest.fixture
-def temp_file():
-    """Provide a temporary file path for download testing."""
-    with tempfile.NamedTemporaryFile(delete=False) as tmp:
-        path = Path(tmp.name)
-    yield path
-    # Cleanup
-    if path.exists():
-        path.unlink()
-
-
-@pytest.fixture
-def temp_dir():
-    """Provide a temporary directory for testing."""
-    with tempfile.TemporaryDirectory() as tmp_dir:
-        yield Path(tmp_dir)
