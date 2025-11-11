@@ -74,6 +74,15 @@ def mock_worker(mocker):
 
 
 @pytest.fixture
+def test_worker(aio_client, mock_logger):
+    """Provide a real DownloadWorker with real client and mocked logger.
+
+    Useful for integration tests using aioresponses.
+    """
+    return DownloadWorker(aio_client, mock_logger)
+
+
+@pytest.fixture
 def mock_queue(mocker):
     """Provide a mocked PriorityDownloadQueue for unit tests.
 

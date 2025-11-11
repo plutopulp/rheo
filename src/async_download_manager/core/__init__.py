@@ -1,5 +1,6 @@
 """Core functionality for async download manager."""
 
+from .event_emitter import EventEmitter
 from .events import (
     DownloadCompletedEvent,
     DownloadEvent,
@@ -7,6 +8,11 @@ from .events import (
     DownloadProgressEvent,
     DownloadQueuedEvent,
     DownloadStartedEvent,
+    WorkerCompletedEvent,
+    WorkerEvent,
+    WorkerFailedEvent,
+    WorkerProgressEvent,
+    WorkerStartedEvent,
 )
 from .exceptions import (
     DownloadError,
@@ -35,16 +41,23 @@ __all__ = [
     "DownloadWorker",
     "DownloadTracker",
     "PriorityDownloadQueue",
+    "EventEmitter",
     # Models
     "FileConfig",
     "DownloadInfo",
     "DownloadStats",
     "DownloadStatus",
-    # Events
+    # Tracker Events
     "DownloadEvent",
     "DownloadQueuedEvent",
     "DownloadStartedEvent",
     "DownloadProgressEvent",
     "DownloadCompletedEvent",
     "DownloadFailedEvent",
+    # Worker Events
+    "WorkerEvent",
+    "WorkerStartedEvent",
+    "WorkerProgressEvent",
+    "WorkerCompletedEvent",
+    "WorkerFailedEvent",
 ]

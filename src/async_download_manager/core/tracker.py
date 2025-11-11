@@ -7,6 +7,7 @@ import asyncio
 import typing as t
 from collections import Counter
 
+from .event_emitter import EventEmitter
 from .events import (
     DownloadCompletedEvent,
     DownloadEvent,
@@ -36,9 +37,9 @@ class DownloadTracker:
     Usage:
         tracker = DownloadTracker()
 
-        # Subscribe to events
-        tracker.on("progress", my_progress_handler)
-        tracker.on("completed", my_completion_handler)
+        # Subscribe to events (with namespaced event types)
+        tracker.on("tracker.progress", my_progress_handler)
+        tracker.on("tracker.completed", my_completion_handler)
 
         # Update state (automatically emits events)
         await tracker.track_queued("https://example.com/file.txt")
@@ -53,17 +54,23 @@ class DownloadTracker:
         print(f"Status: {info.status}, Progress: {info.get_progress()}")
     """
 
-    def __init__(self, logger: "loguru.Logger" = get_logger(__name__)):
+    def __init__(
+        self,
+        logger: "loguru.Logger" = get_logger(__name__),
+        emitter: EventEmitter | None = None,
+    ):
         """Initialize empty tracker.
 
         Args:
             logger: Logger instance for debugging and error tracking.
                    Defaults to a module-specific logger if not provided.
+            emitter: Event emitter for broadcasting tracker events.
+                    If None, a new EventEmitter will be created.
         """
         self._downloads: dict[str, DownloadInfo] = {}
-        self._event_handlers: dict[str, list[EventHandler]] = {}
         self._lock = asyncio.Lock()
         self._logger = logger
+        self._emitter = emitter if emitter is not None else EventEmitter(logger)
 
         self._logger.debug("DownloadTracker initialized")
 
@@ -71,19 +78,17 @@ class DownloadTracker:
         """Subscribe to download events.
 
         Args:
-            event_type: Type of event to listen for (queued, started, progress,
-                       completed, failed, or "*" for all events)
+            event_type: Type of event to listen for (tracker.queued, tracker.started,
+                       tracker.progress, tracker.completed, tracker.failed)
             handler: Callback function (can be sync or async)
 
         Example:
             def on_progress(event: DownloadProgressEvent):
                 print(f"Downloaded {event.progress_percent:.1f}%")
 
-            tracker.on("progress", on_progress)
+            tracker.on("tracker.progress", on_progress)
         """
-        if event_type not in self._event_handlers:
-            self._event_handlers[event_type] = []
-        self._event_handlers[event_type].append(handler)
+        self._emitter.on(event_type, handler)
 
     def off(self, event_type: str, handler: EventHandler) -> None:
         """Unsubscribe from download events.
@@ -92,53 +97,16 @@ class DownloadTracker:
             event_type: Type of event to stop listening for
             handler: The handler function to remove
         """
-        try:
-            self._event_handlers[event_type].remove(handler)
-        except Exception:
-            self._logger.warning(
-                f"Handler {handler} not found for event type {event_type}"
-            )
-            pass
+        self._emitter.off(event_type, handler)
 
-    async def _emit(self, event: DownloadEvent) -> None:
-        """Emit an event to all subscribed handlers.
-
-        Handles both sync and async handlers. Runs handlers concurrently
-        where possible for better performance.
+    async def _emit(self, event_type: str, event: DownloadEvent) -> None:
+        """Emit an event to all subscribed handlers via EventEmitter.
 
         Args:
-            event: The event to emit
+            event_type: Namespaced event type (e.g., "tracker.queued")
+            event: The event data to emit
         """
-        # Get handlers for this specific event type and wildcard handlers
-        handlers = self._event_handlers.get(event.event_type, []).copy()
-        handlers.extend(self._event_handlers.get("*", []))
-
-        # Run all handlers (supporting both sync and async)
-        tasks = []
-        for handler in handlers:
-            try:
-                result = handler(event)
-                # If handler is async, create a task for it
-                if asyncio.iscoroutine(result):
-                    tasks.append(result)
-            except Exception:
-                # Log handler exceptions with full traceback for debugging
-                self._logger.exception(
-                    f"Error in event handler for {event.event_type} event"
-                )
-
-        # Await all async handlers and log any exceptions
-        if tasks:
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-            # Log any exceptions that occurred in async handlers
-            for result in results:
-                if isinstance(result, Exception):
-                    # Loguru's opt() allows us to pass exception info
-                    self._logger.opt(
-                        exception=(type(result), result, result.__traceback__)
-                    ).error(
-                        f"Error in async event handler for {event.event_type} event"
-                    )
+        await self._emitter.emit(event_type, event)
 
     async def track_queued(self, url: str, priority: int = 1) -> None:
         """Record that a download was queued.
@@ -152,7 +120,9 @@ class DownloadTracker:
         async with self._lock:
             self._downloads[url] = DownloadInfo(url=url, status=DownloadStatus.QUEUED)
 
-        await self._emit(DownloadQueuedEvent(url=url, priority=priority))
+        await self._emit(
+            "tracker.queued", DownloadQueuedEvent(url=url, priority=priority)
+        )
 
     async def track_started(self, url: str, total_bytes: int | None = None) -> None:
         """Record that a download started.
@@ -172,7 +142,9 @@ class DownloadTracker:
             if total_bytes is not None:
                 self._downloads[url].total_bytes = total_bytes
 
-        await self._emit(DownloadStartedEvent(url=url, total_bytes=total_bytes))
+        await self._emit(
+            "tracker.started", DownloadStartedEvent(url=url, total_bytes=total_bytes)
+        )
 
     async def track_progress(
         self, url: str, bytes_downloaded: int, total_bytes: int | None = None
@@ -196,9 +168,10 @@ class DownloadTracker:
                 self._downloads[url].total_bytes = total_bytes
 
         await self._emit(
+            "tracker.progress",
             DownloadProgressEvent(
                 url=url, bytes_downloaded=bytes_downloaded, total_bytes=total_bytes
-            )
+            ),
         )
 
     async def track_completed(
@@ -223,9 +196,10 @@ class DownloadTracker:
             self._downloads[url].total_bytes = total_bytes
 
         await self._emit(
+            "tracker.completed",
             DownloadCompletedEvent(
                 url=url, total_bytes=total_bytes, destination_path=destination_path
-            )
+            ),
         )
 
     async def track_failed(self, url: str, error: Exception) -> None:
@@ -246,9 +220,10 @@ class DownloadTracker:
             self._downloads[url].error = str(error)
 
         await self._emit(
+            "tracker.failed",
             DownloadFailedEvent(
                 url=url, error_message=str(error), error_type=type(error).__name__
-            )
+            ),
         )
 
     def get_download_info(self, url: str) -> DownloadInfo | None:
