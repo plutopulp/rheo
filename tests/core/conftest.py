@@ -21,10 +21,22 @@ def test_logger(mocker):
 
 @pytest_asyncio.fixture
 async def aio_client():
-    """Provide an aiohttp ClientSession for testing."""
+    """Provide a real aiohttp ClientSession for integration testing."""
     session = ClientSession()
     yield session
     await session.close()
+
+
+@pytest.fixture
+def mock_aio_client(mocker):
+    """Provide a mocked aiohttp ClientSession for unit tests.
+
+    This fixture should be used for unit tests that don't need real HTTP functionality.
+    For integration tests that need actual HTTP behavior (with aioresponses), use aio_client.
+    """
+    mock_client = mocker.Mock(spec=ClientSession)
+    mock_client.closed = False
+    return mock_client
 
 
 @pytest.fixture

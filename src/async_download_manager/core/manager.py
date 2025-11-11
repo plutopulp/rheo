@@ -15,6 +15,7 @@ from async_download_manager.utils.filename import generate_filename
 from .exceptions import ManagerNotInitializedError, ProcessQueueError
 from .logger import get_logger
 from .models import FileConfig
+from .queue import PriorityDownloadQueue
 from .worker import DownloadWorker
 
 if t.TYPE_CHECKING:
@@ -48,7 +49,7 @@ class DownloadManager:
         self,
         client: aiohttp.ClientSession | None = None,
         worker: DownloadWorker | None = None,
-        queue: asyncio.PriorityQueue[tuple[int, FileConfig]] | None = None,
+        queue: PriorityDownloadQueue | None = None,
         timeout: float | None = None,
         max_workers: int = 3,
         logger: "loguru.Logger" = get_logger(__name__),
@@ -59,16 +60,17 @@ class DownloadManager:
         Args:
             client: HTTP session for downloads. If None, one will be created.
             worker: Download worker instance. If None, one will be created.
-            queue: Priority queue for download tasks. If None, one will be created.
+            queue: Priority download queue for tasks. If None, one will be created.
             timeout: Default timeout for downloads in seconds.
             max_workers: Maximum number of concurrent workers.
             logger: Logger instance for recording manager events.
+            download_dir: Directory where downloaded files will be saved.
         """
         self._client = client
         self._owns_client = False  # Track if we created the client
         self._worker = worker
         self._logger = logger
-        self.queue = queue or asyncio.PriorityQueue()
+        self.queue = queue or PriorityDownloadQueue(logger)
         self.timeout = timeout
         self.max_workers = max_workers
         self._tasks = []  # Future: task management
@@ -146,20 +148,19 @@ class DownloadManager:
         Args:
             file_configs: The file configurations to add to the queue.
         """
-        for file_config in file_configs:
-            self._logger.info(f"Adding {file_config.url} to the queue")
-            await self.queue.put((-file_config.priority, file_config))
+        await self.queue.add(file_configs)
 
     async def process_queue(self) -> None:
         # TODO: Instead of while True, check for a shutdown event.
         while True:
-            self._logger.info(
-                "Waiting for a file config to be available from the queue..."
-            )
+            file_config = None
+            got_item = False
             try:
-                _, file_config = await self.queue.get()
+                file_config = await self.queue.get_next()
+                got_item = True
                 # Generate a filename for the file. Consider moving this to the file config.
-                destination_path = generate_filename(file_config.url, self.download_dir)
+                filename = generate_filename(file_config.url)
+                destination_path = self.download_dir / filename
                 self._logger.info(
                     f"Downloading {file_config.url} to {destination_path}"
                 )
@@ -173,7 +174,9 @@ class DownloadManager:
                     f"Failed to process queue for file config {url}"
                 ) from e
             finally:
-                self.queue.task_done()
+                # Only call task_done if we actually got an item
+                if got_item:
+                    self.queue.task_done()
 
     async def start_workers(self) -> None:
         for _ in range(self.max_workers):
@@ -181,7 +184,16 @@ class DownloadManager:
             self._tasks.append(task)
 
     async def stop_workers(self) -> None:
+        """Stop all worker tasks and wait for them to complete.
+
+        Requests cancellation of all worker tasks and waits for them to finish
+        before returning. This ensures proper cleanup before closing resources.
+        """
         for task in self._tasks:
-            # request cancellation of the task
             task.cancel()
-            # Note: Could add wait for cancellation completion if needed
+
+        # Wait for all tasks to complete (including handling CancelledError)
+        await asyncio.gather(*self._tasks, return_exceptions=True)
+
+        # Clear the tasks list
+        self._tasks.clear()
