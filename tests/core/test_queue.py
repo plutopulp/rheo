@@ -18,27 +18,27 @@ class TestPriorityDownloadQueueInitialization:
         assert queue is not None
         assert queue.is_empty()
 
-    def test_init_with_custom_logger(self, test_logger):
+    def test_init_with_custom_logger(self, mock_logger):
         """Test queue initialization with custom logger."""
-        queue = PriorityDownloadQueue(logger=test_logger)
+        queue = PriorityDownloadQueue(logger=mock_logger)
 
         assert queue is not None
         assert queue.is_empty()
 
-    def test_init_with_injected_queue(self, test_logger):
+    def test_init_with_injected_queue(self, mock_logger):
         """Test queue initialization with injected asyncio.PriorityQueue."""
         custom_queue = asyncio.PriorityQueue()
-        queue = PriorityDownloadQueue(queue=custom_queue, logger=test_logger)
+        queue = PriorityDownloadQueue(queue=custom_queue, logger=mock_logger)
 
         assert queue is not None
         assert queue._queue is custom_queue
         assert queue.is_empty()
 
     @pytest.mark.asyncio
-    async def test_injected_queue_is_used(self, test_logger):
+    async def test_injected_queue_is_used(self, mock_logger):
         """Test that operations use the injected queue."""
         custom_queue = asyncio.PriorityQueue()
-        queue = PriorityDownloadQueue(queue=custom_queue, logger=test_logger)
+        queue = PriorityDownloadQueue(queue=custom_queue, logger=mock_logger)
 
         file_config = FileConfig(url="https://example.com/test.txt", priority=1)
         await queue.add([file_config])
@@ -52,9 +52,9 @@ class TestPriorityDownloadQueueAddition:
     """Test adding items to the queue."""
 
     @pytest.mark.asyncio
-    async def test_add_single_file_config(self, test_logger):
+    async def test_add_single_file_config(self, mock_logger):
         """Test adding a single file config to the queue."""
-        queue = PriorityDownloadQueue(logger=test_logger)
+        queue = PriorityDownloadQueue(logger=mock_logger)
         file_config = FileConfig(url="https://example.com/file.txt", priority=3)
 
         await queue.add([file_config])
@@ -63,9 +63,9 @@ class TestPriorityDownloadQueueAddition:
         assert queue.size() == 1
 
     @pytest.mark.asyncio
-    async def test_add_multiple_file_configs(self, test_logger):
+    async def test_add_multiple_file_configs(self, mock_logger):
         """Test adding multiple file configs to the queue."""
-        queue = PriorityDownloadQueue(logger=test_logger)
+        queue = PriorityDownloadQueue(logger=mock_logger)
         file_configs = [
             FileConfig(url="https://example.com/file1.txt", priority=1),
             FileConfig(url="https://example.com/file2.txt", priority=2),
@@ -78,9 +78,9 @@ class TestPriorityDownloadQueueAddition:
         assert queue.size() == 3
 
     @pytest.mark.asyncio
-    async def test_add_empty_list(self, test_logger):
+    async def test_add_empty_list(self, mock_logger):
         """Test adding an empty list does nothing."""
-        queue = PriorityDownloadQueue(logger=test_logger)
+        queue = PriorityDownloadQueue(logger=mock_logger)
 
         await queue.add([])
 
@@ -92,9 +92,9 @@ class TestPriorityDownloadQueueRetrieval:
     """Test retrieving items from the queue."""
 
     @pytest.mark.asyncio
-    async def test_get_next_returns_file_config(self, test_logger):
+    async def test_get_next_returns_file_config(self, mock_logger):
         """Test that get_next returns a FileConfig object."""
-        queue = PriorityDownloadQueue(logger=test_logger)
+        queue = PriorityDownloadQueue(logger=mock_logger)
         file_config = FileConfig(url="https://example.com/file.txt", priority=3)
         await queue.add([file_config])
 
@@ -105,9 +105,9 @@ class TestPriorityDownloadQueueRetrieval:
         assert retrieved.priority == 3
 
     @pytest.mark.asyncio
-    async def test_get_next_respects_priority_ordering(self, test_logger):
+    async def test_get_next_respects_priority_ordering(self, mock_logger):
         """Test that higher priority items are returned first."""
-        queue = PriorityDownloadQueue(logger=test_logger)
+        queue = PriorityDownloadQueue(logger=mock_logger)
         file_configs = [
             FileConfig(url="https://example.com/low.txt", priority=1),
             FileConfig(url="https://example.com/high.txt", priority=5),
@@ -131,9 +131,9 @@ class TestPriorityDownloadQueueRetrieval:
         assert third.priority == 1
 
     @pytest.mark.asyncio
-    async def test_get_next_with_same_priority(self, test_logger):
+    async def test_get_next_with_same_priority(self, mock_logger):
         """Test that items with same priority maintain FIFO order."""
-        queue = PriorityDownloadQueue(logger=test_logger)
+        queue = PriorityDownloadQueue(logger=mock_logger)
         file_configs = [
             FileConfig(url="https://example.com/first.txt", priority=3),
             FileConfig(url="https://example.com/second.txt", priority=3),
@@ -155,9 +155,9 @@ class TestPriorityDownloadQueueTaskManagement:
     """Test task completion tracking."""
 
     @pytest.mark.asyncio
-    async def test_task_done_marks_task_complete(self, test_logger):
+    async def test_task_done_marks_task_complete(self, mock_logger):
         """Test that task_done properly marks tasks as complete."""
-        queue = PriorityDownloadQueue(logger=test_logger)
+        queue = PriorityDownloadQueue(logger=mock_logger)
         file_config = FileConfig(url="https://example.com/file.txt")
         await queue.add([file_config])
 
@@ -172,16 +172,16 @@ class TestPriorityDownloadQueueTaskManagement:
 class TestPriorityDownloadQueueStatus:
     """Test queue status methods."""
 
-    def test_is_empty_on_new_queue(self, test_logger):
+    def test_is_empty_on_new_queue(self, mock_logger):
         """Test that new queue is empty."""
-        queue = PriorityDownloadQueue(logger=test_logger)
+        queue = PriorityDownloadQueue(logger=mock_logger)
 
         assert queue.is_empty()
 
     @pytest.mark.asyncio
-    async def test_is_empty_after_adding_items(self, test_logger):
+    async def test_is_empty_after_adding_items(self, mock_logger):
         """Test that queue is not empty after adding items."""
-        queue = PriorityDownloadQueue(logger=test_logger)
+        queue = PriorityDownloadQueue(logger=mock_logger)
         file_config = FileConfig(url="https://example.com/file.txt")
 
         await queue.add([file_config])
@@ -189,9 +189,9 @@ class TestPriorityDownloadQueueStatus:
         assert not queue.is_empty()
 
     @pytest.mark.asyncio
-    async def test_is_empty_after_retrieving_all_items(self, test_logger):
+    async def test_is_empty_after_retrieving_all_items(self, mock_logger):
         """Test that queue is empty after retrieving all items."""
-        queue = PriorityDownloadQueue(logger=test_logger)
+        queue = PriorityDownloadQueue(logger=mock_logger)
         file_config = FileConfig(url="https://example.com/file.txt")
         await queue.add([file_config])
 
@@ -199,16 +199,16 @@ class TestPriorityDownloadQueueStatus:
 
         assert queue.is_empty()
 
-    def test_size_on_new_queue(self, test_logger):
+    def test_size_on_new_queue(self, mock_logger):
         """Test that new queue has size 0."""
-        queue = PriorityDownloadQueue(logger=test_logger)
+        queue = PriorityDownloadQueue(logger=mock_logger)
 
         assert queue.size() == 0
 
     @pytest.mark.asyncio
-    async def test_size_after_adding_items(self, test_logger):
+    async def test_size_after_adding_items(self, mock_logger):
         """Test that size reflects number of items added."""
-        queue = PriorityDownloadQueue(logger=test_logger)
+        queue = PriorityDownloadQueue(logger=mock_logger)
         size = 5
         file_configs = [
             FileConfig(url=f"https://example.com/file{i}.txt") for i in range(size)
@@ -219,9 +219,9 @@ class TestPriorityDownloadQueueStatus:
         assert queue.size() == size
 
     @pytest.mark.asyncio
-    async def test_size_decreases_after_retrieval(self, test_logger):
+    async def test_size_decreases_after_retrieval(self, mock_logger):
         """Test that size decreases as items are retrieved."""
-        queue = PriorityDownloadQueue(logger=test_logger)
+        queue = PriorityDownloadQueue(logger=mock_logger)
         size = 3
         file_configs = [
             FileConfig(url=f"https://example.com/file{i}.txt") for i in range(size)
@@ -238,18 +238,18 @@ class TestPriorityDownloadQueueEdgeCases:
     """Test edge cases and special scenarios."""
 
     @pytest.mark.asyncio
-    async def test_get_next_blocks_on_empty_queue(self, test_logger):
+    async def test_get_next_blocks_on_empty_queue(self, mock_logger):
         """Test that get_next blocks when queue is empty."""
-        queue = PriorityDownloadQueue(logger=test_logger)
+        queue = PriorityDownloadQueue(logger=mock_logger)
 
         # This should timeout because queue is empty
         with pytest.raises(asyncio.TimeoutError):
             await asyncio.wait_for(queue.get_next(), timeout=0.1)
 
     @pytest.mark.asyncio
-    async def test_multiple_adds_maintain_priority(self, test_logger):
+    async def test_multiple_adds_maintain_priority(self, mock_logger):
         """Test that multiple add calls maintain overall priority ordering."""
-        queue = PriorityDownloadQueue(logger=test_logger)
+        queue = PriorityDownloadQueue(logger=mock_logger)
 
         # Add low priority items
         await queue.add([FileConfig(url="https://example.com/low.txt", priority=1)])

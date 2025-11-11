@@ -59,3 +59,15 @@ class DownloadInfo:
     def is_terminal(self) -> bool:
         """Check if download is in a terminal state."""
         return self.status in (DownloadStatus.COMPLETED, DownloadStatus.FAILED)
+
+
+@dataclass
+class DownloadStats:
+    """Statistics about all downloads."""
+
+    total: int
+    queued: int
+    in_progress: int
+    completed: int
+    failed: int
+    completed_bytes: int
