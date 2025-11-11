@@ -1,7 +1,6 @@
 """Tests for DownloadManager context manager and initialization."""
 
 import asyncio
-from pathlib import Path
 
 import pytest
 from aiohttp import ClientSession
@@ -200,7 +199,8 @@ class TestDownloadManagerQueueIntegration:
     async def test_process_queue_uses_queue_get_next(
         self, mocker, test_logger, tmp_path
     ):
-        """Test that process_queue delegates to queue.get_next() and worker.download()."""
+        """Test that process_queue delegates to queue.get_next() and
+        worker.download()."""
         # Mock all dependencies
         mock_client = mocker.Mock(spec=ClientSession)
         mock_worker = mocker.Mock(spec=DownloadWorker)

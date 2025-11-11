@@ -158,7 +158,8 @@ class DownloadManager:
             try:
                 file_config = await self.queue.get_next()
                 got_item = True
-                # Generate a filename for the file. Consider moving this to the file config.
+                # Generate a filename for the file.
+                # Consider moving this to the file config.
                 filename = generate_filename(file_config.url)
                 destination_path = self.download_dir / filename
                 self._logger.info(

@@ -32,7 +32,8 @@ def mock_aio_client(mocker):
     """Provide a mocked aiohttp ClientSession for unit tests.
 
     This fixture should be used for unit tests that don't need real HTTP functionality.
-    For integration tests that need actual HTTP behavior (with aioresponses), use aio_client.
+    For integration tests that need actual HTTP behavior (with aioresponses),
+    use aio_client.
     """
     mock_client = mocker.Mock(spec=ClientSession)
     mock_client.closed = False
