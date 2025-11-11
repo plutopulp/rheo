@@ -27,3 +27,15 @@ class WorkerError(DownloadManagerError):
     """Base exception for worker-related errors."""
 
     pass
+
+
+class QueueError(DownloadManagerError):
+    """Base exception for queue-related errors."""
+
+    pass
+
+
+class ProcessQueueError(QueueError):
+    """Exception for errors in processing the queue."""
+
+    pass

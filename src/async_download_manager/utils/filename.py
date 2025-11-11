@@ -1,8 +1,9 @@
 from urllib.parse import urlparse
+from zipfile import Path
 
 
 # TODO: Add sanitization for invalid characters and path traversal.
-def generate_filename(url: str) -> str:
+def generate_filename(url: str, download_dir: Path = Path(".")) -> Path:
     """Generate filename from URL by combining domain and path.
 
     Returns format: "domain-filename" or just "domain" if no path.
