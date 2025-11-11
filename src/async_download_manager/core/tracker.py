@@ -92,11 +92,13 @@ class DownloadTracker:
             event_type: Type of event to stop listening for
             handler: The handler function to remove
         """
-        if event_type in self._event_handlers:
-            try:
-                self._event_handlers[event_type].remove(handler)
-            except ValueError:
-                pass  # Handler wasn't subscribed
+        try:
+            self._event_handlers[event_type].remove(handler)
+        except Exception:
+            self._logger.warning(
+                f"Handler {handler} not found for event type {event_type}"
+            )
+            pass
 
     async def _emit(self, event: DownloadEvent) -> None:
         """Emit an event to all subscribed handlers.

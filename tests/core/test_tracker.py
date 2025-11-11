@@ -475,6 +475,10 @@ class TestDownloadTrackerEventSubscription:
         # Should not raise an error
         tracker.off("completed", handler)
 
+        # check that a warning is logged
+        warning_msg = f"Handler {handler} not found for event type completed"
+        tracker._logger.warning.assert_called_once_with(warning_msg)
+
     def test_wildcard_handler_registration(self, tracker: DownloadTracker):
         """Test that wildcard '*' handler can be registered."""
 
