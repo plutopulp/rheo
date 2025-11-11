@@ -7,6 +7,7 @@ import asyncio
 import typing as t
 from collections import Counter
 
+from .base_tracker import BaseTracker
 from .event_emitter import EventEmitter
 from .events import (
     DownloadCompletedEvent,
@@ -27,7 +28,7 @@ if t.TYPE_CHECKING:
 EventHandler = t.Callable[[DownloadEvent], t.Any]
 
 
-class DownloadTracker:
+class DownloadTracker(BaseTracker):
     """Tracks download state and emits events for lifecycle changes.
 
     Maintains a dictionary of DownloadInfo objects keyed by URL.

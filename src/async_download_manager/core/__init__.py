@@ -1,5 +1,7 @@
 """Core functionality for async download manager."""
 
+from .base_emitter import BaseEmitter
+from .base_tracker import BaseTracker
 from .event_emitter import EventEmitter
 from .events import (
     DownloadCompletedEvent,
@@ -24,6 +26,8 @@ from .exceptions import (
 )
 from .manager import DownloadManager
 from .models import DownloadInfo, DownloadStats, DownloadStatus, FileConfig
+from .null_emitter import NullEmitter
+from .null_tracker import NullTracker
 from .queue import PriorityDownloadQueue
 from .tracker import DownloadTracker
 from .worker import DownloadWorker
@@ -42,6 +46,12 @@ __all__ = [
     "DownloadTracker",
     "PriorityDownloadQueue",
     "EventEmitter",
+    # Base Classes
+    "BaseTracker",
+    "BaseEmitter",
+    # Null Implementations
+    "NullTracker",
+    "NullEmitter",
     # Models
     "FileConfig",
     "DownloadInfo",

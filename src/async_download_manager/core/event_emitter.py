@@ -3,6 +3,7 @@
 import asyncio
 import typing as t
 
+from .base_emitter import BaseEmitter
 from .logger import get_logger
 
 if t.TYPE_CHECKING:
@@ -11,7 +12,7 @@ if t.TYPE_CHECKING:
 EventHandler = t.Callable[[t.Any], t.Any]
 
 
-class EventEmitter:
+class EventEmitter(BaseEmitter):
     """Helper class for event emission and subscription.
 
     Supports both sync and async handlers, handles exceptions gracefully,
