@@ -35,10 +35,11 @@ class TestDownloadWorkerSuccessfulDownloads:
     """Test successful download scenarios."""
 
     @pytest.mark.asyncio
-    async def test_basic_download_success(self, test_worker, temp_file, test_logger):
+    async def test_basic_download_success(self, test_worker, tmp_path, test_logger):
         """Test basic successful file download."""
         test_url = "https://example.com/test.txt"
         test_content = b"Hello, World!"
+        temp_file = tmp_path / "test.txt"
 
         with aioresponses() as mock:
             mock.get(test_url, status=200, body=test_content)
@@ -58,10 +59,11 @@ class TestDownloadWorkerSuccessfulDownloads:
         )
 
     @pytest.mark.asyncio
-    async def test_download_with_custom_chunk_size(self, test_worker, temp_file):
+    async def test_download_with_custom_chunk_size(self, test_worker, tmp_path):
         """Test download with custom chunk size."""
         test_url = "https://example.com/binary.dat"
         test_content = b"x" * 1000  # 1KB of data
+        temp_file = tmp_path / "binary.dat"
 
         with aioresponses() as mock:
             mock.get(test_url, status=200, body=test_content)
@@ -72,10 +74,11 @@ class TestDownloadWorkerSuccessfulDownloads:
         assert temp_file.read_bytes() == test_content
 
     @pytest.mark.asyncio
-    async def test_download_large_file(self, test_worker, temp_file):
+    async def test_download_large_file(self, test_worker, tmp_path):
         """Test download of larger file to ensure chunking works."""
         test_url = "https://example.com/large.bin"
         test_content = b"A" * 10000  # 10KB file
+        temp_file = tmp_path / "large.bin"
 
         with aioresponses() as mock:
             mock.get(test_url, status=200, body=test_content)
@@ -86,9 +89,10 @@ class TestDownloadWorkerSuccessfulDownloads:
         assert temp_file.read_bytes() == test_content
 
     @pytest.mark.asyncio
-    async def test_download_empty_file(self, test_worker, temp_file):
+    async def test_download_empty_file(self, test_worker, tmp_path):
         """Test download of empty file."""
         test_url = "https://example.com/empty.txt"
+        temp_file = tmp_path / "empty.txt"
 
         with aioresponses() as mock:
             mock.get(test_url, status=200, body=b"")
@@ -103,9 +107,10 @@ class TestDownloadWorkerHTTPErrors:
     """Test HTTP error handling."""
 
     @pytest.mark.asyncio
-    async def test_download_404_error(self, test_worker, temp_file, test_logger):
+    async def test_download_404_error(self, test_worker, tmp_path, test_logger):
         """Test handling of 404 Not Found error."""
         test_url = "https://example.com/notfound.txt"
+        temp_file = tmp_path / "notfound.txt"
 
         with aioresponses() as mock:
             mock.get(test_url, status=404, body="Not Found")
@@ -119,9 +124,10 @@ class TestDownloadWorkerHTTPErrors:
         test_logger.error.assert_called()
 
     @pytest.mark.asyncio
-    async def test_download_500_error(self, test_worker, temp_file, test_logger):
+    async def test_download_500_error(self, test_worker, tmp_path, test_logger):
         """Test handling of 500 Internal Server Error."""
         test_url = "https://example.com/server-error.txt"
+        temp_file = tmp_path / "server-error.txt"
 
         with aioresponses() as mock:
             mock.get(test_url, status=500, body="Internal Server Error")
@@ -134,9 +140,10 @@ class TestDownloadWorkerHTTPErrors:
         test_logger.error.assert_called()
 
     @pytest.mark.asyncio
-    async def test_download_403_forbidden(self, test_worker, temp_file, test_logger):
+    async def test_download_403_forbidden(self, test_worker, tmp_path, test_logger):
         """Test handling of 403 Forbidden error."""
         test_url = "https://example.com/forbidden.txt"
+        temp_file = tmp_path / "forbidden.txt"
 
         with aioresponses() as mock:
             mock.get(test_url, status=403, body="Forbidden")
@@ -152,9 +159,10 @@ class TestDownloadWorkerNetworkErrors:
     """Test network-related error handling."""
 
     @pytest.mark.asyncio
-    async def test_connection_error(self, test_worker, temp_file, test_logger):
+    async def test_connection_error(self, test_worker, tmp_path, test_logger):
         """Test handling of connection errors."""
         test_url = "https://example.com/test.txt"
+        temp_file = tmp_path / "test.txt"
 
         with aioresponses() as mock:
             # Use a simple exception that aioresponses can handle
@@ -170,9 +178,10 @@ class TestDownloadWorkerNetworkErrors:
         assert "File system error downloading from" in error_call
 
     @pytest.mark.asyncio
-    async def test_ssl_error(self, test_worker, temp_file, test_logger):
+    async def test_ssl_error(self, test_worker, tmp_path, test_logger):
         """Test handling of SSL errors."""
         test_url = "https://example.com/test.txt"
+        temp_file = tmp_path / "test.txt"
 
         with aioresponses() as mock:
             # Use a simple SSL error for testing
@@ -187,9 +196,10 @@ class TestDownloadWorkerNetworkErrors:
         assert "Unexpected error downloading from" in error_call
 
     @pytest.mark.asyncio
-    async def test_payload_error(self, test_worker, temp_file, test_logger):
+    async def test_payload_error(self, test_worker, tmp_path, test_logger):
         """Test handling of payload errors."""
         test_url = "https://example.com/test.txt"
+        temp_file = tmp_path / "test.txt"
 
         with aioresponses() as mock:
             mock.get(test_url, exception=aiohttp.ClientPayloadError("Invalid payload"))
@@ -207,9 +217,10 @@ class TestDownloadWorkerTimeouts:
     """Test timeout handling."""
 
     @pytest.mark.asyncio
-    async def test_timeout_error(self, test_worker, temp_file, test_logger):
+    async def test_timeout_error(self, test_worker, tmp_path, test_logger):
         """Test handling of timeout errors."""
         test_url = "https://example.com/slow.txt"
+        temp_file = tmp_path / "slow.txt"
 
         with aioresponses() as mock:
             # Just use a timeout exception directly instead of trying to
@@ -231,12 +242,12 @@ class TestDownloadWorkerFileSystemErrors:
     """Test file system related error handling."""
 
     @pytest.mark.asyncio
-    async def test_permission_error(self, test_worker, temp_dir, test_logger):
+    async def test_permission_error(self, test_worker, tmp_path, test_logger):
         """Test handling of permission errors when writing files."""
         test_url = "https://example.com/test.txt"
 
         # Create a read-only directory
-        readonly_dir = temp_dir / "readonly"
+        readonly_dir = tmp_path / "readonly"
         readonly_dir.mkdir(mode=0o555)  # Read and execute only
         readonly_file = readonly_dir / "test.txt"
 
@@ -272,10 +283,11 @@ class TestDownloadWorkerFileCleanup:
 
     @pytest.mark.asyncio
     async def test_partial_file_cleanup_on_http_error(
-        self, test_worker, temp_file, test_logger
+        self, test_worker, tmp_path, test_logger
     ):
         """Test that partial files are cleaned up on HTTP errors."""
         test_url = "https://example.com/test.txt"
+        temp_file = tmp_path / "test.txt"
 
         # Pre-create the file to simulate partial download
         temp_file.write_bytes(b"partial content")
@@ -295,18 +307,20 @@ class TestDownloadWorkerFileCleanup:
 class TestDownloadWorkerChunkWriting:
     """Test the chunk writing functionality."""
 
-    def test_write_chunk_to_file(self, test_worker, temp_file):
+    def test_write_chunk_to_file(self, test_worker, tmp_path):
         """Test that _write_chunk_to_file writes data correctly."""
         test_data = b"test chunk data"
+        temp_file = tmp_path / "chunk.txt"
 
         with open(temp_file, "wb") as f:
             test_worker._write_chunk_to_file(test_data, f)
 
         assert temp_file.read_bytes() == test_data
 
-    def test_write_multiple_chunks(self, test_worker, temp_file):
+    def test_write_multiple_chunks(self, test_worker, tmp_path):
         """Test writing multiple chunks sequentially."""
         chunks = [b"chunk1", b"chunk2", b"chunk3"]
+        temp_file = tmp_path / "chunks.txt"
 
         with open(temp_file, "wb") as f:
             for chunk in chunks:
