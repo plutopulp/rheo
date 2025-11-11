@@ -15,7 +15,12 @@ from .events import (
     DownloadQueuedEvent,
     DownloadStartedEvent,
 )
+from .logger import get_logger
 from .models import DownloadInfo, DownloadStats, DownloadStatus
+
+# Conditional import for loguru typing
+if t.TYPE_CHECKING:
+    import loguru
 
 # Type alias for event handlers
 EventHandler = t.Callable[[DownloadEvent], t.Any]
@@ -48,11 +53,19 @@ class DownloadTracker:
         print(f"Status: {info.status}, Progress: {info.get_progress()}")
     """
 
-    def __init__(self):
-        """Initialize empty tracker."""
+    def __init__(self, logger: "loguru.Logger" = get_logger(__name__)):
+        """Initialize empty tracker.
+
+        Args:
+            logger: Logger instance for debugging and error tracking.
+                   Defaults to a module-specific logger if not provided.
+        """
         self._downloads: dict[str, DownloadInfo] = {}
         self._event_handlers: dict[str, list[EventHandler]] = {}
         self._lock = asyncio.Lock()
+        self._logger = logger
+
+        self._logger.debug("DownloadTracker initialized")
 
     def on(self, event_type: str, handler: EventHandler) -> None:
         """Subscribe to download events.
@@ -107,12 +120,23 @@ class DownloadTracker:
                 if asyncio.iscoroutine(result):
                     tasks.append(result)
             except Exception:
-                # Log but don't let handler errors break tracking
-                pass
+                # Log handler exceptions with full traceback for debugging
+                self._logger.exception(
+                    f"Error in event handler for {event.event_type} event"
+                )
 
-        # Await all async handlers
+        # Await all async handlers and log any exceptions
         if tasks:
-            await asyncio.gather(*tasks, return_exceptions=True)
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            # Log any exceptions that occurred in async handlers
+            for result in results:
+                if isinstance(result, Exception):
+                    # Loguru's opt() allows us to pass exception info
+                    self._logger.opt(
+                        exception=(type(result), result, result.__traceback__)
+                    ).error(
+                        f"Error in async event handler for {event.event_type} event"
+                    )
 
     async def track_queued(self, url: str, priority: int = 1) -> None:
         """Record that a download was queued.

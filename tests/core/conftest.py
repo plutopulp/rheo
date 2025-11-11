@@ -1,25 +1,39 @@
 import asyncio
 
+import loguru
 import pytest
 import pytest_asyncio
 from aiohttp import ClientSession
 
 from async_download_manager.core.models import FileConfig
 from async_download_manager.core.queue import PriorityDownloadQueue
+from async_download_manager.core.tracker import DownloadTracker
 from async_download_manager.core.worker import DownloadWorker
 
 
 @pytest.fixture
-def test_logger(mocker):
+def mock_logger(mocker):
     """Provide a mock logger for testing that captures log calls."""
-    logger = mocker.Mock()
-    # Configure mock methods to avoid AttributeErrors
-    logger.debug = mocker.Mock()
-    logger.info = mocker.Mock()
-    logger.warning = mocker.Mock()
-    logger.error = mocker.Mock()
-    logger.critical = mocker.Mock()
+    logger = mocker.Mock(spec=loguru.logger)
     return logger
+
+
+@pytest.fixture
+def tracker(mock_logger):
+    """Provide a DownloadTracker with mocked logger for testing.
+
+    This fixture creates a DownloadTracker with the mock_logger injected,
+    allowing tests to verify logging behavior while testing tracker functionality.
+
+    Tests can override specific attributes as needed:
+        def test_something(mock_tracker):
+            # Use tracker with mocked logger
+            await mock_tracker.track_queued("https://example.com")
+
+            # Verify logger was called
+            mock_tracker._logger.debug.assert_called()
+    """
+    return DownloadTracker(logger=mock_logger)
 
 
 @pytest_asyncio.fixture
@@ -104,14 +118,14 @@ def mock_manager_dependencies(mock_aio_client, mock_worker, mock_queue):
 
 
 @pytest.fixture
-def real_priority_queue(test_logger):
+def real_priority_queue(mock_logger):
     """Provide a real PriorityDownloadQueue with injected asyncio.PriorityQueue.
 
     Useful for integration tests that need a functioning queue but want to
     control the underlying asyncio.PriorityQueue for testing concurrency.
     """
     async_queue = asyncio.PriorityQueue()
-    return PriorityDownloadQueue(queue=async_queue, logger=test_logger)
+    return PriorityDownloadQueue(queue=async_queue, logger=mock_logger)
 
 
 # ============================================================================

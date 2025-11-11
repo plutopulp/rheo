@@ -11,18 +11,18 @@ from async_download_manager.core.worker import DownloadWorker
 
 
 @pytest.fixture
-def test_worker(aio_client, test_logger):
-    return DownloadWorker(aio_client, test_logger)
+def test_worker(aio_client, mock_logger):
+    return DownloadWorker(aio_client, mock_logger)
 
 
 class TestDownloadWorkerInitialization:
     """Test DownloadWorker initialization and basic setup."""
 
-    def test_init_with_explicit_logger(self, aio_client, test_logger):
+    def test_init_with_explicit_logger(self, aio_client, mock_logger):
         """Test worker initialization with explicit logger."""
-        worker = DownloadWorker(aio_client, test_logger)
+        worker = DownloadWorker(aio_client, mock_logger)
         assert worker.client is aio_client
-        assert worker.logger is test_logger
+        assert worker.logger is mock_logger
 
     def test_init_with_default_logger(self, aio_client):
         """Test worker initialization with default logger."""
@@ -35,7 +35,7 @@ class TestDownloadWorkerSuccessfulDownloads:
     """Test successful download scenarios."""
 
     @pytest.mark.asyncio
-    async def test_basic_download_success(self, test_worker, tmp_path, test_logger):
+    async def test_basic_download_success(self, test_worker, tmp_path, mock_logger):
         """Test basic successful file download."""
         test_url = "https://example.com/test.txt"
         test_content = b"Hello, World!"
@@ -51,15 +51,17 @@ class TestDownloadWorkerSuccessfulDownloads:
         assert temp_file.read_bytes() == test_content
 
         # Verify logging - check that both start and completion messages were logged
-        test_logger.debug.assert_any_call(
+        mock_logger.debug.assert_any_call(
             f"Starting download: {test_url} -> {temp_file}"
         )
-        test_logger.debug.assert_any_call(
+        mock_logger.debug.assert_any_call(
             f"Download completed successfully: {temp_file}"
         )
 
     @pytest.mark.asyncio
-    async def test_download_with_custom_chunk_size(self, test_worker, tmp_path):
+    async def test_download_with_custom_chunk_size(
+        self, test_worker, tmp_path, mock_logger
+    ):
         """Test download with custom chunk size."""
         test_url = "https://example.com/binary.dat"
         test_content = b"x" * 1000  # 1KB of data
@@ -74,7 +76,7 @@ class TestDownloadWorkerSuccessfulDownloads:
         assert temp_file.read_bytes() == test_content
 
     @pytest.mark.asyncio
-    async def test_download_large_file(self, test_worker, tmp_path):
+    async def test_download_large_file(self, test_worker, tmp_path, mock_logger):
         """Test download of larger file to ensure chunking works."""
         test_url = "https://example.com/large.bin"
         test_content = b"A" * 10000  # 10KB file
@@ -89,7 +91,7 @@ class TestDownloadWorkerSuccessfulDownloads:
         assert temp_file.read_bytes() == test_content
 
     @pytest.mark.asyncio
-    async def test_download_empty_file(self, test_worker, tmp_path):
+    async def test_download_empty_file(self, test_worker, tmp_path, mock_logger):
         """Test download of empty file."""
         test_url = "https://example.com/empty.txt"
         temp_file = tmp_path / "empty.txt"
@@ -107,7 +109,7 @@ class TestDownloadWorkerHTTPErrors:
     """Test HTTP error handling."""
 
     @pytest.mark.asyncio
-    async def test_download_404_error(self, test_worker, tmp_path, test_logger):
+    async def test_download_404_error(self, test_worker, tmp_path, mock_logger):
         """Test handling of 404 Not Found error."""
         test_url = "https://example.com/notfound.txt"
         temp_file = tmp_path / "notfound.txt"
@@ -121,10 +123,10 @@ class TestDownloadWorkerHTTPErrors:
         # Verify error handling
         assert exc_info.value.status == 404
         assert not temp_file.exists()  # Partial file should be cleaned up
-        test_logger.error.assert_called()
+        mock_logger.error.assert_called()
 
     @pytest.mark.asyncio
-    async def test_download_500_error(self, test_worker, tmp_path, test_logger):
+    async def test_download_500_error(self, test_worker, tmp_path, mock_logger):
         """Test handling of 500 Internal Server Error."""
         test_url = "https://example.com/server-error.txt"
         temp_file = tmp_path / "server-error.txt"
@@ -137,10 +139,10 @@ class TestDownloadWorkerHTTPErrors:
 
         assert exc_info.value.status == 500
         assert not temp_file.exists()
-        test_logger.error.assert_called()
+        mock_logger.error.assert_called()
 
     @pytest.mark.asyncio
-    async def test_download_403_forbidden(self, test_worker, tmp_path, test_logger):
+    async def test_download_403_forbidden(self, test_worker, tmp_path, mock_logger):
         """Test handling of 403 Forbidden error."""
         test_url = "https://example.com/forbidden.txt"
         temp_file = tmp_path / "forbidden.txt"
@@ -159,7 +161,7 @@ class TestDownloadWorkerNetworkErrors:
     """Test network-related error handling."""
 
     @pytest.mark.asyncio
-    async def test_connection_error(self, test_worker, tmp_path, test_logger):
+    async def test_connection_error(self, test_worker, tmp_path, mock_logger):
         """Test handling of connection errors."""
         test_url = "https://example.com/test.txt"
         temp_file = tmp_path / "test.txt"
@@ -172,13 +174,13 @@ class TestDownloadWorkerNetworkErrors:
                 await test_worker.download(test_url, temp_file)
 
         assert not temp_file.exists()
-        test_logger.error.assert_called()
+        mock_logger.error.assert_called()
         # Check the error message contains expected text
-        error_call = test_logger.error.call_args[0][0]
+        error_call = mock_logger.error.call_args[0][0]
         assert "File system error downloading from" in error_call
 
     @pytest.mark.asyncio
-    async def test_ssl_error(self, test_worker, tmp_path, test_logger):
+    async def test_ssl_error(self, test_worker, tmp_path, mock_logger):
         """Test handling of SSL errors."""
         test_url = "https://example.com/test.txt"
         temp_file = tmp_path / "test.txt"
@@ -191,12 +193,12 @@ class TestDownloadWorkerNetworkErrors:
                 await test_worker.download(test_url, temp_file)
 
         assert not temp_file.exists()
-        test_logger.error.assert_called()
-        error_call = test_logger.error.call_args[0][0]
+        mock_logger.error.assert_called()
+        error_call = mock_logger.error.call_args[0][0]
         assert "Unexpected error downloading from" in error_call
 
     @pytest.mark.asyncio
-    async def test_payload_error(self, test_worker, tmp_path, test_logger):
+    async def test_payload_error(self, test_worker, tmp_path, mock_logger):
         """Test handling of payload errors."""
         test_url = "https://example.com/test.txt"
         temp_file = tmp_path / "test.txt"
@@ -208,8 +210,8 @@ class TestDownloadWorkerNetworkErrors:
                 await test_worker.download(test_url, temp_file)
 
         assert not temp_file.exists()
-        test_logger.error.assert_called()
-        error_call = test_logger.error.call_args[0][0]
+        mock_logger.error.assert_called()
+        error_call = mock_logger.error.call_args[0][0]
         assert "Invalid response payload from" in error_call
 
 
@@ -217,7 +219,7 @@ class TestDownloadWorkerTimeouts:
     """Test timeout handling."""
 
     @pytest.mark.asyncio
-    async def test_timeout_error(self, test_worker, tmp_path, test_logger):
+    async def test_timeout_error(self, test_worker, tmp_path, mock_logger):
         """Test handling of timeout errors."""
         test_url = "https://example.com/slow.txt"
         temp_file = tmp_path / "slow.txt"
@@ -233,8 +235,8 @@ class TestDownloadWorkerTimeouts:
                 )  # Very short timeout
 
         assert not temp_file.exists()
-        test_logger.error.assert_called()
-        error_call = test_logger.error.call_args[0][0]
+        mock_logger.error.assert_called()
+        error_call = mock_logger.error.call_args[0][0]
         assert "Timeout downloading from" in error_call
 
 
@@ -242,7 +244,7 @@ class TestDownloadWorkerFileSystemErrors:
     """Test file system related error handling."""
 
     @pytest.mark.asyncio
-    async def test_permission_error(self, test_worker, tmp_path, test_logger):
+    async def test_permission_error(self, test_worker, tmp_path, mock_logger):
         """Test handling of permission errors when writing files."""
         test_url = "https://example.com/test.txt"
 
@@ -257,12 +259,12 @@ class TestDownloadWorkerFileSystemErrors:
             with pytest.raises(PermissionError):
                 await test_worker.download(test_url, readonly_file)
 
-        test_logger.error.assert_called()
-        error_call = test_logger.error.call_args[0][0]
+        mock_logger.error.assert_called()
+        error_call = mock_logger.error.call_args[0][0]
         assert "Permission denied writing file from" in error_call
 
     @pytest.mark.asyncio
-    async def test_file_not_found_directory(self, test_worker, test_logger):
+    async def test_file_not_found_directory(self, test_worker, mock_logger):
         """Test handling when parent directory doesn't exist."""
         test_url = "https://example.com/test.txt"
         nonexistent_path = Path("/nonexistent/directory/file.txt")
@@ -273,8 +275,8 @@ class TestDownloadWorkerFileSystemErrors:
             with pytest.raises(FileNotFoundError):
                 await test_worker.download(test_url, nonexistent_path)
 
-        test_logger.error.assert_called()
-        error_call = test_logger.error.call_args[0][0]
+        mock_logger.error.assert_called()
+        error_call = mock_logger.error.call_args[0][0]
         assert "Could not create file for downloading from" in error_call
 
 
@@ -283,7 +285,7 @@ class TestDownloadWorkerFileCleanup:
 
     @pytest.mark.asyncio
     async def test_partial_file_cleanup_on_http_error(
-        self, test_worker, tmp_path, test_logger
+        self, test_worker, tmp_path, mock_logger
     ):
         """Test that partial files are cleaned up on HTTP errors."""
         test_url = "https://example.com/test.txt"
@@ -301,7 +303,7 @@ class TestDownloadWorkerFileCleanup:
 
         # File should be cleaned up
         assert not temp_file.exists()
-        test_logger.debug.assert_any_call(f"Cleaned up partial file: {temp_file}")
+        mock_logger.debug.assert_any_call(f"Cleaned up partial file: {temp_file}")
 
 
 class TestDownloadWorkerChunkWriting:
@@ -332,7 +334,7 @@ class TestDownloadWorkerChunkWriting:
 class TestDownloadWorkerExceptionHandling:
     """Test the exception handling and logging functionality."""
 
-    def test_handle_client_connector_error(self, test_worker, mocker, test_logger):
+    def test_handle_client_connector_error(self, test_worker, mocker, mock_logger):
         """Test handling of ClientConnectorError."""
         test_url = "https://example.com/test.txt"
 
@@ -343,12 +345,12 @@ class TestDownloadWorkerExceptionHandling:
 
         test_worker._log_and_categorize_error(exception, test_url)
 
-        test_logger.error.assert_called_once()
-        error_message = test_logger.error.call_args[0][0]
+        mock_logger.error.assert_called_once()
+        error_message = mock_logger.error.call_args[0][0]
         assert "Failed to connect to" in error_message
         assert test_url in error_message
 
-    def test_handle_client_response_error(self, test_worker, mocker, test_logger):
+    def test_handle_client_response_error(self, test_worker, mocker, mock_logger):
         """Test handling of ClientResponseError."""
         test_url = "https://example.com/test.txt"
 
@@ -361,38 +363,38 @@ class TestDownloadWorkerExceptionHandling:
 
         test_worker._log_and_categorize_error(exception, test_url)
 
-        test_logger.error.assert_called_once()
-        error_message = test_logger.error.call_args[0][0]
+        mock_logger.error.assert_called_once()
+        error_message = mock_logger.error.call_args[0][0]
         assert "HTTP 404 error from" in error_message
         assert test_url in error_message
 
-    def test_handle_timeout_error(self, aio_client, test_logger):
+    def test_handle_timeout_error(self, aio_client, mock_logger):
         """Test handling of TimeoutError."""
-        test_worker = DownloadWorker(aio_client, test_logger)
+        test_worker = DownloadWorker(aio_client, mock_logger)
         test_url = "https://example.com/test.txt"
         exception = asyncio.TimeoutError()
 
         test_worker._log_and_categorize_error(exception, test_url)
 
-        test_logger.error.assert_called_once()
-        error_message = test_logger.error.call_args[0][0]
+        mock_logger.error.assert_called_once()
+        error_message = mock_logger.error.call_args[0][0]
         assert "Timeout downloading from" in error_message
         assert test_url in error_message
 
-    def test_handle_generic_exception(self, aio_client, test_logger):
+    def test_handle_generic_exception(self, aio_client, mock_logger):
         """Test handling of generic exceptions."""
-        test_worker = DownloadWorker(aio_client, test_logger)
+        test_worker = DownloadWorker(aio_client, mock_logger)
         test_url = "https://example.com/test.txt"
         exception = ValueError("Some unexpected error")
 
         test_worker._log_and_categorize_error(exception, test_url)
 
-        test_logger.error.assert_called_once()
-        test_logger.debug.assert_called_once()
+        mock_logger.error.assert_called_once()
+        mock_logger.debug.assert_called_once()
 
-        error_message = test_logger.error.call_args[0][0]
+        error_message = mock_logger.error.call_args[0][0]
         assert "Unexpected error downloading from" in error_message
         assert test_url in error_message
 
-        debug_message = test_logger.debug.call_args[0][0]
+        debug_message = mock_logger.debug.call_args[0][0]
         assert "Uncaught exception of type" in debug_message

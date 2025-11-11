@@ -19,10 +19,8 @@ from async_download_manager.core.tracker import DownloadTracker
 class TestDownloadTrackerInitialization:
     """Test tracker initialization."""
 
-    def test_init_creates_empty_tracker(self):
+    def test_init_creates_empty_tracker(self, tracker: DownloadTracker):
         """Test that tracker initializes with empty state."""
-        tracker = DownloadTracker()
-
         assert tracker.get_all_downloads() == {}
         assert tracker.get_stats().total == 0
 
@@ -31,9 +29,8 @@ class TestDownloadTrackerStateUpdates:
     """Test state update methods."""
 
     @pytest.mark.asyncio
-    async def test_track_queued_creates_new_download(self):
+    async def test_track_queued_creates_new_download(self, tracker: DownloadTracker):
         """Test that track_queued creates DownloadInfo with QUEUED status."""
-        tracker = DownloadTracker()
         url = "https://example.com/file.txt"
 
         await tracker.track_queued(url)
@@ -45,9 +42,10 @@ class TestDownloadTrackerStateUpdates:
         assert info.bytes_downloaded == 0
 
     @pytest.mark.asyncio
-    async def test_track_started_transitions_to_in_progress(self):
+    async def test_track_started_transitions_to_in_progress(
+        self, tracker: DownloadTracker
+    ):
         """Test that track_started updates status to IN_PROGRESS."""
-        tracker = DownloadTracker()
         url = "https://example.com/file.txt"
 
         await tracker.track_queued(url)
@@ -58,9 +56,8 @@ class TestDownloadTrackerStateUpdates:
         assert info.total_bytes == 1024
 
     @pytest.mark.asyncio
-    async def test_track_started_creates_if_not_exists(self):
+    async def test_track_started_creates_if_not_exists(self, tracker: DownloadTracker):
         """Test that track_started can create DownloadInfo if it doesn't exist."""
-        tracker = DownloadTracker()
         url = "https://example.com/file.txt"
 
         # Start without queuing first
@@ -72,9 +69,10 @@ class TestDownloadTrackerStateUpdates:
         assert info.total_bytes == 2048
 
     @pytest.mark.asyncio
-    async def test_track_progress_updates_bytes_downloaded(self):
+    async def test_track_progress_updates_bytes_downloaded(
+        self, tracker: DownloadTracker
+    ):
         """Test that track_progress updates bytes_downloaded."""
-        tracker = DownloadTracker()
         url = "https://example.com/file.txt"
 
         await tracker.track_started(url, total_bytes=1000)
@@ -85,9 +83,8 @@ class TestDownloadTrackerStateUpdates:
         assert info.get_progress() == 0.25  # 250/1000
 
     @pytest.mark.asyncio
-    async def test_track_progress_multiple_updates(self):
+    async def test_track_progress_multiple_updates(self, tracker: DownloadTracker):
         """Test multiple progress updates."""
-        tracker = DownloadTracker()
         url = "https://example.com/file.txt"
 
         await tracker.track_started(url, total_bytes=1000)
@@ -100,9 +97,10 @@ class TestDownloadTrackerStateUpdates:
         assert info.get_progress() == 1.0
 
     @pytest.mark.asyncio
-    async def test_track_progress_updates_total_bytes_if_provided(self):
+    async def test_track_progress_updates_total_bytes_if_provided(
+        self, tracker: DownloadTracker
+    ):
         """Test that track_progress can update total_bytes."""
-        tracker = DownloadTracker()
         url = "https://example.com/file.txt"
 
         await tracker.track_started(url)
@@ -114,9 +112,8 @@ class TestDownloadTrackerStateUpdates:
         assert info.get_progress() == 0.25
 
     @pytest.mark.asyncio
-    async def test_track_progress_creates_if_not_exists(self):
+    async def test_track_progress_creates_if_not_exists(self, tracker: DownloadTracker):
         """Test that track_progress can create DownloadInfo if it doesn't exist."""
-        tracker = DownloadTracker()
         url = "https://example.com/file.txt"
 
         # Update progress without starting first
@@ -128,9 +125,10 @@ class TestDownloadTrackerStateUpdates:
         assert info.total_bytes == 1000
 
     @pytest.mark.asyncio
-    async def test_track_completed_sets_completed_status(self):
+    async def test_track_completed_sets_completed_status(
+        self, tracker: DownloadTracker
+    ):
         """Test that track_completed sets COMPLETED status."""
-        tracker = DownloadTracker()
         url = "https://example.com/file.txt"
 
         await tracker.track_started(url, total_bytes=1024)
@@ -143,9 +141,10 @@ class TestDownloadTrackerStateUpdates:
         assert info.is_terminal()
 
     @pytest.mark.asyncio
-    async def test_track_completed_updates_bytes_and_total_bytes(self):
+    async def test_track_completed_updates_bytes_and_total_bytes(
+        self, tracker: DownloadTracker
+    ):
         """Test that track_completed updates both bytes_downloaded and total_bytes."""
-        tracker = DownloadTracker()
         url = "https://example.com/file.txt"
 
         await tracker.track_started(url)
@@ -156,9 +155,10 @@ class TestDownloadTrackerStateUpdates:
         assert info.total_bytes == 5000
 
     @pytest.mark.asyncio
-    async def test_track_completed_creates_if_not_exists(self):
+    async def test_track_completed_creates_if_not_exists(
+        self, tracker: DownloadTracker
+    ):
         """Test that track_completed can create DownloadInfo if it doesn't exist."""
-        tracker = DownloadTracker()
         url = "https://example.com/file.txt"
 
         await tracker.track_completed(url, total_bytes=1024)
@@ -168,9 +168,10 @@ class TestDownloadTrackerStateUpdates:
         assert info.status == DownloadStatus.COMPLETED
 
     @pytest.mark.asyncio
-    async def test_track_failed_sets_failed_status_and_error(self):
+    async def test_track_failed_sets_failed_status_and_error(
+        self, tracker: DownloadTracker
+    ):
         """Test that track_failed sets FAILED status and error message."""
-        tracker = DownloadTracker()
         url = "https://example.com/file.txt"
         error = ValueError("Connection failed")
 
@@ -183,9 +184,8 @@ class TestDownloadTrackerStateUpdates:
         assert info.is_terminal()
 
     @pytest.mark.asyncio
-    async def test_track_failed_creates_if_not_exists(self):
+    async def test_track_failed_creates_if_not_exists(self, tracker: DownloadTracker):
         """Test that track_failed can create DownloadInfo if it doesn't exist."""
-        tracker = DownloadTracker()
         url = "https://example.com/file.txt"
         error = RuntimeError("Unexpected error")
 
@@ -201,17 +201,19 @@ class TestDownloadTrackerQueries:
     """Test query methods."""
 
     @pytest.mark.asyncio
-    async def test_get_download_info_returns_none_for_unknown_url(self):
+    async def test_get_download_info_returns_none_for_unknown_url(
+        self, tracker: DownloadTracker
+    ):
         """Test that get_download_info returns None for unknown URL."""
-        tracker = DownloadTracker()
 
         info = tracker.get_download_info("https://unknown.com/file.txt")
         assert info is None
 
     @pytest.mark.asyncio
-    async def test_get_download_info_returns_correct_info(self):
+    async def test_get_download_info_returns_correct_info(
+        self, tracker: DownloadTracker
+    ):
         """Test that get_download_info returns correct DownloadInfo."""
-        tracker = DownloadTracker()
         url = "https://example.com/file.txt"
 
         await tracker.track_queued(url)
@@ -222,9 +224,10 @@ class TestDownloadTrackerQueries:
         assert info.status == DownloadStatus.QUEUED
 
     @pytest.mark.asyncio
-    async def test_get_all_downloads_returns_all_tracked(self):
+    async def test_get_all_downloads_returns_all_tracked(
+        self, tracker: DownloadTracker
+    ):
         """Test that get_all_downloads returns all downloads."""
-        tracker = DownloadTracker()
 
         await tracker.track_queued("https://example.com/file1.txt")
         await tracker.track_queued("https://example.com/file2.txt")
@@ -237,9 +240,8 @@ class TestDownloadTrackerQueries:
         assert "https://example.com/file3.txt" in all_downloads
 
     @pytest.mark.asyncio
-    async def test_get_all_downloads_returns_copy(self):
+    async def test_get_all_downloads_returns_copy(self, tracker: DownloadTracker):
         """Test that get_all_downloads returns a copy, not reference."""
-        tracker = DownloadTracker()
         url = "https://example.com/file.txt"
 
         await tracker.track_queued(url)
@@ -252,9 +254,10 @@ class TestDownloadTrackerQueries:
         assert tracker.get_download_info(url) is not None
 
     @pytest.mark.asyncio
-    async def test_get_active_downloads_returns_only_in_progress(self):
+    async def test_get_active_downloads_returns_only_in_progress(
+        self, tracker: DownloadTracker
+    ):
         """Test that get_active_downloads returns only IN_PROGRESS downloads."""
-        tracker = DownloadTracker()
 
         await tracker.track_queued("https://example.com/file1.txt")
         await tracker.track_started("https://example.com/file2.txt")
@@ -267,9 +270,10 @@ class TestDownloadTrackerQueries:
         assert "https://example.com/file3.txt" in active
 
     @pytest.mark.asyncio
-    async def test_get_active_downloads_excludes_non_in_progress(self):
+    async def test_get_active_downloads_excludes_non_in_progress(
+        self, tracker: DownloadTracker
+    ):
         """Test that get_active_downloads excludes QUEUED, COMPLETED, FAILED."""
-        tracker = DownloadTracker()
 
         await tracker.track_queued("https://example.com/queued.txt")
         await tracker.track_started("https://example.com/active.txt")
@@ -285,9 +289,10 @@ class TestDownloadTrackerQueries:
         assert "https://example.com/active.txt" in active
 
     @pytest.mark.asyncio
-    async def test_get_stats_returns_accurate_total_count(self):
+    async def test_get_stats_returns_accurate_total_count(
+        self, tracker: DownloadTracker
+    ):
         """Test that get_stats returns accurate total count."""
-        tracker = DownloadTracker()
 
         await tracker.track_queued("https://example.com/file1.txt")
         await tracker.track_queued("https://example.com/file2.txt")
@@ -297,9 +302,10 @@ class TestDownloadTrackerQueries:
         assert stats.total == 3
 
     @pytest.mark.asyncio
-    async def test_get_stats_returns_correct_counts_by_status(self):
+    async def test_get_stats_returns_correct_counts_by_status(
+        self, tracker: DownloadTracker
+    ):
         """Test that get_stats returns correct counts by status."""
-        tracker = DownloadTracker()
 
         # Queue 2
         await tracker.track_queued("https://example.com/file1.txt")
@@ -323,9 +329,10 @@ class TestDownloadTrackerQueries:
         assert stats.failed == 1
 
     @pytest.mark.asyncio
-    async def test_get_stats_calculates_completed_bytes_correctly(self):
+    async def test_get_stats_calculates_completed_bytes_correctly(
+        self, tracker: DownloadTracker
+    ):
         """Test that get_stats calculates completed_bytes correctly."""
-        tracker = DownloadTracker()
 
         await tracker.track_completed("https://example.com/file1.txt", total_bytes=1024)
         await tracker.track_completed("https://example.com/file2.txt", total_bytes=2048)
@@ -341,10 +348,9 @@ class TestDownloadTrackerThreadSafety:
     """Test concurrent access with asyncio locks."""
 
     @pytest.mark.asyncio
-    async def test_concurrent_updates_are_thread_safe(self):
+    async def test_concurrent_updates_are_thread_safe(self, tracker: DownloadTracker):
         """Test that concurrent updates don't corrupt state."""
 
-        tracker = DownloadTracker()
         url = "https://example.com/file.txt"
 
         # Simulate multiple workers updating progress concurrently
@@ -368,10 +374,8 @@ class TestDownloadTrackerThreadSafety:
         assert info.bytes_downloaded in (100, 200, 300, 400, 500)
 
     @pytest.mark.asyncio
-    async def test_multiple_urls_updated_concurrently(self):
+    async def test_multiple_urls_updated_concurrently(self, tracker: DownloadTracker):
         """Test that multiple workers can update different URLs simultaneously."""
-
-        tracker = DownloadTracker()
 
         async def download_file(url, size):
             await tracker.track_started(url, total_bytes=size)
@@ -389,10 +393,9 @@ class TestDownloadTrackerThreadSafety:
         assert tracker.get_stats().completed == 3
 
     @pytest.mark.asyncio
-    async def test_lock_prevents_race_conditions(self):
+    async def test_lock_prevents_race_conditions(self, tracker: DownloadTracker):
         """Test that lock prevents race conditions on same URL."""
 
-        tracker = DownloadTracker()
         url = "https://example.com/file.txt"
 
         await tracker.track_started(url, total_bytes=1000)
@@ -419,9 +422,8 @@ class TestDownloadTrackerThreadSafety:
 class TestDownloadTrackerEventSubscription:
     """Test event subscription methods."""
 
-    def test_on_registers_handler_for_event_type(self):
+    def test_on_registers_handler_for_event_type(self, tracker: DownloadTracker):
         """Test that on() registers a handler for an event type."""
-        tracker = DownloadTracker()
         handler_called = []
 
         def handler(event):
@@ -433,9 +435,10 @@ class TestDownloadTrackerEventSubscription:
         assert "queued" in tracker._event_handlers
         assert handler in tracker._event_handlers["queued"]
 
-    def test_multiple_handlers_can_subscribe_to_same_event(self):
+    def test_multiple_handlers_can_subscribe_to_same_event(
+        self, tracker: DownloadTracker
+    ):
         """Test that multiple handlers can subscribe to the same event."""
-        tracker = DownloadTracker()
 
         def handler1(event):
             pass
@@ -450,9 +453,8 @@ class TestDownloadTrackerEventSubscription:
         assert handler1 in tracker._event_handlers["started"]
         assert handler2 in tracker._event_handlers["started"]
 
-    def test_off_removes_handler(self):
+    def test_off_removes_handler(self, tracker: DownloadTracker):
         """Test that off() removes a handler."""
-        tracker = DownloadTracker()
 
         def handler(event):
             pass
@@ -462,9 +464,10 @@ class TestDownloadTrackerEventSubscription:
 
         assert handler not in tracker._event_handlers.get("progress", [])
 
-    def test_off_handles_removing_non_existent_handler_gracefully(self):
+    def test_off_handles_removing_non_existent_handler_gracefully(
+        self, tracker: DownloadTracker
+    ):
         """Test that off() handles removing a non-existent handler without error."""
-        tracker = DownloadTracker()
 
         def handler(event):
             pass
@@ -472,9 +475,8 @@ class TestDownloadTrackerEventSubscription:
         # Should not raise an error
         tracker.off("completed", handler)
 
-    def test_wildcard_handler_registration(self):
+    def test_wildcard_handler_registration(self, tracker: DownloadTracker):
         """Test that wildcard '*' handler can be registered."""
-        tracker = DownloadTracker()
 
         def handler(event):
             pass
@@ -489,9 +491,8 @@ class TestDownloadTrackerEventEmission:
     """Test event emission during state changes."""
 
     @pytest.mark.asyncio
-    async def test_track_queued_emits_event(self):
+    async def test_track_queued_emits_event(self, tracker: DownloadTracker):
         """Test that track_queued emits DownloadQueuedEvent."""
-        tracker = DownloadTracker()
         events_received = []
 
         def handler(event):
@@ -506,9 +507,8 @@ class TestDownloadTrackerEventEmission:
         assert events_received[0].url == "https://example.com/file.txt"
 
     @pytest.mark.asyncio
-    async def test_track_started_emits_event(self):
+    async def test_track_started_emits_event(self, tracker: DownloadTracker):
         """Test that track_started emits DownloadStartedEvent."""
-        tracker = DownloadTracker()
         events_received = []
 
         def handler(event):
@@ -524,9 +524,8 @@ class TestDownloadTrackerEventEmission:
         assert events_received[0].total_bytes == 1024
 
     @pytest.mark.asyncio
-    async def test_track_progress_emits_event(self):
+    async def test_track_progress_emits_event(self, tracker: DownloadTracker):
         """Test that track_progress emits DownloadProgressEvent."""
-        tracker = DownloadTracker()
         events_received = []
 
         def handler(event):
@@ -545,9 +544,8 @@ class TestDownloadTrackerEventEmission:
         assert events_received[0].total_bytes == 1024
 
     @pytest.mark.asyncio
-    async def test_track_completed_emits_event(self):
+    async def test_track_completed_emits_event(self, tracker: DownloadTracker):
         """Test that track_completed emits DownloadCompletedEvent."""
-        tracker = DownloadTracker()
         events_received = []
 
         def handler(event):
@@ -563,9 +561,8 @@ class TestDownloadTrackerEventEmission:
         assert events_received[0].total_bytes == 1024
 
     @pytest.mark.asyncio
-    async def test_track_failed_emits_event(self):
+    async def test_track_failed_emits_event(self, tracker: DownloadTracker):
         """Test that track_failed emits DownloadFailedEvent."""
-        tracker = DownloadTracker()
         events_received = []
 
         def handler(event):
@@ -583,9 +580,8 @@ class TestDownloadTrackerEventEmission:
         assert events_received[0].error_type == "ValueError"
 
     @pytest.mark.asyncio
-    async def test_events_emitted_after_state_update(self):
+    async def test_events_emitted_after_state_update(self, tracker: DownloadTracker):
         """Test that events are emitted after state is updated, not before."""
-        tracker = DownloadTracker()
         state_when_handler_called = []
 
         def handler(event):
@@ -606,10 +602,11 @@ class TestDownloadTrackerEventPayloads:
     """Test event payload contents."""
 
     @pytest.mark.asyncio
-    async def test_download_queued_event_contains_priority(self):
+    async def test_download_queued_event_contains_priority(
+        self, tracker: DownloadTracker
+    ):
         """Test that DownloadQueuedEvent contains priority information."""
 
-        tracker = DownloadTracker()
         events_received = []
 
         tracker.on("queued", lambda e: events_received.append(e))
@@ -619,10 +616,11 @@ class TestDownloadTrackerEventPayloads:
         assert events_received[0].priority == 5
 
     @pytest.mark.asyncio
-    async def test_download_progress_event_calculates_percent(self):
+    async def test_download_progress_event_calculates_percent(
+        self, tracker: DownloadTracker
+    ):
         """Test that DownloadProgressEvent calculates progress_percent correctly."""
 
-        tracker = DownloadTracker()
         events_received = []
 
         tracker.on("progress", lambda e: events_received.append(e))
@@ -636,10 +634,11 @@ class TestDownloadTrackerEventPayloads:
         assert event.progress_percent == 25.0
 
     @pytest.mark.asyncio
-    async def test_download_completed_event_includes_destination(self):
+    async def test_download_completed_event_includes_destination(
+        self, tracker: DownloadTracker
+    ):
         """Test that DownloadCompletedEvent includes destination_path."""
 
-        tracker = DownloadTracker()
         events_received = []
 
         tracker.on("completed", lambda e: events_received.append(e))
@@ -653,10 +652,9 @@ class TestDownloadTrackerEventPayloads:
         assert events_received[0].destination_path == "/tmp/file.txt"
 
     @pytest.mark.asyncio
-    async def test_event_contains_timestamp(self):
+    async def test_event_contains_timestamp(self, tracker: DownloadTracker):
         """Test that all events contain a timestamp."""
 
-        tracker = DownloadTracker()
         events_received = []
 
         tracker.on("queued", lambda e: events_received.append(e))
@@ -674,9 +672,8 @@ class TestDownloadTrackerEventHandlers:
     """Test handler execution behavior."""
 
     @pytest.mark.asyncio
-    async def test_sync_handler_executes_successfully(self):
+    async def test_sync_handler_executes_successfully(self, tracker: DownloadTracker):
         """Test that synchronous handlers execute successfully."""
-        tracker = DownloadTracker()
         handler_called = []
 
         def sync_handler(event):
@@ -689,9 +686,8 @@ class TestDownloadTrackerEventHandlers:
         assert handler_called == ["sync"]
 
     @pytest.mark.asyncio
-    async def test_async_handler_executes_successfully(self):
+    async def test_async_handler_executes_successfully(self, tracker: DownloadTracker):
         """Test that asynchronous handlers execute successfully."""
-        tracker = DownloadTracker()
         handler_called = []
 
         async def async_handler(event):
@@ -705,9 +701,8 @@ class TestDownloadTrackerEventHandlers:
         assert handler_called == ["async"]
 
     @pytest.mark.asyncio
-    async def test_multiple_handlers_all_execute(self):
+    async def test_multiple_handlers_all_execute(self, tracker: DownloadTracker):
         """Test that all subscribed handlers execute."""
-        tracker = DownloadTracker()
         handlers_called = []
 
         tracker.on("started", lambda e: handlers_called.append("handler1"))
@@ -722,9 +717,10 @@ class TestDownloadTrackerEventHandlers:
         assert "handler3" in handlers_called
 
     @pytest.mark.asyncio
-    async def test_handler_exception_does_not_break_tracking(self):
+    async def test_handler_exception_does_not_break_tracking(
+        self, tracker: DownloadTracker
+    ):
         """Test that exceptions in handlers don't prevent state updates."""
-        tracker = DownloadTracker()
 
         def bad_handler(event):
             raise ValueError("Handler error")
@@ -740,9 +736,10 @@ class TestDownloadTrackerEventHandlers:
         assert info.status == DownloadStatus.QUEUED
 
     @pytest.mark.asyncio
-    async def test_handler_exception_does_not_prevent_other_handlers(self):
+    async def test_handler_exception_does_not_prevent_other_handlers(
+        self, tracker: DownloadTracker
+    ):
         """Test that exceptions in one handler don't prevent others from running."""
-        tracker = DownloadTracker()
         handlers_called = []
 
         def bad_handler(event):
@@ -762,9 +759,8 @@ class TestDownloadTrackerEventHandlers:
         assert "good" in handlers_called
 
     @pytest.mark.asyncio
-    async def test_wildcard_handler_receives_all_events(self):
+    async def test_wildcard_handler_receives_all_events(self, tracker: DownloadTracker):
         """Test that wildcard '*' handler receives all event types."""
-        tracker = DownloadTracker()
         events_received = []
 
         tracker.on("*", lambda e: events_received.append(e.event_type))
@@ -780,9 +776,10 @@ class TestDownloadTrackerEventHandlers:
         assert "completed" in events_received
 
     @pytest.mark.asyncio
-    async def test_specific_and_wildcard_handlers_both_fire(self):
+    async def test_specific_and_wildcard_handlers_both_fire(
+        self, tracker: DownloadTracker
+    ):
         """Test that both specific and wildcard handlers receive events."""
-        tracker = DownloadTracker()
         specific_called = []
         wildcard_called = []
 
@@ -793,3 +790,115 @@ class TestDownloadTrackerEventHandlers:
 
         assert len(specific_called) == 1
         assert len(wildcard_called) == 1
+
+    @pytest.mark.asyncio
+    async def test_handler_exception_logs_with_traceback(
+        self, tracker: DownloadTracker
+    ):
+        """Test that handler exceptions are logged with full traceback."""
+
+        def bad_handler(event):
+            raise ValueError("Test exception in handler")
+
+        tracker.on("queued", bad_handler)
+
+        # Should not raise
+        await tracker.track_queued("https://example.com/file.txt")
+
+        # Logger.exception should have been called
+        tracker._logger.exception.assert_called_once()
+        call_args = tracker._logger.exception.call_args[0][0]
+        assert "queued" in call_args
+        assert "Error in event handler" in call_args
+
+    @pytest.mark.asyncio
+    async def test_tracker_logs_initialization_when_logger_provided(
+        self, mock_logger, tracker: DownloadTracker
+    ):
+        """Test that tracker logs debug message on initialization."""
+        # Create tracker with logger
+
+        # Should have logged initialization
+        tracker._logger.debug.assert_called_once_with("DownloadTracker initialized")
+        assert tracker._logger is mock_logger
+
+    @pytest.mark.asyncio
+    async def test_handler_exception_does_not_break_state_tracking(
+        self, tracker: DownloadTracker
+    ):
+        """Test that handler exceptions don't prevent state updates with default logger."""
+        # Should not raise - uses default logger
+
+        def bad_handler(event):
+            raise ValueError("Test exception")
+
+        tracker.on("queued", bad_handler)
+
+        # Should not raise even though handler fails
+        await tracker.track_queued("https://example.com/file.txt")
+
+        # State should still be updated despite handler exception
+        info = tracker.get_download_info("https://example.com/file.txt")
+        assert info is not None
+        assert info.status == DownloadStatus.QUEUED
+
+    @pytest.mark.asyncio
+    async def test_async_handler_exception_logs_with_traceback(
+        self, tracker: DownloadTracker
+    ):
+        """Test that async handler exceptions are logged with full traceback."""
+
+        async def bad_async_handler(event):
+            raise ValueError("Test exception in async handler")
+
+        tracker.on("queued", bad_async_handler)
+
+        # Should not raise
+        await tracker.track_queued("https://example.com/file.txt")
+
+        # Logger.opt().error() should have been called for async handler
+        tracker._logger.opt.assert_called_once()
+        # Verify the exception info was passed to opt()
+        opt_call_kwargs = tracker._logger.opt.call_args[1]
+        assert "exception" in opt_call_kwargs
+        exception_tuple = opt_call_kwargs["exception"]
+        assert exception_tuple[0] == ValueError
+        assert isinstance(exception_tuple[1], ValueError)
+
+        # Verify error() was called on the returned opt() object
+        tracker._logger.opt.return_value.error.assert_called_once()
+        error_message = tracker._logger.opt.return_value.error.call_args[0][0]
+        assert "async event handler" in error_message
+        assert "queued" in error_message
+
+    @pytest.mark.asyncio
+    async def test_mixed_sync_async_handler_exceptions_all_logged(
+        self, tracker: DownloadTracker
+    ):
+        """Test that both sync and async handler exceptions are logged."""
+
+        def bad_sync_handler(event):
+            raise ValueError("Sync handler error")
+
+        async def bad_async_handler(event):
+            raise RuntimeError("Async handler error")
+
+        tracker.on("queued", bad_sync_handler)
+        tracker.on("queued", bad_async_handler)
+
+        # Should not raise
+        await tracker.track_queued("https://example.com/file.txt")
+
+        # Sync handler should call logger.exception() once
+        assert tracker._logger.exception.call_count == 1
+
+        # Async handler should call logger.opt().error() once
+        assert tracker._logger.opt.call_count == 1
+        tracker._logger.opt.return_value.error.assert_called_once()
+
+        # Verify the async exception info was passed to opt()
+        opt_call_kwargs = tracker._logger.opt.call_args[1]
+        assert "exception" in opt_call_kwargs
+        exception_tuple = opt_call_kwargs["exception"]
+        assert exception_tuple[0] == RuntimeError
+        assert isinstance(exception_tuple[1], RuntimeError)
