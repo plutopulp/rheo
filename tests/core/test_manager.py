@@ -7,7 +7,6 @@ from aiohttp import ClientSession
 
 from async_download_manager.core.exceptions import ManagerNotInitializedError
 from async_download_manager.core.manager import DownloadManager
-from async_download_manager.core.models import FileConfig
 from async_download_manager.core.queue import PriorityDownloadQueue
 from async_download_manager.core.worker import DownloadWorker
 
@@ -173,15 +172,13 @@ class TestDownloadManagerQueueIntegration:
     """
 
     @pytest.mark.asyncio
-    async def test_add_to_queue_delegates_to_queue(self, mocker, test_logger):
+    async def test_add_to_queue_delegates_to_queue(
+        self, mock_queue, make_file_config, test_logger
+    ):
         """Test that add_to_queue properly delegates to queue.add()."""
-        # Create mock queue at construction time
-        mock_queue = mocker.Mock(spec=PriorityDownloadQueue)
-        mock_queue.add = mocker.AsyncMock()
-
         manager = DownloadManager(queue=mock_queue, logger=test_logger)
 
-        file_configs = [FileConfig(url="https://example.com/file.txt")]
+        file_configs = [make_file_config()]
         await manager.add_to_queue(file_configs)
 
         # Verify delegation
@@ -197,29 +194,18 @@ class TestDownloadManagerQueueIntegration:
 
     @pytest.mark.asyncio
     async def test_process_queue_uses_queue_get_next(
-        self, mocker, test_logger, tmp_path
+        self, mock_manager_dependencies, make_file_config, test_logger, tmp_path
     ):
         """Test that process_queue delegates to queue.get_next() and
         worker.download()."""
-        # Mock all dependencies
-        mock_client = mocker.Mock(spec=ClientSession)
-        mock_worker = mocker.Mock(spec=DownloadWorker)
-        mock_worker.download = mocker.AsyncMock()
-
-        mock_queue = mocker.Mock(spec=PriorityDownloadQueue)
-        # Return one config, then raise CancelledError to stop loop
-        mock_queue.get_next = mocker.AsyncMock(
-            side_effect=[
-                FileConfig(url="https://example.com/test.txt"),
-                asyncio.CancelledError(),
-            ]
-        )
-        mock_queue.task_done = mocker.Mock()
+        # Customize queue behavior for this test
+        mock_manager_dependencies["queue"].get_next.side_effect = [
+            make_file_config(),
+            asyncio.CancelledError(),
+        ]
 
         manager = DownloadManager(
-            client=mock_client,
-            worker=mock_worker,
-            queue=mock_queue,
+            **mock_manager_dependencies,
             download_dir=tmp_path,
             logger=test_logger,
         )
@@ -231,39 +217,29 @@ class TestDownloadManagerQueueIntegration:
             pass
 
         # Verify queue.get_next was called
-        assert mock_queue.get_next.call_count >= 1
+        assert mock_manager_dependencies["queue"].get_next.call_count >= 1
 
         # Verify worker.download was called with correct URL
-        mock_worker.download.assert_called_once()
-        call_args = mock_worker.download.call_args[0]
+        mock_manager_dependencies["worker"].download.assert_called_once()
+        call_args = mock_manager_dependencies["worker"].download.call_args[0]
         assert call_args[0] == "https://example.com/test.txt"
 
         # Verify task_done was called
-        mock_queue.task_done.assert_called_once()
+        mock_manager_dependencies["queue"].task_done.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_process_queue_calls_task_done_on_success(
-        self, mocker, test_logger, tmp_path
+        self, mock_manager_dependencies, make_file_config, test_logger, tmp_path
     ):
         """Test that process_queue calls task_done after successful download."""
-        # Mock all dependencies
-        mock_client = mocker.Mock(spec=ClientSession)
-        mock_worker = mocker.Mock(spec=DownloadWorker)
-        mock_worker.download = mocker.AsyncMock()
-
-        mock_queue = mocker.Mock(spec=PriorityDownloadQueue)
-        mock_queue.get_next = mocker.AsyncMock(
-            side_effect=[
-                FileConfig(url="https://example.com/test.txt"),
-                asyncio.CancelledError(),
-            ]
-        )
-        mock_queue.task_done = mocker.Mock()
+        # Customize queue behavior for this test
+        mock_manager_dependencies["queue"].get_next.side_effect = [
+            make_file_config(),
+            asyncio.CancelledError(),
+        ]
 
         manager = DownloadManager(
-            client=mock_client,
-            worker=mock_worker,
-            queue=mock_queue,
+            **mock_manager_dependencies,
             download_dir=tmp_path,
             logger=test_logger,
         )
@@ -274,16 +250,19 @@ class TestDownloadManagerQueueIntegration:
             pass
 
         # Verify task_done was called after processing
-        mock_queue.task_done.assert_called_once()
+        mock_manager_dependencies["queue"].task_done.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_multiple_workers_process_concurrent_downloads(
-        self, mocker, test_logger, tmp_path
+        self,
+        mock_aio_client,
+        mock_worker,
+        real_priority_queue,
+        make_file_configs,
+        test_logger,
+        tmp_path,
     ):
         """Test that multiple workers can process downloads concurrently."""
-        # Mock dependencies - use real queue with real asyncio.PriorityQueue
-        mock_client = mocker.Mock(spec=ClientSession)
-        mock_worker = mocker.Mock(spec=DownloadWorker)
         download_count = 0
 
         async def slow_download(*args, **kwargs):
@@ -291,25 +270,19 @@ class TestDownloadManagerQueueIntegration:
             download_count += 1
             await asyncio.sleep(0.05)  # Simulate slow download
 
-        mock_worker.download = mocker.AsyncMock(side_effect=slow_download)
-
-        # Use real asyncio.PriorityQueue for this test
-        real_async_queue = asyncio.PriorityQueue()
-        queue = PriorityDownloadQueue(queue=real_async_queue, logger=test_logger)
+        mock_worker.download.side_effect = slow_download
 
         manager = DownloadManager(
-            client=mock_client,
+            client=mock_aio_client,
             worker=mock_worker,
-            queue=queue,
+            queue=real_priority_queue,
             max_workers=3,
             download_dir=tmp_path,
             logger=test_logger,
         )
 
         # Add multiple files to the queue
-        file_configs = [
-            FileConfig(url=f"https://example.com/file{i}.txt") for i in range(5)
-        ]
+        file_configs = make_file_configs(count=5)
         await manager.add_to_queue(file_configs)
 
         # Start workers
@@ -326,7 +299,13 @@ class TestDownloadManagerQueueIntegration:
 
     @pytest.mark.asyncio
     async def test_stop_workers_waits_for_completion(
-        self, mocker, test_logger, tmp_path
+        self,
+        mock_aio_client,
+        mock_worker,
+        real_priority_queue,
+        make_file_config,
+        test_logger,
+        tmp_path,
     ):
         """Test that stop_workers() waits for all tasks to complete before returning.
 
@@ -338,10 +317,6 @@ class TestDownloadManagerQueueIntegration:
         download_started = asyncio.Event()
         download_in_progress = asyncio.Event()
         cleanup_completed = asyncio.Event()
-
-        # Mock dependencies
-        mock_client = mocker.Mock(spec=ClientSession)
-        mock_worker = mocker.Mock(spec=DownloadWorker)
 
         async def blocking_download(*args, **kwargs):
             download_started.set()
@@ -355,23 +330,19 @@ class TestDownloadManagerQueueIntegration:
                 cleanup_completed.set()
                 raise
 
-        mock_worker.download = mocker.AsyncMock(side_effect=blocking_download)
-
-        # Use real queue
-        real_async_queue = asyncio.PriorityQueue()
-        queue = PriorityDownloadQueue(queue=real_async_queue, logger=test_logger)
+        mock_worker.download.side_effect = blocking_download
 
         manager = DownloadManager(
-            client=mock_client,
+            client=mock_aio_client,
             worker=mock_worker,
-            queue=queue,
+            queue=real_priority_queue,
             max_workers=1,
             download_dir=tmp_path,
             logger=test_logger,
         )
 
         # Add a file and start workers
-        await manager.add_to_queue([FileConfig(url="https://example.com/test.txt")])
+        await manager.add_to_queue([make_file_config()])
         await manager.start_workers()
 
         # Wait for download to start
