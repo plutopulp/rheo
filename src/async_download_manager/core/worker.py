@@ -11,6 +11,13 @@ from typing import TYPE_CHECKING, Union
 
 import aiohttp
 
+from .event_emitter import EventEmitter
+from .events import (
+    WorkerCompletedEvent,
+    WorkerFailedEvent,
+    WorkerProgressEvent,
+    WorkerStartedEvent,
+)
 from .logger import get_logger
 
 if TYPE_CHECKING:
@@ -19,8 +26,15 @@ if TYPE_CHECKING:
 # Type alias for all exceptions that can occur during downloads
 DownloadException = Union[
     aiohttp.ClientError,  # Network/HTTP errors
-    asyncio.TimeoutError,  # Timeout errors
-    OSError,  # File system errors (includes FileNotFoundError, PermissionError)
+    aiohttp.ClientConnectorError,
+    aiohttp.ClientOSError,
+    aiohttp.ClientSSLError,
+    aiohttp.ClientResponseError,
+    aiohttp.ClientPayloadError,
+    asyncio.TimeoutError,
+    FileNotFoundError,
+    PermissionError,
+    OSError,
     Exception,  # Generic fallback
 ]
 
@@ -36,7 +50,7 @@ class DownloadWorker:
     - HTTP status code validation
 
     Implementation Decisions:
-    - Uses dependency injection for client and logger to enable easy testing
+    - Uses dependency injection for client, logger and emitter to enable easy testing
         and configuration
     - Cleans up partial files on any error to avoid corrupted downloads
     - Re-raises exceptions after logging to allow caller-specific error handling
@@ -47,15 +61,19 @@ class DownloadWorker:
         self,
         client: aiohttp.ClientSession,
         logger: "loguru.Logger" = get_logger(__name__),
+        emitter: EventEmitter | None = None,
     ) -> None:
         """Initialize the download worker.
 
         Args:
             client: Configured aiohttp ClientSession for making HTTP requests
             logger: Logger instance for recording download events and errors
+            emitter: Event emitter for broadcasting worker lifecycle events.
+                    If None, a new EventEmitter will be created.
         """
         self.client = client
         self.logger = logger
+        self.emitter = emitter if emitter is not None else EventEmitter(logger)
 
     def _write_chunk_to_file(self, chunk: bytes, file_handle: BufferedWriter) -> None:
         """Write a data chunk to the output file.
@@ -161,6 +179,8 @@ class DownloadWorker:
         """
         self.logger.debug(f"Starting download: {url} -> {destination_path}")
 
+        bytes_downloaded = 0
+
         try:
             # Open destination file for binary writing
             with open(destination_path, "wb") as file_handle:
@@ -169,11 +189,42 @@ class DownloadWorker:
                     # Validate HTTP status - raises ClientResponseError for 4xx/5xx
                     response.raise_for_status()
 
+                    # Get total bytes if available from Content-Length header
+                    total_bytes = response.content_length
+
+                    # Emit started event
+                    await self.emitter.emit(
+                        "worker.started",
+                        WorkerStartedEvent(url=url, total_bytes=total_bytes),
+                    )
+
                     # Stream download in chunks for memory efficiency
                     async for chunk in response.content.iter_chunked(chunk_size):
                         self._write_chunk_to_file(chunk, file_handle)
+                        bytes_downloaded += len(chunk)
+
+                        # Emit progress event after each chunk
+                        await self.emitter.emit(
+                            "worker.progress",
+                            WorkerProgressEvent(
+                                url=url,
+                                chunk_size=len(chunk),
+                                bytes_downloaded=bytes_downloaded,
+                                total_bytes=total_bytes,
+                            ),
+                        )
 
             self.logger.debug(f"Download completed successfully: {destination_path}")
+
+            # Emit completed event
+            await self.emitter.emit(
+                "worker.completed",
+                WorkerCompletedEvent(
+                    url=url,
+                    destination_path=str(destination_path),
+                    total_bytes=bytes_downloaded,
+                ),
+            )
 
         except Exception as download_error:
             # Clean up partial file to prevent corruption
@@ -181,6 +232,16 @@ class DownloadWorker:
 
             # Log the error with appropriate categorization
             self._log_and_categorize_error(download_error, url)
+
+            # Emit failed event
+            await self.emitter.emit(
+                "worker.failed",
+                WorkerFailedEvent(
+                    url=url,
+                    error_message=str(download_error),
+                    error_type=type(download_error).__name__,
+                ),
+            )
 
             # Re-raise to allow caller-specific error handling
             raise download_error

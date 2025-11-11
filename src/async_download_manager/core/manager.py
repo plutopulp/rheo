@@ -12,6 +12,8 @@ import aiohttp
 
 from async_download_manager.utils.filename import generate_filename
 
+from .base_tracker import BaseTracker
+from .events import WorkerEvent
 from .exceptions import ManagerNotInitializedError, ProcessQueueError
 from .logger import get_logger
 from .models import FileConfig
@@ -20,6 +22,27 @@ from .worker import DownloadWorker
 
 if t.TYPE_CHECKING:
     import loguru
+
+
+def _create_event_wiring(
+    tracker: BaseTracker,
+) -> dict[str, t.Callable[[WorkerEvent], t.Awaitable[None]]]:
+    """Create event wiring mapping from worker events to tracker methods.
+
+    Returns dict mapping event types to async handler functions.
+    """
+    return {
+        "worker.started": lambda e: tracker.track_started(e.url, e.total_bytes),
+        "worker.progress": lambda e: tracker.track_progress(
+            e.url, e.bytes_downloaded, e.total_bytes
+        ),
+        "worker.completed": lambda e: tracker.track_completed(
+            e.url, e.total_bytes, e.destination_path
+        ),
+        "worker.failed": lambda e: tracker.track_failed(
+            e.url, Exception(f"{e.error_type}: {e.error_message}")
+        ),
+    }
 
 
 class DownloadManager:
@@ -50,6 +73,7 @@ class DownloadManager:
         client: aiohttp.ClientSession | None = None,
         worker: DownloadWorker | None = None,
         queue: PriorityDownloadQueue | None = None,
+        tracker: BaseTracker | None = None,
         timeout: float | None = None,
         max_workers: int = 3,
         logger: "loguru.Logger" = get_logger(__name__),
@@ -61,6 +85,7 @@ class DownloadManager:
             client: HTTP session for downloads. If None, one will be created.
             worker: Download worker instance. If None, one will be created.
             queue: Priority download queue for tasks. If None, one will be created.
+            tracker: Download tracker for observability. Optional - if None, no tracking.
             timeout: Default timeout for downloads in seconds.
             max_workers: Maximum number of concurrent workers.
             logger: Logger instance for recording manager events.
@@ -70,17 +95,40 @@ class DownloadManager:
         self._owns_client = False  # Track if we created the client
         self._worker = worker
         self._logger = logger
+        self._tracker = tracker
         self.queue = queue or PriorityDownloadQueue(logger)
         self.timeout = timeout
         self.max_workers = max_workers
         self._tasks = []  # Future: task management
         self.download_dir = download_dir
 
+    def _wire_worker_events(
+        self,
+        event_wiring: (
+            dict[str, t.Callable[[WorkerEvent], t.Awaitable[None]]] | None
+        ) = None,
+    ) -> None:
+        """Wire worker events to tracker using provided or default mapping.
+
+        Args:
+            event_wiring: Custom event wiring dict. If None, uses default wiring.
+
+        Note: Future improvement - store handler references for cleanup in __aexit__().
+        """
+        if self._worker is None or self._tracker is None:
+            return
+
+        wiring = event_wiring or _create_event_wiring(self._tracker)
+
+        for event_type, handler in wiring.items():
+            # Register async handler with worker emitter
+            self._worker.emitter.on(event_type, handler)
+
     async def __aenter__(self) -> "DownloadManager":
         """Enter the async context manager.
 
         Initializes HTTP client and worker if not provided during construction.
-        This ensures all dependencies are available before use.
+        Wires worker events to tracker if both are available.
 
         Returns:
             Self for use in async with statements.
@@ -90,6 +138,10 @@ class DownloadManager:
             self._owns_client = True
         if self._worker is None:
             self._worker = DownloadWorker(self._client, self._logger)
+
+        # Wire worker events to tracker
+        self._wire_worker_events()
+
         await self.start_workers()
         return self
 

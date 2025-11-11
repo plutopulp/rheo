@@ -5,7 +5,10 @@ import pytest
 import pytest_asyncio
 from aiohttp import ClientSession
 
+from async_download_manager.core.manager import DownloadManager
 from async_download_manager.core.models import FileConfig
+from async_download_manager.core.null_emitter import NullEmitter
+from async_download_manager.core.null_tracker import NullTracker
 from async_download_manager.core.queue import PriorityDownloadQueue
 from async_download_manager.core.tracker import DownloadTracker
 from async_download_manager.core.worker import DownloadWorker
@@ -74,6 +77,15 @@ def mock_worker(mocker):
 
 
 @pytest.fixture
+def test_worker(aio_client, mock_logger):
+    """Provide a real DownloadWorker with real client and mocked logger.
+
+    Useful for integration tests using aioresponses.
+    """
+    return DownloadWorker(aio_client, mock_logger)
+
+
+@pytest.fixture
 def mock_queue(mocker):
     """Provide a mocked PriorityDownloadQueue for unit tests.
 
@@ -126,6 +138,32 @@ def real_priority_queue(mock_logger):
     """
     async_queue = asyncio.PriorityQueue()
     return PriorityDownloadQueue(queue=async_queue, logger=mock_logger)
+
+
+@pytest.fixture
+def null_tracker():
+    """Provide a NullTracker instance for testing."""
+    return NullTracker()
+
+
+@pytest.fixture
+def null_emitter():
+    """Provide a NullEmitter instance for testing."""
+    return NullEmitter()
+
+
+@pytest.fixture
+def manager_with_tracker(aio_client, tracker, mock_logger):
+    """Provide a DownloadManager with tracker wired for integration testing.
+
+    The manager is NOT entered as a context manager - tests should do that
+    to control the lifecycle.
+    """
+    return DownloadManager(
+        client=aio_client,
+        tracker=tracker,
+        logger=mock_logger,
+    )
 
 
 # ============================================================================

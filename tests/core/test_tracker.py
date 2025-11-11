@@ -422,6 +422,20 @@ class TestDownloadTrackerThreadSafety:
 class TestDownloadTrackerEventSubscription:
     """Test event subscription methods."""
 
+    def test_tracker_accepts_emitter_in_constructor(self, mock_logger, mocker):
+        """Test that tracker can be initialized with a custom emitter."""
+        mock_emitter = mocker.Mock()
+        tracker = DownloadTracker(logger=mock_logger, emitter=mock_emitter)
+
+        assert tracker._emitter is mock_emitter
+
+    def test_tracker_creates_default_emitter_if_none_provided(self, mock_logger):
+        """Test that tracker creates default emitter if none provided."""
+        tracker = DownloadTracker(logger=mock_logger)
+
+        assert hasattr(tracker, "_emitter")
+        assert tracker._emitter is not None
+
     def test_on_registers_handler_for_event_type(self, tracker: DownloadTracker):
         """Test that on() registers a handler for an event type."""
         handler_called = []
@@ -429,11 +443,11 @@ class TestDownloadTrackerEventSubscription:
         def handler(event):
             handler_called.append(event)
 
-        tracker.on("queued", handler)
+        tracker.on("tracker.queued", handler)
 
         # Handler is registered (we'll test emission in next test class)
-        assert "queued" in tracker._event_handlers
-        assert handler in tracker._event_handlers["queued"]
+        assert "tracker.queued" in tracker._emitter._handlers
+        assert handler in tracker._emitter._handlers["tracker.queued"]
 
     def test_multiple_handlers_can_subscribe_to_same_event(
         self, tracker: DownloadTracker
@@ -446,12 +460,12 @@ class TestDownloadTrackerEventSubscription:
         def handler2(event):
             pass
 
-        tracker.on("started", handler1)
-        tracker.on("started", handler2)
+        tracker.on("tracker.started", handler1)
+        tracker.on("tracker.started", handler2)
 
-        assert len(tracker._event_handlers["started"]) == 2
-        assert handler1 in tracker._event_handlers["started"]
-        assert handler2 in tracker._event_handlers["started"]
+        assert len(tracker._emitter._handlers["tracker.started"]) == 2
+        assert handler1 in tracker._emitter._handlers["tracker.started"]
+        assert handler2 in tracker._emitter._handlers["tracker.started"]
 
     def test_off_removes_handler(self, tracker: DownloadTracker):
         """Test that off() removes a handler."""
@@ -459,10 +473,10 @@ class TestDownloadTrackerEventSubscription:
         def handler(event):
             pass
 
-        tracker.on("progress", handler)
-        tracker.off("progress", handler)
+        tracker.on("tracker.progress", handler)
+        tracker.off("tracker.progress", handler)
 
-        assert handler not in tracker._event_handlers.get("progress", [])
+        assert handler not in tracker._emitter._handlers.get("tracker.progress", [])
 
     def test_off_handles_removing_non_existent_handler_gracefully(
         self, tracker: DownloadTracker
@@ -473,10 +487,10 @@ class TestDownloadTrackerEventSubscription:
             pass
 
         # Should not raise an error
-        tracker.off("completed", handler)
+        tracker.off("tracker.completed", handler)
 
-        # check that a warning is logged
-        warning_msg = f"Handler {handler} not found for event type completed"
+        # check that a warning is logged (message format changed in EventEmitter)
+        warning_msg = f"Handler {handler} not found for event tracker.completed"
         tracker._logger.warning.assert_called_once_with(warning_msg)
 
     def test_wildcard_handler_registration(self, tracker: DownloadTracker):
@@ -487,8 +501,8 @@ class TestDownloadTrackerEventSubscription:
 
         tracker.on("*", handler)
 
-        assert "*" in tracker._event_handlers
-        assert handler in tracker._event_handlers["*"]
+        assert "*" in tracker._emitter._handlers
+        assert handler in tracker._emitter._handlers["*"]
 
 
 class TestDownloadTrackerEventEmission:
@@ -502,7 +516,7 @@ class TestDownloadTrackerEventEmission:
         def handler(event):
             events_received.append(event)
 
-        tracker.on("queued", handler)
+        tracker.on("tracker.queued", handler)
 
         await tracker.track_queued("https://example.com/file.txt")
 
@@ -518,7 +532,7 @@ class TestDownloadTrackerEventEmission:
         def handler(event):
             events_received.append(event)
 
-        tracker.on("started", handler)
+        tracker.on("tracker.started", handler)
 
         await tracker.track_started("https://example.com/file.txt", total_bytes=1024)
 
@@ -535,7 +549,7 @@ class TestDownloadTrackerEventEmission:
         def handler(event):
             events_received.append(event)
 
-        tracker.on("progress", handler)
+        tracker.on("tracker.progress", handler)
 
         await tracker.track_progress(
             "https://example.com/file.txt", bytes_downloaded=512, total_bytes=1024
@@ -555,7 +569,7 @@ class TestDownloadTrackerEventEmission:
         def handler(event):
             events_received.append(event)
 
-        tracker.on("completed", handler)
+        tracker.on("tracker.completed", handler)
 
         await tracker.track_completed("https://example.com/file.txt", total_bytes=1024)
 
@@ -572,7 +586,7 @@ class TestDownloadTrackerEventEmission:
         def handler(event):
             events_received.append(event)
 
-        tracker.on("failed", handler)
+        tracker.on("tracker.failed", handler)
 
         error = ValueError("Connection failed")
         await tracker.track_failed("https://example.com/file.txt", error)
@@ -593,7 +607,7 @@ class TestDownloadTrackerEventEmission:
             info = tracker.get_download_info(event.url)
             state_when_handler_called.append(info.status if info else None)
 
-        tracker.on("started", handler)
+        tracker.on("tracker.started", handler)
 
         await tracker.track_started("https://example.com/file.txt")
 
@@ -613,7 +627,7 @@ class TestDownloadTrackerEventPayloads:
 
         events_received = []
 
-        tracker.on("queued", lambda e: events_received.append(e))
+        tracker.on("tracker.queued", lambda e: events_received.append(e))
 
         await tracker.track_queued("https://example.com/file.txt", priority=5)
 
@@ -627,7 +641,7 @@ class TestDownloadTrackerEventPayloads:
 
         events_received = []
 
-        tracker.on("progress", lambda e: events_received.append(e))
+        tracker.on("tracker.progress", lambda e: events_received.append(e))
 
         await tracker.track_progress(
             "https://example.com/file.txt", bytes_downloaded=250, total_bytes=1000
@@ -645,7 +659,7 @@ class TestDownloadTrackerEventPayloads:
 
         events_received = []
 
-        tracker.on("completed", lambda e: events_received.append(e))
+        tracker.on("tracker.completed", lambda e: events_received.append(e))
 
         await tracker.track_completed(
             "https://example.com/file.txt",
@@ -661,7 +675,7 @@ class TestDownloadTrackerEventPayloads:
 
         events_received = []
 
-        tracker.on("queued", lambda e: events_received.append(e))
+        tracker.on("tracker.queued", lambda e: events_received.append(e))
 
         before = datetime.now()
         await tracker.track_queued("https://example.com/file.txt")
@@ -683,7 +697,7 @@ class TestDownloadTrackerEventHandlers:
         def sync_handler(event):
             handler_called.append("sync")
 
-        tracker.on("queued", sync_handler)
+        tracker.on("tracker.queued", sync_handler)
 
         await tracker.track_queued("https://example.com/file.txt")
 
@@ -698,7 +712,7 @@ class TestDownloadTrackerEventHandlers:
             await asyncio.sleep(0.001)  # Simulate async work
             handler_called.append("async")
 
-        tracker.on("queued", async_handler)
+        tracker.on("tracker.queued", async_handler)
 
         await tracker.track_queued("https://example.com/file.txt")
 
@@ -709,9 +723,9 @@ class TestDownloadTrackerEventHandlers:
         """Test that all subscribed handlers execute."""
         handlers_called = []
 
-        tracker.on("started", lambda e: handlers_called.append("handler1"))
-        tracker.on("started", lambda e: handlers_called.append("handler2"))
-        tracker.on("started", lambda e: handlers_called.append("handler3"))
+        tracker.on("tracker.started", lambda e: handlers_called.append("handler1"))
+        tracker.on("tracker.started", lambda e: handlers_called.append("handler2"))
+        tracker.on("tracker.started", lambda e: handlers_called.append("handler3"))
 
         await tracker.track_started("https://example.com/file.txt")
 
@@ -729,7 +743,7 @@ class TestDownloadTrackerEventHandlers:
         def bad_handler(event):
             raise ValueError("Handler error")
 
-        tracker.on("queued", bad_handler)
+        tracker.on("tracker.queued", bad_handler)
 
         # Should not raise, tracking should continue
         await tracker.track_queued("https://example.com/file.txt")
@@ -753,8 +767,8 @@ class TestDownloadTrackerEventHandlers:
         def good_handler(event):
             handlers_called.append("good")
 
-        tracker.on("queued", bad_handler)
-        tracker.on("queued", good_handler)
+        tracker.on("tracker.queued", bad_handler)
+        tracker.on("tracker.queued", good_handler)
 
         await tracker.track_queued("https://example.com/file.txt")
 
@@ -774,10 +788,10 @@ class TestDownloadTrackerEventHandlers:
         await tracker.track_progress("https://example.com/file.txt", 100)
         await tracker.track_completed("https://example.com/file.txt", 100)
 
-        assert "queued" in events_received
-        assert "started" in events_received
-        assert "progress" in events_received
-        assert "completed" in events_received
+        assert "tracker.queued" in events_received
+        assert "tracker.started" in events_received
+        assert "tracker.progress" in events_received
+        assert "tracker.completed" in events_received
 
     @pytest.mark.asyncio
     async def test_specific_and_wildcard_handlers_both_fire(
@@ -787,7 +801,7 @@ class TestDownloadTrackerEventHandlers:
         specific_called = []
         wildcard_called = []
 
-        tracker.on("queued", lambda e: specific_called.append(e))
+        tracker.on("tracker.queued", lambda e: specific_called.append(e))
         tracker.on("*", lambda e: wildcard_called.append(e))
 
         await tracker.track_queued("https://example.com/file.txt")
@@ -804,7 +818,7 @@ class TestDownloadTrackerEventHandlers:
         def bad_handler(event):
             raise ValueError("Test exception in handler")
 
-        tracker.on("queued", bad_handler)
+        tracker.on("tracker.queued", bad_handler)
 
         # Should not raise
         await tracker.track_queued("https://example.com/file.txt")
@@ -812,7 +826,7 @@ class TestDownloadTrackerEventHandlers:
         # Logger.exception should have been called
         tracker._logger.exception.assert_called_once()
         call_args = tracker._logger.exception.call_args[0][0]
-        assert "queued" in call_args
+        assert "tracker.queued" in call_args
         assert "Error in event handler" in call_args
 
     @pytest.mark.asyncio
@@ -837,7 +851,7 @@ class TestDownloadTrackerEventHandlers:
         def bad_handler(event):
             raise ValueError("Test exception")
 
-        tracker.on("queued", bad_handler)
+        tracker.on("tracker.queued", bad_handler)
 
         # Should not raise even though handler fails
         await tracker.track_queued("https://example.com/file.txt")
@@ -856,7 +870,7 @@ class TestDownloadTrackerEventHandlers:
         async def bad_async_handler(event):
             raise ValueError("Test exception in async handler")
 
-        tracker.on("queued", bad_async_handler)
+        tracker.on("tracker.queued", bad_async_handler)
 
         # Should not raise
         await tracker.track_queued("https://example.com/file.txt")
@@ -873,8 +887,8 @@ class TestDownloadTrackerEventHandlers:
         # Verify error() was called on the returned opt() object
         tracker._logger.opt.return_value.error.assert_called_once()
         error_message = tracker._logger.opt.return_value.error.call_args[0][0]
-        assert "async event handler" in error_message
-        assert "queued" in error_message
+        assert "async handler" in error_message
+        assert "tracker.queued" in error_message
 
     @pytest.mark.asyncio
     async def test_mixed_sync_async_handler_exceptions_all_logged(
@@ -888,8 +902,8 @@ class TestDownloadTrackerEventHandlers:
         async def bad_async_handler(event):
             raise RuntimeError("Async handler error")
 
-        tracker.on("queued", bad_sync_handler)
-        tracker.on("queued", bad_async_handler)
+        tracker.on("tracker.queued", bad_sync_handler)
+        tracker.on("tracker.queued", bad_async_handler)
 
         # Should not raise
         await tracker.track_queued("https://example.com/file.txt")
