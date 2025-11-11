@@ -826,7 +826,8 @@ class TestDownloadTrackerEventHandlers:
     async def test_handler_exception_does_not_break_state_tracking(
         self, tracker: DownloadTracker
     ):
-        """Test that handler exceptions don't prevent state updates with default logger."""
+        """Test that handler exceptions don't prevent state updates with
+        default logger."""
         # Should not raise - uses default logger
 
         def bad_handler(event):
