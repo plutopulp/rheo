@@ -3,23 +3,13 @@
 import asyncio
 
 import pytest
-import pytest_asyncio
 from aiohttp import ClientSession
 
 from async_download_manager.domain.downloads import FileConfig
 from async_download_manager.downloads import (
-    DownloadManager,
     DownloadWorker,
     PriorityDownloadQueue,
 )
-
-
-@pytest_asyncio.fixture
-async def aio_client():
-    """Provide a real aiohttp ClientSession for integration testing."""
-    session = ClientSession()
-    yield session
-    await session.close()
 
 
 @pytest.fixture
@@ -72,16 +62,6 @@ def mock_manager_dependencies(mock_aio_client, mock_worker, mock_queue):
         "worker": mock_worker,
         "queue": mock_queue,
     }
-
-
-@pytest.fixture
-def manager_with_tracker(aio_client, tracker, mock_logger):
-    """Provide a DownloadManager with tracker wired for integration testing."""
-    return DownloadManager(
-        client=aio_client,
-        tracker=tracker,
-        logger=mock_logger,
-    )
 
 
 @pytest.fixture
