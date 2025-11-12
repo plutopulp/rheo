@@ -41,7 +41,6 @@ jobs:
 
       - name: Run type checking (mypy)
         run: poetry run mypy src
-        continue-on-error: true
 
   test:
     name: Test (Python ${{ matrix.python-version }})

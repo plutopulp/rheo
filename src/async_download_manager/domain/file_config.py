@@ -199,11 +199,11 @@ class FileConfig:
     # TODO: Implement retry logic in manager or worker
     max_retries: int = 0
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Validate configuration after initialization."""
         self._validate_url()
 
-    def _validate_url(self):
+    def _validate_url(self) -> None:
         """Validate URL format and protocol.
 
         Raises:
