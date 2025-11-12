@@ -7,37 +7,84 @@ on:
     branches: [main]
 
 jobs:
-  test:
+  lint:
+    name: Lint & Format
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.13"]
-
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
+      - name: Setup Python and Poetry
+        uses: ./.github/actions/setup-python-poetry
         with:
-          python-version: ${{ matrix.python-version }}
-
-      - name: Install Poetry
-        run: |
-          curl -sSL https://install.python-poetry.org | python3 -
-          # Ensure that poetry is in PATH
-          echo "${HOME}/.local/bin" >> $GITHUB_PATH
-
-      - name: Install dependencies with Poetry
-        run: poetry install
+          python-version: "3.14"
 
       - name: Run formatting checks (isort and black)
         run: |
-          poetry run isort --check-only .
-          poetry run black --check .
+          poetry run isort --check-only src tests
+          poetry run black --check src tests
 
       - name: Run linting (flake8)
-        run: poetry run flake8
+        run: poetry run flake8 src tests
 
-      - name: Run tests
-        run: poetry run pytest
+  type-check:
+    name: Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python and Poetry
+        uses: ./.github/actions/setup-python-poetry
+        with:
+          python-version: "3.14"
+
+      - name: Run type checking (mypy)
+        run: poetry run mypy src
+        continue-on-error: true
+
+  test:
+    name: Test (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.12", "3.13", "3.14"]
+      fail-fast: false
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python and Poetry
+        uses: ./.github/actions/setup-python-poetry
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Run tests with coverage
+        run: |
+          poetry run pytest tests \
+            --cov=src/async_download_manager \
+            --cov-report=xml \
+            --cov-report=term-missing \
+            --cov-report=html \
+            --junitxml=junit.xml \
+            -v
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        if: matrix.python-version == '3.14'
+        continue-on-error: true
+        with:
+          file: ./coverage.xml
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always() && matrix.python-version == '3.14'
+        with:
+          name: test-results-${{ matrix.python-version }}
+          path: |
+            junit.xml
+            htmlcov/
+          retention-days: 30
