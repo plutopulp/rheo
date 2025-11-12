@@ -5,6 +5,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlparse
 
+from .exceptions import ValidationError
+
 # Reserved Windows filenames that need special handling
 _WINDOWS_RESERVED_NAMES = {
     "CON",
@@ -196,6 +198,27 @@ class FileConfig:
     timeout: float | None = None
     # TODO: Implement retry logic in manager or worker
     max_retries: int = 0
+
+    def __post_init__(self):
+        """Validate configuration after initialization."""
+        self._validate_url()
+
+    def _validate_url(self):
+        """Validate URL format and protocol.
+
+        Raises:
+            ValidationError: If URL is empty, missing components, or uses
+            unsupported protocol
+        """
+        # Check for empty or whitespace-only URL
+        if not self.url or not self.url.strip():
+            raise ValidationError("Invalid URL: URL cannot be empty")
+
+        parsed = urlparse(self.url)
+
+        # Check for valid scheme and netloc
+        if not all([parsed.scheme in ("http", "https"), parsed.netloc]):
+            raise ValidationError(f"Invalid URL: {self.url}")
 
     def get_destination_filename(self) -> str:
         """Get the destination filename for this download.

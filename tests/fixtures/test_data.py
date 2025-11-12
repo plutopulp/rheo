@@ -44,7 +44,7 @@ TEST_FILES: dict[str, FileConfig] = {
     "medium_image": FileConfig(
         url=(
             "https://file-examples.com/wp-content/storage/2017/10/"
-            "file_example_PNG_1MB.png",
+            "file_example_PNG_1MB.png"
         ),
         size_bytes=1_000_000,
         size_human="1 MB",
@@ -55,7 +55,7 @@ TEST_FILES: dict[str, FileConfig] = {
     "medium_audio": FileConfig(
         url=(
             "https://file-examples.com/wp-content/uploads/2017/11/"
-            "file_example_MP3_5MG.mp3",
+            "file_example_MP3_5MG.mp3"
         ),
         size_bytes=5_000_000,
         size_human="5 MB",

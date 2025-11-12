@@ -4,7 +4,67 @@ from pathlib import Path
 
 import pytest
 
+from async_download_manager.domain.exceptions import ValidationError
 from async_download_manager.domain.file_config import FileConfig
+
+
+class TestFileConfigURLValidation:
+    """Test URL validation in FileConfig initialization."""
+
+    def test_valid_http_url(self):
+        """Test that valid HTTP URL is accepted."""
+        config = FileConfig(url="http://example.com/file.txt")
+        assert config.url == "http://example.com/file.txt"
+
+    def test_valid_https_url(self):
+        """Test that valid HTTPS URL is accepted."""
+        config = FileConfig(url="https://example.com/file.txt")
+        assert config.url == "https://example.com/file.txt"
+
+    def test_url_with_port(self):
+        """Test that URL with port is accepted."""
+        config = FileConfig(url="https://example.com:8080/file.txt")
+        assert config.url == "https://example.com:8080/file.txt"
+
+    def test_url_with_query_params(self):
+        """Test that URL with query parameters is accepted."""
+        config = FileConfig(url="https://example.com/file.txt?param=value")
+        assert config.url == "https://example.com/file.txt?param=value"
+
+    def test_empty_url_raises_error(self):
+        """Test that empty URL raises ValidationError."""
+        with pytest.raises(ValidationError, match="Invalid URL"):
+            FileConfig(url="")
+
+    def test_whitespace_only_url_raises_error(self):
+        """Test that whitespace-only URL raises ValidationError."""
+        with pytest.raises(ValidationError, match="Invalid URL"):
+            FileConfig(url="   ")
+
+    def test_url_without_scheme_raises_error(self):
+        """Test that URL without protocol scheme raises ValidationError."""
+        with pytest.raises(ValidationError, match="Invalid URL"):
+            FileConfig(url="example.com/file.txt")
+
+    def test_url_without_netloc_raises_error(self):
+        """Test that URL without domain/netloc raises ValidationError."""
+        with pytest.raises(ValidationError, match="Invalid URL"):
+            FileConfig(url="https:///file.txt")
+
+    def test_unsupported_protocol_raises_error(self):
+        """Test that unsupported protocol raises ValidationError."""
+        with pytest.raises(ValidationError, match="Invalid URL"):
+            FileConfig(url="ftp://example.com/file.txt")
+
+    def test_file_protocol_raises_error(self):
+        """Test that file:// protocol raises ValidationError."""
+        with pytest.raises(ValidationError, match="Invalid URL"):
+            FileConfig(url="file:///path/to/file.txt")
+
+    def test_javascript_protocol_raises_error(self):
+        """Test that javascript: protocol raises ValidationError."""
+        with pytest.raises(ValidationError, match="Invalid URL"):
+            FileConfig(url="javascript:alert('xss')")
 
 
 class TestFileConfigBasicFilenameGeneration:

@@ -7,6 +7,7 @@ from .exceptions import (
     ManagerNotInitializedError,
     ProcessQueueError,
     QueueError,
+    ValidationError,
     WorkerError,
 )
 from .file_config import FileConfig
@@ -23,5 +24,6 @@ __all__ = [
     "ManagerNotInitializedError",
     "ProcessQueueError",
     "QueueError",
+    "ValidationError",
     "WorkerError",
 ]
