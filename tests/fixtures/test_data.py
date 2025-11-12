@@ -4,7 +4,7 @@ Categories: small (<1MB), medium (1-10MB), large (10-100MB), xl (>100MB)
 Special cases: slow_drip, chunked_data, delayed_response, likely_to_fail
 """
 
-from async_download_manager.domain.downloads import FileConfig
+from async_download_manager.domain.file_config import FileConfig
 
 TEST_FILES: dict[str, FileConfig] = {
     # Small files (< 1MB) - Quick downloads for basic testing

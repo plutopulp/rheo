@@ -3,13 +3,12 @@ import os
 
 from aiohttp import ClientSession
 
-from async_download_manager.domain.downloads import FileConfig
+from async_download_manager.domain.file_config import FileConfig
 
 from .app import create_app
 from .config.settings import Environment, Settings
 from .downloads import DownloadWorker
 from .infrastructure.logging import get_logger
-from .utils.filename import generate_filename
 
 FILE_CONFIG = FileConfig(
     url="https://raw.githubusercontent.com/nodejs/node/master/README.md",
@@ -34,8 +33,10 @@ async def main():
     logger.info("Application bootstrapped successfully")
     logger.info(settings)
     os.makedirs(app.settings.download_dir, exist_ok=True)
-    filename = generate_filename(FILE_CONFIG.url)
-    file_path = app.settings.download_dir / f"{filename}"
+
+    # FileConfig knows how to generate its destination path
+    file_path = FILE_CONFIG.get_destination_path(app.settings.download_dir)
+
     async with ClientSession() as client:
         worker = DownloadWorker(client, logger)
         await worker.download(FILE_CONFIG.url, file_path)

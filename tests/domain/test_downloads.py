@@ -2,11 +2,8 @@
 
 import pytest
 
-from async_download_manager.domain.downloads import (
-    DownloadInfo,
-    DownloadStatus,
-    FileConfig,
-)
+from async_download_manager.domain.downloads import DownloadInfo, DownloadStatus
+from async_download_manager.domain.file_config import FileConfig
 
 
 @pytest.fixture
