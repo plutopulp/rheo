@@ -10,10 +10,8 @@ from pathlib import Path
 
 import aiohttp
 
-from async_download_manager.utils.filename import generate_filename
-
-from ..domain.downloads import FileConfig
 from ..domain.exceptions import ManagerNotInitializedError, ProcessQueueError
+from ..domain.file_config import FileConfig
 from ..events import WorkerEvent
 from ..infrastructure.logging import get_logger
 from ..tracking.base import BaseTracker
@@ -210,10 +208,10 @@ class DownloadManager:
             try:
                 file_config = await self.queue.get_next()
                 got_item = True
-                # Generate a filename for the file.
-                # Consider moving this to the file config.
-                filename = generate_filename(file_config.url)
-                destination_path = self.download_dir / filename
+
+                # FileConfig generates destination path and creates directories if needed
+                destination_path = file_config.get_destination_path(self.download_dir)
+
                 self._logger.info(
                     f"Downloading {file_config.url} to {destination_path}"
                 )

@@ -39,3 +39,13 @@ class ProcessQueueError(QueueError):
     """Exception for errors in processing the queue."""
 
     pass
+
+
+class ValidationError(DownloadManagerError):
+    """Raised when configuration or input validation fails.
+
+    This exception is raised when validating FileConfig or other
+    configuration objects with invalid data.
+    """
+
+    pass

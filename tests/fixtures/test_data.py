@@ -4,7 +4,7 @@ Categories: small (<1MB), medium (1-10MB), large (10-100MB), xl (>100MB)
 Special cases: slow_drip, chunked_data, delayed_response, likely_to_fail
 """
 
-from async_download_manager.domain.downloads import FileConfig
+from async_download_manager.domain.file_config import FileConfig
 
 TEST_FILES: dict[str, FileConfig] = {
     # Small files (< 1MB) - Quick downloads for basic testing
@@ -44,7 +44,7 @@ TEST_FILES: dict[str, FileConfig] = {
     "medium_image": FileConfig(
         url=(
             "https://file-examples.com/wp-content/storage/2017/10/"
-            "file_example_PNG_1MB.png",
+            "file_example_PNG_1MB.png"
         ),
         size_bytes=1_000_000,
         size_human="1 MB",
@@ -55,7 +55,7 @@ TEST_FILES: dict[str, FileConfig] = {
     "medium_audio": FileConfig(
         url=(
             "https://file-examples.com/wp-content/uploads/2017/11/"
-            "file_example_MP3_5MG.mp3",
+            "file_example_MP3_5MG.mp3"
         ),
         size_bytes=5_000_000,
         size_human="5 MB",

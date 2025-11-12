@@ -1,14 +1,16 @@
 """Domain layer - core business models and exceptions."""
 
-from .downloads import DownloadInfo, DownloadStats, DownloadStatus, FileConfig
+from .downloads import DownloadInfo, DownloadStats, DownloadStatus
 from .exceptions import (
     DownloadError,
     DownloadManagerError,
     ManagerNotInitializedError,
     ProcessQueueError,
     QueueError,
+    ValidationError,
     WorkerError,
 )
+from .file_config import FileConfig
 
 __all__ = [
     # Download Models
@@ -22,5 +24,6 @@ __all__ = [
     "ManagerNotInitializedError",
     "ProcessQueueError",
     "QueueError",
+    "ValidationError",
     "WorkerError",
 ]

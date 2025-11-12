@@ -8,7 +8,7 @@ import asyncio
 import typing as t
 from typing import TYPE_CHECKING
 
-from ..domain.downloads import FileConfig
+from ..domain.file_config import FileConfig
 from ..infrastructure.logging import get_logger
 
 if TYPE_CHECKING:

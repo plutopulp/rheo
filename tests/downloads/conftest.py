@@ -5,7 +5,7 @@ import asyncio
 import pytest
 from aiohttp import ClientSession
 
-from async_download_manager.domain.downloads import FileConfig
+from async_download_manager.domain.file_config import FileConfig
 from async_download_manager.downloads import (
     DownloadWorker,
     PriorityDownloadQueue,
