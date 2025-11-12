@@ -10,7 +10,7 @@ from pathlib import Path
 
 import aiohttp
 
-from ..domain.exceptions import ManagerNotInitializedError, ProcessQueueError
+from ..domain.exceptions import ManagerNotInitializedError
 from ..domain.file_config import FileConfig
 from ..events import WorkerEvent
 from ..infrastructure.logging import get_logger
@@ -94,7 +94,7 @@ class DownloadManager:
         self._worker = worker
         self._logger = logger
         self._tracker = tracker
-        self.queue = queue or PriorityDownloadQueue(logger)
+        self.queue = queue or PriorityDownloadQueue(logger=logger)
         self.timeout = timeout
         self.max_workers = max_workers
         self._tasks = []  # Future: task management
@@ -220,10 +220,9 @@ class DownloadManager:
             except Exception as e:
                 # file_config may not be defined if error getting from queue.
                 url = file_config.url if file_config else "unknown"
-                self._logger.exception(f"Failed to process queue for file config {url}")
-                raise ProcessQueueError(
-                    f"Failed to process queue for file config {url}"
-                ) from e
+                self._logger.error(f"Failed to download {url}: {type(e).__name__}: {e}")
+                # Continue processing other items instead of crashing
+                # Error details are already logged by the worker
             finally:
                 # Only call task_done if we actually got an item
                 if got_item:
