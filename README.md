@@ -1,0 +1,236 @@
+# Async Download Manager
+
+Concurrent HTTP download manager with priority queues, progress tracking, and event-driven architecture.
+
+## What It Is
+
+A Python library for managing multiple asynchronous HTTP downloads. It handles concurrency, tracks state, emits events, and lets you monitor progress. Built on `asyncio` and `aiohttp`.
+
+Think of it as a smart download queue with worker pools, where you can:
+
+- Download multiple files simultaneously
+- Prioritise certain downloads
+- Track progress and state
+- React to download events
+- Handle errors gracefully
+
+## Quick Start
+
+```python
+import asyncio
+from pathlib import Path
+from async_download_manager import DownloadManager
+from async_download_manager.domain import FileConfig
+
+async def main():
+    files = [
+        FileConfig(url="https://example.com/file1.zip", priority=1),
+        FileConfig(url="https://example.com/file2.pdf", priority=2),
+    ]
+
+    async with DownloadManager(download_dir=Path("./downloads"), max_workers=3) as manager:
+        await manager.add_to_queue(files)
+        await manager.queue.join()
+
+    print("All downloads complete!")
+
+asyncio.run(main())
+```
+
+That's it. The manager handles worker pools, state tracking, and cleanup automatically.
+
+## Features
+
+- **Concurrent downloads**: Worker pool manages multiple downloads simultaneously
+- **Priority queue**: Download urgent files first
+- **Event system**: React to download lifecycle events (started, progress, completed, failed)
+- **Progress tracking**: Track bytes downloaded, completion status, errors
+- **Async/await**: Built on asyncio for efficient I/O
+- **Type hints**: Full type annotations throughout
+- **Dependency injection**: Easy to test and customise
+- **Resource management**: Automatic cleanup via context managers
+- **Error handling**: Custom exceptions, detailed error tracking
+
+## Installation
+
+```bash
+pip install async-download-manager
+```
+
+Or with Poetry:
+
+```bash
+poetry add async-download-manager
+```
+
+## Usage Examples
+
+### Basic Download
+
+```python
+from async_download_manager import DownloadManager
+from async_download_manager.domain import FileConfig
+
+async with DownloadManager(download_dir=Path("./downloads")) as manager:
+    await manager.add_to_queue([
+        FileConfig(url="https://example.com/file.zip")
+    ])
+    await manager.queue.join()
+```
+
+### Priority Downloads
+
+```python
+files = [
+    FileConfig(url="https://example.com/urgent.zip", priority=1),
+    FileConfig(url="https://example.com/normal.pdf", priority=5),
+    FileConfig(url="https://example.com/low.txt", priority=10),
+]
+
+async with DownloadManager(download_dir=Path("./downloads"), max_workers=3) as manager:
+    await manager.add_to_queue(files)
+    await manager.queue.join()
+```
+
+Higher priority number = downloaded first.
+
+### Custom Filenames and Subdirectories
+
+```python
+files = [
+    FileConfig(
+        url="https://example.com/document.pdf",
+        filename="report-2023.pdf",
+        destination_subdir="reports"
+    ),
+    FileConfig(
+        url="https://example.com/data.json",
+        destination_subdir="data/raw"
+    ),
+]
+```
+
+### Track Progress
+
+```python
+from async_download_manager.tracking import DownloadTracker
+
+tracker = DownloadTracker()
+
+async with DownloadManager(
+    download_dir=Path("./downloads"),
+    tracker=tracker,
+) as manager:
+    await manager.add_to_queue(files)
+    await manager.queue.join()
+
+# Check results
+for url, info in tracker.get_all_downloads().items():
+    print(f"{url}: {info.status} - {info.bytes_downloaded} bytes")
+
+stats = tracker.get_stats()
+print(f"Completed: {stats.completed}, Failed: {stats.failed}")
+```
+
+### React to Events
+
+```python
+from async_download_manager.events import ChunkDownloaded
+
+async def on_progress(event: ChunkDownloaded):
+    print(f"Downloaded {event.bytes_downloaded} bytes from {event.url}")
+
+async with DownloadManager(download_dir=Path("./downloads")) as manager:
+    manager.worker.emitter.on("worker.chunk_downloaded", on_progress)
+    await manager.add_to_queue(files)
+    await manager.queue.join()
+```
+
+### Error Handling
+
+```python
+files = [
+    FileConfig(url="https://invalid-domain.com/file.zip"),
+    FileConfig(url="https://example.com/real.zip"),
+]
+
+async with DownloadManager(download_dir=Path("./downloads"), tracker=tracker) as manager:
+    await manager.add_to_queue(files)
+    await manager.queue.join()
+
+# Check which failed
+for url, info in tracker.get_all_downloads().items():
+    if info.status == DownloadStatus.FAILED:
+        print(f"Failed: {url} - {info.error}")
+```
+
+## Project Status
+
+**Alpha/Early Development**: The core library works, but we're still adding features. API might change before 1.0.
+
+Current focus:
+
+- Retry logic with exponential backoff
+- Download resume support (HTTP Range requests)
+- CLI interface
+
+See `docs/ROADMAP.md` for details.
+
+## Development
+
+### Setup
+
+```bash
+git clone https://github.com/yourusername/async-downloader.git
+cd async-downloader
+poetry install
+```
+
+### Run Tests
+
+```bash
+poetry run pytest
+```
+
+### Run Demo
+
+```bash
+poetry run python -m src.async_download_manager.main
+```
+
+## Architecture
+
+The library is organised into bounded contexts:
+
+- **Domain**: Core models (`FileConfig`, `DownloadInfo`, `DownloadStatus`)
+- **Downloads**: Queue, manager, and worker implementations
+- **Events**: Event system and typed event models
+- **Tracking**: State tracking and statistics
+- **Infrastructure**: Logging, HTTP client setup
+
+See `docs/ARCHITECTURE.md` for detailed design decisions.
+
+## Contributing
+
+Contributions are welcome! Please:
+
+1. Check `docs/ROADMAP.md` to see what we're working on
+2. Open an issue to discuss before major changes
+3. Write tests for new features
+4. Follow existing code style
+5. Update docs if needed
+
+## Licence
+
+MIT Licence - see LICENSE file for details.
+
+## Links
+
+- Documentation: `docs/`
+- Roadmap: `docs/ROADMAP.md`
+- Ideas: `docs/IDEAS.md`
+- Architecture: `docs/ARCHITECTURE.md`
+
+## Questions?
+
+Open an issue on GitHub or check the docs. The code is structured to be readable - when in doubt, look at the tests for usage examples.
