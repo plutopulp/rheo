@@ -1,6 +1,6 @@
+from async_download_manager.app import App, create_app
 from async_download_manager.config.settings import Environment, Settings
-from async_download_manager.core.app import App, create_app
-from async_download_manager.core.logger import is_configured
+from async_download_manager.infrastructure.logging import get_logger, is_configured
 
 
 def test_create_app_uses_default_settings():
@@ -31,3 +31,18 @@ def test_test_app_fixture_usage(test_app):
     assert isinstance(test_app, App)
     assert test_app.settings.environment == Environment.TESTING
     assert is_configured() is True
+
+
+def test_logger_configured_with_test_app(test_app):
+    """Test that logger is properly configured when using test_app fixture."""
+    # Logger should be configured after app creation
+    assert test_app is not None
+    assert is_configured() is True
+
+    # Should be able to get logger without issues
+    logger = get_logger(__name__)
+    assert logger is not None
+
+    # Should handle log calls without errors (critical level in tests)
+    logger.critical("Test critical message - should appear")
+    logger.info("Test info message - should be filtered out")
