@@ -1,10 +1,15 @@
 """Pytest configuration and fixtures for async-download-manager tests."""
 
+import loguru
 import pytest
+import pytest_asyncio
+from aiohttp import ClientSession
 
 from async_download_manager.app import create_app
 from async_download_manager.config.settings import Environment, Settings
+from async_download_manager.downloads import DownloadManager
 from async_download_manager.infrastructure.logging import reset_logging
+from async_download_manager.tracking import DownloadTracker
 
 
 @pytest.fixture
@@ -27,6 +32,13 @@ def test_app(test_settings):
     reset_logging()
 
 
+@pytest.fixture
+def mock_logger(mocker):
+    """Provide a mock logger for testing that captures log calls."""
+    logger = mocker.Mock(spec=loguru.logger)
+    return logger
+
+
 @pytest.fixture(autouse=True)
 def clean_logging_state():
     """Automatically reset logging before each test for isolation."""
@@ -34,3 +46,27 @@ def clean_logging_state():
     yield
     # Cleanup after test (optional, but good practice)
     reset_logging()
+
+
+@pytest_asyncio.fixture
+async def aio_client():
+    """Provide a real aiohttp ClientSession for integration testing."""
+    session = ClientSession()
+    yield session
+    await session.close()
+
+
+@pytest.fixture
+def tracker(mock_logger):
+    """Provide a DownloadTracker with mocked logger for testing."""
+    return DownloadTracker(logger=mock_logger)
+
+
+@pytest.fixture
+def manager_with_tracker(aio_client, tracker, mock_logger):
+    """Provide a DownloadManager with tracker wired for integration testing."""
+    return DownloadManager(
+        client=aio_client,
+        tracker=tracker,
+        logger=mock_logger,
+    )

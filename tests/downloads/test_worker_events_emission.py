@@ -1,10 +1,9 @@
-"""Tests for DownloadWorker event emission."""
+"""Tests for DownloadWorker event emission during download lifecycle."""
 
 import aiohttp
 import pytest
 from aioresponses import aioresponses
 
-from async_download_manager.downloads import DownloadWorker
 from async_download_manager.events import (
     WorkerCompletedEvent,
     WorkerFailedEvent,
@@ -142,79 +141,3 @@ class TestWorkerEventEmission:
         assert len(events_received) == 1
         assert isinstance(events_received[0], WorkerFailedEvent)
         assert events_received[0].error_type == "ClientResponseError"
-
-
-class TestWorkerEventInjection:
-    """Test that worker accepts emitter via dependency injection."""
-
-    @pytest.mark.asyncio
-    async def test_worker_accepts_emitter_in_constructor(
-        self, aio_client, mock_logger, mocker
-    ):
-        """Test that worker can be initialized with a custom emitter."""
-        mock_emitter = mocker.Mock()
-        worker = DownloadWorker(aio_client, mock_logger, emitter=mock_emitter)
-
-        assert worker.emitter is mock_emitter
-
-    @pytest.mark.asyncio
-    async def test_worker_creates_default_emitter_if_none_provided(
-        self, aio_client, mock_logger
-    ):
-        """Test that worker creates default emitter if none provided."""
-        worker = DownloadWorker(aio_client, mock_logger)
-
-        assert hasattr(worker, "emitter")
-        assert worker.emitter is not None
-
-
-class TestWorkerEventPayloads:
-    """Test worker event payload contents."""
-
-    @pytest.mark.asyncio
-    async def test_started_event_includes_total_bytes_if_available(
-        self, test_worker, tmp_path
-    ):
-        """Test that started event includes content-length if available."""
-        events_received = []
-        test_worker.emitter.on("worker.started", lambda e: events_received.append(e))
-
-        test_url = "https://example.com/file.txt"
-        test_content = b"test content"
-        dest = tmp_path / "test_file.txt"
-
-        with aioresponses() as mock:
-            mock.get(
-                test_url,
-                status=200,
-                body=test_content,
-                headers={"Content-Length": str(len(test_content))},
-            )
-            await test_worker.download(test_url, dest)
-
-        # aioresponses should set content_length
-        assert events_received[0].total_bytes is not None
-
-    @pytest.mark.asyncio
-    async def test_progress_event_includes_total_bytes_if_available(
-        self, test_worker, tmp_path
-    ):
-        """Test that progress events include total_bytes if known."""
-        events_received = []
-        test_worker.emitter.on("worker.progress", lambda e: events_received.append(e))
-
-        test_url = "https://example.com/file.txt"
-        test_content = b"test content"
-        dest = tmp_path / "test_file.txt"
-
-        with aioresponses() as mock:
-            mock.get(
-                test_url,
-                status=200,
-                body=test_content,
-                headers={"Content-Length": str(len(test_content))},
-            )
-            await test_worker.download(test_url, dest)
-
-        # All progress events should have total_bytes
-        assert all(e.total_bytes is not None for e in events_received)

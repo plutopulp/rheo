@@ -1,3 +1,5 @@
+"""Tests for logging infrastructure."""
+
 from async_download_manager.config.settings import Environment, Settings
 from async_download_manager.infrastructure.logging import (
     configure_logger,
