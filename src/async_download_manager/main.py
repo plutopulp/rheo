@@ -3,12 +3,22 @@ import os
 
 from aiohttp import ClientSession
 
+from async_download_manager.domain.downloads import FileConfig
+
 from .app import create_app
 from .config.settings import Environment, Settings
 from .downloads import DownloadWorker
 from .infrastructure.logging import get_logger
-from .test_data import get_file_config
 from .utils.filename import generate_filename
+
+FILE_CONFIG = FileConfig(
+    url="https://raw.githubusercontent.com/nodejs/node/master/README.md",
+    size_bytes=10_000,
+    size_human="10 KB",
+    type="text/markdown",
+    description="Node.js README file",
+    priority=1,
+)
 
 
 async def main():
@@ -22,14 +32,13 @@ async def main():
 
     logger = get_logger(__name__)
     logger.info("Application bootstrapped successfully")
+    logger.info(settings)
     os.makedirs(app.settings.download_dir, exist_ok=True)
-    invalid_download_dir = app.settings.download_dir / "invalid"
-    file_config = get_file_config("small_text")
-    filename = generate_filename(file_config.url)
-    file_path = invalid_download_dir / f"{filename}"
+    filename = generate_filename(FILE_CONFIG.url)
+    file_path = app.settings.download_dir / f"{filename}"
     async with ClientSession() as client:
         worker = DownloadWorker(client, logger)
-        await worker.download(file_config.url, file_path)
+        await worker.download(FILE_CONFIG.url, file_path)
 
     return app
 
