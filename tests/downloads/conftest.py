@@ -7,6 +7,7 @@ from aiohttp import ClientSession
 
 from async_download_manager.domain.file_config import FileConfig
 from async_download_manager.downloads import (
+    DownloadManager,
     DownloadWorker,
     PriorityDownloadQueue,
 )
@@ -94,3 +95,76 @@ def make_file_configs(make_file_config):
         return configs
 
     return _make_file_configs
+
+
+@pytest.fixture
+def make_shutdown_manager(
+    mock_aio_client, mock_worker, real_priority_queue, mock_logger, tmp_path
+):
+    """Factory fixture to create DownloadManager for shutdown tests.
+
+    Returns a factory function that creates managers with customizable max_workers.
+    All managers share the same mocked dependencies from the test.
+    """
+
+    def _create_manager(max_workers: int = 1):
+        return DownloadManager(
+            client=mock_aio_client,
+            worker=mock_worker,
+            queue=real_priority_queue,
+            max_workers=max_workers,
+            download_dir=tmp_path,
+            logger=mock_logger,
+        )
+
+    return _create_manager
+
+
+@pytest.fixture
+def slow_download_mock():
+    """Factory to create mock download functions with timing control.
+
+    Returns a factory that creates async mock functions with:
+    - started: Event that sets when download begins
+    - completed: Event that sets when download finishes
+    - Configurable download_time duration
+    """
+
+    def _create_mock(download_time: float = 0.1):
+        download_started = asyncio.Event()
+        download_completed = asyncio.Event()
+
+        async def mock_download(*args, **kwargs):
+            download_started.set()
+            await asyncio.sleep(download_time)
+            download_completed.set()
+
+        # Attach events for verification
+        mock_download.started = download_started
+        mock_download.completed = download_completed
+        return mock_download
+
+    return _create_mock
+
+
+@pytest.fixture
+def counting_download_mock():
+    """Factory to create mock download functions that count invocations.
+
+    Returns a factory that creates async mock functions with:
+    - count: Dict with 'value' key tracking invocation count
+    - Configurable download_time duration
+    """
+
+    def _create_mock(download_time: float = 0.05):
+        count = {"value": 0}
+
+        async def mock_download(*args, **kwargs):
+            count["value"] += 1
+            await asyncio.sleep(download_time)
+
+        # Attach count for easy access
+        mock_download.count = count
+        return mock_download
+
+    return _create_mock
