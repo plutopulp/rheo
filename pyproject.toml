@@ -11,7 +11,7 @@ readme = "README.md"
 
 
 [tool.poetry.dependencies]
-python = "^3.14"
+python = "^3.12"
 loguru = "^0.7.3"
 aiohttp = "^3.12.15"
 
@@ -33,7 +33,9 @@ adm = "async_download_manager.cli:cli"
 profile = 'black'
 
 [tool.mypy]
-python_version = "3.14"
+# Since project should be compatible with 3.12 or later, 
+# we pin it to 3.12 to avoid using features newer than 3.12
+python_version = "3.12"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
