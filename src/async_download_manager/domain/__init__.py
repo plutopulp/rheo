@@ -7,6 +7,7 @@ from .exceptions import (
     ManagerNotInitializedError,
     ProcessQueueError,
     QueueError,
+    RetryError,
     ValidationError,
     WorkerError,
 )
@@ -29,6 +30,7 @@ __all__ = [
     "ManagerNotInitializedError",
     "ProcessQueueError",
     "QueueError",
+    "RetryError",
     "ValidationError",
     "WorkerError",
 ]

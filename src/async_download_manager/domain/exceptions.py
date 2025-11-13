@@ -49,3 +49,13 @@ class ValidationError(DownloadManagerError):
     """
 
     pass
+
+
+class RetryError(DownloadManagerError):
+    """Raised when retry logic encounters an unexpected state.
+
+    This exception indicates a programming error in the retry handler,
+    such as completing the retry loop without returning or raising.
+    """
+
+    pass
