@@ -9,23 +9,25 @@ from async_download_manager.domain.retry import (
 
 
 @pytest.fixture
-def transient_status_codes():
+def default_transient_status_codes():
     """Transient status codes for testing."""
     return frozenset({408, 429, 500, 502, 503, 504})
 
 
 @pytest.fixture
-def permanent_status_codes():
+def default_permanent_status_codes():
     """Permanent status codes for testing."""
     return frozenset({400, 401, 403, 404, 405, 410})
 
 
 @pytest.fixture
-def retry_policy(transient_status_codes, permanent_status_codes):
+def default_retry_policy(
+    default_transient_status_codes, default_permanent_status_codes
+):
     """Provide a sample RetryPolicy for testing."""
     return RetryPolicy(
-        transient_status_codes=transient_status_codes,
-        permanent_status_codes=permanent_status_codes,
+        transient_status_codes=default_transient_status_codes,
+        permanent_status_codes=default_permanent_status_codes,
         retry_unknown_errors=False,
     )
 
@@ -34,29 +36,34 @@ class TestRetryPolicy:
     """Test retry policy for status code categorisation."""
 
     def test_should_retry_transient_status_codes(
-        self, retry_policy, transient_status_codes
+        self, default_retry_policy, default_transient_status_codes
     ):
         """Transient status codes should retry."""
-        for status_code in transient_status_codes:
-            assert retry_policy.should_retry_status(status_code) is True
+        for status_code in default_transient_status_codes:
+            assert default_retry_policy.should_retry_status(status_code) is True
 
     def test_should_not_retry_permanent_status_codes(
-        self, retry_policy, permanent_status_codes
+        self, default_retry_policy, default_permanent_status_codes
     ):
         """Permanent status codes should not retry."""
-        for status_code in permanent_status_codes:
-            assert retry_policy.should_retry_status(status_code) is False
+        for status_code in default_permanent_status_codes:
+            assert default_retry_policy.should_retry_status(status_code) is False
 
-    def test_unknown_status_respects_policy(self, retry_policy):
+    def test_unknown_status_respects_policy(self, default_retry_policy):
         """Unknown status codes respect retry_unknown_errors setting."""
         # Conservative: don't retry unknown
-        assert retry_policy.should_retry_status(999) is False
+        assert default_retry_policy.should_retry_status(999) is False
 
     def test_custom_transient_codes(self):
         """Can customise transient status codes."""
-        policy = RetryPolicy(transient_status_codes=frozenset({418, 420}))
-        assert policy.should_retry_status(418) is True
-        assert policy.should_retry_status(500) is False  # Not in custom set
+        custom_transient_status_codes = frozenset({418, 420})
+        custom_retry_policy = RetryPolicy(
+            transient_status_codes=custom_transient_status_codes
+        )
+        assert custom_retry_policy.should_retry_status(418) is True
+        assert (
+            custom_retry_policy.should_retry_status(500) is False
+        )  # Not in custom set
 
     def test_custom_permanent_codes(self):
         """Can customise permanent status codes."""
