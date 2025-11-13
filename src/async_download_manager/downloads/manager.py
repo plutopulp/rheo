@@ -12,7 +12,9 @@ import aiohttp
 
 from ..domain.exceptions import ManagerNotInitializedError
 from ..domain.file_config import FileConfig
-from ..events import WorkerEvent
+from ..events import (
+    WorkerEvent,
+)
 from ..infrastructure.logging import get_logger
 from ..tracking.base import BaseTracker
 from .queue import PriorityDownloadQueue
@@ -24,7 +26,8 @@ if t.TYPE_CHECKING:
 
 def _create_event_wiring(
     tracker: BaseTracker,
-) -> dict[str, t.Callable[[WorkerEvent], t.Awaitable[None]]]:
+    # TODO: type this properly
+) -> dict[str, t.Any]:
     """Create event wiring mapping from worker events to tracker methods.
 
     Returns dict mapping event types to async handler functions.
@@ -97,7 +100,7 @@ class DownloadManager:
         self.queue = queue or PriorityDownloadQueue(logger=logger)
         self.timeout = timeout
         self.max_workers = max_workers
-        self._tasks = []  # Future: task management
+        self._tasks: list[asyncio.Task[None]] = []  # Future: task management
         self.download_dir = download_dir
 
     def _wire_worker_events(
@@ -143,7 +146,7 @@ class DownloadManager:
         await self.start_workers()
         return self
 
-    async def __aexit__(self, *args, **kwargs) -> None:
+    async def __aexit__(self, *args: t.Any, **kwargs: t.Any) -> None:
         """Exit the async context manager.
 
         Cleans up resources, particularly the HTTP client if we created it.

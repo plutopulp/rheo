@@ -11,7 +11,7 @@ readme = "README.md"
 
 
 [tool.poetry.dependencies]
-python = "^3.14"
+python = "^3.12"
 loguru = "^0.7.3"
 aiohttp = "^3.12.15"
 
@@ -23,12 +23,38 @@ pytest = "^9.0.1"
 pytest-asyncio = "^1.2.0"
 pytest-mock = "^3.12.0"
 aioresponses = "^0.7.8"
+pytest-cov = "^7.0.0"
+mypy = "^1.11.0"
 
 [tool.poetry.scripts]
 adm = "async_download_manager.cli:cli"
 
 [tool.isort]
 profile = 'black'
+
+[tool.mypy]
+# Since project should be compatible with 3.12 or later, 
+# we pin it to 3.12 to avoid using features newer than 3.12
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_calls = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+show_error_codes = true
+pretty = true
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]

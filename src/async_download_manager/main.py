@@ -4,19 +4,19 @@ from pathlib import Path
 
 from async_download_manager.domain.file_config import FileConfig
 
-from .app import create_app
+from .app import App, create_app
 from .config.settings import Environment, Settings
 from .downloads import DownloadManager
 from .infrastructure.logging import get_logger
 
 # Import test files for demo (dynamic import to avoid test dependency in production)
 try:
-    from tests.fixtures.test_data import TEST_FILES  # type: ignore[import-not-found]
+    from tests.fixtures.test_data import TEST_FILES
 except ImportError:
     TEST_FILES = {}
 
 
-async def main():
+async def main() -> App:
     """Demo script showcasing DownloadManager capabilities.
 
     Demonstrates:

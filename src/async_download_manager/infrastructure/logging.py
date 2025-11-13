@@ -6,11 +6,14 @@ and contextual information including module name, function, and line number.
 """
 
 import sys
+from typing import TYPE_CHECKING
 
 from loguru import logger
 
 from ..config.settings import Environment, Settings
 
+if TYPE_CHECKING:
+    import loguru
 # Remove default logger
 logger.remove()
 
@@ -67,7 +70,7 @@ def setup_logging(settings: Settings | None = None) -> None:
     configure_logger(settings.log_level, settings.environment)
 
 
-def get_logger(name: str):
+def get_logger(name: str) -> "loguru.Logger":
     """Get a logger with the given name.
 
     Auto-configures with defaults if not already configured.
