@@ -6,6 +6,8 @@ from typing import TYPE_CHECKING, Awaitable, Callable, TypeVar
 from ..domain.exceptions import RetryError
 from ..domain.retry import ErrorCategory, RetryConfig
 from ..events import EventEmitter, WorkerRetryEvent
+from ..infrastructure.logging import get_logger
+from .base_retry import BaseRetryHandler
 from .error_categoriser import ErrorCategoriser
 
 if TYPE_CHECKING:
@@ -14,29 +16,34 @@ if TYPE_CHECKING:
 T = TypeVar("T")
 
 
-class RetryHandler:
+class RetryHandler(BaseRetryHandler):
     """Handles retry logic with exponential backoff."""
 
     def __init__(
         self,
         config: RetryConfig,
-        logger: "loguru.Logger",
-        emitter: EventEmitter | None,
-        categoriser: ErrorCategoriser,
+        logger: "loguru.Logger" = get_logger(__name__),
+        emitter: EventEmitter | None = None,
+        categoriser: ErrorCategoriser | None = None,
     ) -> None:
         """
         Initialise retry handler.
 
         Args:
             config: Retry configuration
-            logger: Logger for retry messages
-            emitter: Event emitter for retry events (optional)
-            categoriser: Error categoriser for classifying exceptions
+            logger: Logger for recording retry events
+            emitter: Event emitter for broadcasting retry events.
+                    If None, a new EventEmitter will be created.
+            categoriser: Error categoriser to determine if errors are transient.
+                        If None, a default ErrorCategoriser with the config's
+                        policy will be created.
         """
         self.config = config
         self.logger = logger
-        self.emitter = emitter
-        self.categoriser = categoriser
+        self.emitter = emitter if emitter is not None else EventEmitter(logger)
+        self.categoriser = (
+            categoriser if categoriser is not None else ErrorCategoriser(config.policy)
+        )
 
     async def execute_with_retry(
         self,

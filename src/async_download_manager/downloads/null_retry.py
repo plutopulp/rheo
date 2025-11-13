@@ -1,0 +1,37 @@
+"""Null Object implementation for retry handler."""
+
+from typing import Awaitable, Callable, TypeVar
+
+from .base_retry import BaseRetryHandler
+
+T = TypeVar("T")
+
+
+class NullRetryHandler(BaseRetryHandler):
+    """No-op retry handler that executes operations without retrying.
+
+    This is the default retry handler when no retry logic is desired.
+    It follows the Null Object pattern, allowing the worker to always
+    have a retry handler without needing None checks.
+    """
+
+    async def execute_with_retry(
+        self,
+        operation: Callable[[], Awaitable[T]],
+        url: str,
+        max_retries: int | None = None,
+    ) -> T:
+        """Execute operation directly without retry logic.
+
+        Args:
+            operation: The async callable to execute.
+            url: The URL (ignored by null handler).
+            max_retries: Max retries override (ignored by null handler).
+
+        Returns:
+            The result of the operation.
+
+        Raises:
+            Exception: Any exception raised by the operation.
+        """
+        return await operation()
