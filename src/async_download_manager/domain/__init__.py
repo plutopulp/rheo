@@ -11,6 +11,7 @@ from .exceptions import (
     WorkerError,
 )
 from .file_config import FileConfig
+from .retry import ErrorCategory, RetryConfig, RetryPolicy
 
 __all__ = [
     # Download Models
@@ -18,6 +19,10 @@ __all__ = [
     "DownloadInfo",
     "DownloadStatus",
     "DownloadStats",
+    # Retry Models
+    "ErrorCategory",
+    "RetryConfig",
+    "RetryPolicy",
     # Exceptions
     "DownloadError",
     "DownloadManagerError",
