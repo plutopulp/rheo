@@ -43,7 +43,9 @@ That's it. The manager handles worker pools, state tracking, and cleanup automat
 
 - **Concurrent downloads**: Worker pool manages multiple downloads simultaneously
 - **Priority queue**: Download urgent files first
-- **Event system**: React to download lifecycle events (started, progress, completed, failed)
+- **Retry logic**: Automatic retry with exponential backoff for transient errors
+- **Graceful shutdown**: Stop downloads cleanly or cancel immediately
+- **Event system**: React to download lifecycle events (started, progress, completed, failed, retry)
 - **Progress tracking**: Track bytes downloaded, completion status, errors
 - **Async/await**: Built on asyncio for efficient I/O
 - **Type hints**: Full type annotations throughout
@@ -146,6 +148,45 @@ async with DownloadManager(download_dir=Path("./downloads")) as manager:
     await manager.queue.join()
 ```
 
+### Retry on Transient Errors
+
+Automatic retry with exponential backoff - just provide a config:
+
+```python
+from async_download_manager.domain.retry import RetryConfig
+from async_download_manager.downloads import RetryHandler, DownloadWorker
+
+# Simple: just specify retry config (sensible defaults for everything else)
+config = RetryConfig(max_retries=3, base_delay=1.0, max_delay=60.0)
+retry_handler = RetryHandler(config)
+
+# Create worker with retry support
+async with aiohttp.ClientSession() as session:
+    worker = DownloadWorker(
+        client=session,
+        retry_handler=retry_handler,
+    )
+    # Worker will automatically retry transient errors (500, 503, timeouts, etc.)
+    await worker.download(url, destination_path)
+```
+
+**Advanced**: Customize retry policy for specific status codes:
+
+```python
+from async_download_manager.domain.retry import RetryConfig, RetryPolicy
+from async_download_manager.downloads import RetryHandler, ErrorCategoriser
+
+# Custom policy - treat 404 as transient (normally permanent)
+policy = RetryPolicy(
+    transient_status_codes=frozenset({404, 408, 429, 500, 502, 503, 504}),
+    permanent_status_codes=frozenset({400, 401, 403, 410}),
+)
+config = RetryConfig(max_retries=5, policy=policy)
+retry_handler = RetryHandler(config)
+```
+
+**Note**: `RetryHandler` has sensible defaults - it automatically creates a logger, event emitter, and error categoriser if you don't provide them.
+
 ### Error Handling
 
 ```python
@@ -164,14 +205,53 @@ for url, info in tracker.get_all_downloads().items():
         print(f"Failed: {url} - {info.error}")
 ```
 
+### Graceful Shutdown
+
+Control when and how downloads stop:
+
+```python
+# Graceful shutdown - complete current downloads before stopping
+async with DownloadManager(download_dir=Path("./downloads"), max_workers=3) as manager:
+    await manager.add_to_queue(files)
+
+    # Start processing...
+    await asyncio.sleep(5)
+
+    # Gracefully shut down (waits for current downloads to finish)
+    await manager.shutdown(wait_for_current=True)
+```
+
+**Immediate cancellation** when you need to stop right away:
+
+```python
+# Immediate shutdown - cancel all downloads immediately
+async with DownloadManager(download_dir=Path("./downloads")) as manager:
+    await manager.add_to_queue(large_file_list)
+
+    # Start processing...
+    await asyncio.sleep(2)
+
+    # Stop immediately without waiting
+    await manager.shutdown(wait_for_current=False)
+```
+
+**Note**: The context manager (`async with`) automatically triggers graceful shutdown on exit, so explicit `shutdown()` calls are only needed for early termination.
+
 ## Project Status
 
 **Alpha/Early Development**: The core library works, but we're still adding features. API might change before 1.0.
 
+Recently completed:
+
+- ✅ Retry logic with exponential backoff
+- ✅ Configurable retry policies
+- ✅ Smart error categorization (transient vs permanent)
+- ✅ Graceful shutdown with configurable behavior
+
 Current focus:
 
-- Retry logic with exponential backoff
 - Download resume support (HTTP Range requests)
+- Multi-segment parallel downloads
 - CLI interface
 
 See `docs/ROADMAP.md` for details.

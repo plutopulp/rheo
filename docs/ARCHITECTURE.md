@@ -77,17 +77,19 @@ Key pieces:
 **DownloadManager**:
 
 - Entry point for the library
-- Manages worker pool
+- Manages worker pool with graceful shutdown support
 - Initialises HTTP client
 - Wires events from workers to tracker
 - Context manager for resource cleanup
+- Event-based shutdown mechanism for clean termination
 
 **DownloadWorker**:
 
 - Does the actual HTTP download
 - Chunks data for progress reporting
 - Emits events for lifecycle stages
-- Handles errors (but doesn't retry yet)
+- Handles errors with optional retry logic
+- Uses injected `RetryHandler` for automatic retries
 
 **PriorityDownloadQueue**:
 
@@ -95,7 +97,21 @@ Key pieces:
 - Sorts by priority (lower number = higher priority)
 - Thread-safe via asyncio primitives
 
-**Why this structure**: Separation of concerns. Manager orchestrates, worker executes, queue organises.
+**RetryHandler / ErrorCategoriser**:
+
+- Implements exponential backoff retry logic
+- Categorises errors as transient (retryable) or permanent
+- Uses Python's `match/case` for clean error classification
+- Configurable via `RetryPolicy` and `RetryConfig`
+- Emits retry events for observability
+
+**BaseRetryHandler / NullRetryHandler**:
+
+- Abstract base for retry implementations
+- Null object pattern for no-retry behavior
+- Worker always has a handler (no None checks)
+
+**Why this structure**: Separation of concerns. Manager orchestrates, worker executes, queue organises, retry handler manages failure recovery.
 
 ### Events Layer
 
@@ -111,7 +127,7 @@ Key pieces:
 **Event Models**:
 
 - `WorkerEvent`: Base class with `url` and `timestamp`
-- Specific events: `DownloadStarted`, `ChunkDownloaded`, `DownloadCompleted`, etc.
+- Specific events: `WorkerStartedEvent`, `WorkerProgressEvent`, `WorkerCompletedEvent`, `WorkerFailedEvent`, `WorkerRetryEvent`
 - Self-contained payloads (no external state needed)
 
 **Why events**: Loose coupling. Worker doesn't know tracker exists. Tracker doesn't know worker implementation. Easy to add new observers without modifying existing code.
@@ -189,6 +205,51 @@ Key pieces:
 4. User reads state (status, bytes_downloaded, etc.)
 ```
 
+### Retry Flow
+
+```text
+1. Worker calls retry_handler.execute_with_retry(download_operation, url)
+2. Retry handler executes operation
+3. If operation fails:
+   a. Error categoriser classifies error (transient/permanent/unknown)
+   b. If permanent → raise immediately
+   c. If transient and retries remaining:
+      - Calculate backoff delay (exponential with jitter)
+      - Emit WorkerRetryEvent
+      - Sleep for delay
+      - Retry operation
+   d. If max retries exhausted → raise last exception
+4. If operation succeeds → return result
+```
+
+### Shutdown Flow
+
+The manager uses an event-based shutdown mechanism for clean termination:
+
+```text
+1. User calls manager.shutdown(wait_for_current=True/False)
+2. Manager sets internal _shutdown_event
+3. Worker process_queue loops check event status:
+   a. If shutdown event set → exit loop gracefully
+   b. Queue get_next uses 1-second timeout to periodically check event
+   c. If item retrieved after shutdown → requeue item and exit
+4. If wait_for_current=True:
+   - Manager waits for all workers to complete current downloads
+   - Workers finish naturally and log "Worker shutting down gracefully"
+5. If wait_for_current=False:
+   - Manager immediately cancels all worker tasks
+   - Workers raise CancelledError and stop immediately
+6. Manager clears task list and returns
+```
+
+**Key features**:
+
+- Workers periodically check shutdown event (1-second intervals)
+- No downloads are lost - items are requeued if shutdown during retrieval
+- Graceful shutdown allows current downloads to complete
+- Immediate cancellation available for urgent stops
+- Context manager (`async with`) automatically triggers graceful shutdown on exit
+
 ## Design Patterns
 
 ### Dependency Injection
@@ -209,14 +270,17 @@ DownloadManager(
 
 ### Null Object Pattern
 
-Instead of `if tracker is not None`, we use `NullTracker`:
+Instead of `if tracker is not None`, we use `NullTracker`. Same for retry handlers:
 
 ```python
 tracker = tracker or NullTracker()
 tracker.on_download_started(...)  # Always safe to call
+
+retry_handler = retry_handler or NullRetryHandler()
+await retry_handler.execute_with_retry(...)  # Always safe to call
 ```
 
-**Why**: Cleaner code. No conditionals scattered everywhere.
+**Why**: Cleaner code. No conditionals scattered everywhere. Polymorphism over branching.
 
 ### Context Manager
 
@@ -332,8 +396,9 @@ Simple and effective:
 
 Things we explicitly didn't build (yet):
 
-- No retry logic (planned for Phase 1)
+- ✅ ~~No retry logic~~ - **Implemented with exponential backoff**
 - No resume support (planned for Phase 1)
+- No multi-segment parallel downloads (planned for Phase 1)
 - No persistent storage (planned for Phase 2)
 - No authentication (planned for Phase 2)
 - No distributed coordination (maybe Phase 3)

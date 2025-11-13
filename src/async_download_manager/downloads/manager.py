@@ -100,7 +100,8 @@ class DownloadManager:
         self.queue = queue or PriorityDownloadQueue(logger=logger)
         self.timeout = timeout
         self.max_workers = max_workers
-        self._tasks: list[asyncio.Task[None]] = []  # Future: task management
+        self._tasks: list[asyncio.Task[None]] = []
+        self._shutdown_event = asyncio.Event()
         self.download_dir = download_dir
 
     def _wire_worker_events(
@@ -203,14 +204,54 @@ class DownloadManager:
         """
         await self.queue.add(file_configs)
 
+    async def shutdown(self, wait_for_current: bool = True) -> None:
+        """Initiate graceful shutdown of all workers.
+
+        Args:
+            wait_for_current: If True, wait for current downloads to complete.
+                            If False, cancel immediately via stop_workers().
+        """
+        self._logger.info(f"Initiating shutdown (wait_for_current={wait_for_current})")
+        self._shutdown_event.set()
+
+        if wait_for_current:
+            # Wait for workers to finish current downloads
+            await asyncio.gather(*self._tasks, return_exceptions=True)
+            self._tasks.clear()
+        else:
+            # Cancel immediately
+            await self.stop_workers()
+
     async def process_queue(self) -> None:
-        # TODO: Instead of while True, check for a shutdown event.
-        while True:
+        """Process downloads from queue until shutdown or cancellation.
+
+        Uses event-based shutdown mechanism to allow graceful termination.
+        Workers periodically check the shutdown event and can complete current
+        downloads before exiting.
+        """
+        while not self._shutdown_event.is_set():
             file_config = None
             got_item = False
             try:
-                file_config = await self.queue.get_next()
+                # Use timeout to prevent indefinite blocking on empty queue.
+                # Without timeout, worker would be stuck waiting and couldn't
+                # respond to shutdown until a new item arrives. The 1-second
+                # timeout allows checking shutdown event every second maximum.
+                # Note that this does not impact when a worker starts a download, but
+                # sets the maximum time a worker can be blocked waiting for an item.
+                file_config = await asyncio.wait_for(self.queue.get_next(), timeout=1.0)
                 got_item = True
+
+                # Check shutdown again before starting download
+                if self._shutdown_event.is_set():
+                    # Put item back in queue if shutting down, then call task_done()
+                    # to balance the accounting. The get() incremented the unfinished
+                    # task counter, so we must decrement it even though we're re-queuing.
+                    # Without task_done(), queue.join() would hang waiting for this item.
+                    # (asyncio.PriorityQueue._unfinished)
+                    await self.queue.add([file_config])
+                    self.queue.task_done()
+                    break
 
                 # FileConfig generates destination path and creates directories if needed
                 destination_path = file_config.get_destination_path(self.download_dir)
@@ -220,6 +261,17 @@ class DownloadManager:
                 )
                 await self.worker.download(file_config.url, destination_path)
                 self._logger.info(f"Downloaded {file_config.url} to {destination_path}")
+            except asyncio.TimeoutError:
+                # No item available within timeout period. This is normal when
+                # queue is empty or all items were taken by other workers.
+                # Loop continues to check shutdown event and retry.
+                continue
+            except asyncio.CancelledError:
+                # Raised when task.cancel() is called (immediate shutdown).
+                # Must re-raise to properly terminate the task, otherwise
+                # asyncio considers cancellation "handled" and keeps running.
+                self._logger.info("Worker cancelled, stopping immediately")
+                raise
             except Exception as e:
                 # file_config may not be defined if error getting from queue.
                 url = file_config.url if file_config else "unknown"
@@ -230,6 +282,8 @@ class DownloadManager:
                 # Only call task_done if we actually got an item
                 if got_item:
                     self.queue.task_done()
+
+        self._logger.info("Worker shutting down gracefully")
 
     async def start_workers(self) -> None:
         for _ in range(self.max_workers):

@@ -13,7 +13,8 @@ What we're actually building, in order of priority.
 - [x] Event-based architecture
 - [x] Download tracking and state management
 - [x] Comprehensive error handling
-- [ ] Retry logic with exponential backoff
+- [x] **Retry logic with exponential backoff**
+- [x] **Configurable retry policies (transient vs permanent errors)**
 - [ ] Download resume support (HTTP Range requests)
 - [ ] Multi-segment downloads (parallel chunks per file)
 - [ ] Hash validation (MD5, SHA256, SHA512)
@@ -47,7 +48,7 @@ What we're actually building, in order of priority.
 
 ### Reliability
 
-- [ ] Automatic retry with backoff
+- [x] **Automatic retry with exponential backoff** ✅
 - [ ] Resume interrupted downloads
 - [ ] Mirror URL support with failover
 - [ ] Configurable segment sizes
