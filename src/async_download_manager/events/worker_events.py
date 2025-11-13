@@ -67,3 +67,18 @@ class WorkerFailedEvent(WorkerEvent):
     event_type: str = "worker.failed"
     error_message: str = ""
     error_type: str = ""
+
+
+@dataclass
+class WorkerRetryEvent(WorkerEvent):
+    """Emitted when a download is being retried.
+
+    This event is fired when a transient error occurs and the download
+    will be retried after a backoff delay.
+    """
+
+    event_type: str = "worker.retry"
+    attempt: int = 0  # Current attempt number (1-indexed)
+    max_retries: int = 3
+    error_message: str = ""
+    retry_delay: float = 1.0

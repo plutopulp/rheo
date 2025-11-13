@@ -19,6 +19,8 @@ from ..events import (
     WorkerStartedEvent,
 )
 from ..infrastructure.logging import get_logger
+from .base_retry import BaseRetryHandler
+from .null_retry import NullRetryHandler
 
 if TYPE_CHECKING:
     import loguru
@@ -62,6 +64,7 @@ class DownloadWorker:
         client: aiohttp.ClientSession,
         logger: "loguru.Logger" = get_logger(__name__),
         emitter: EventEmitter | None = None,
+        retry_handler: BaseRetryHandler | None = None,
     ) -> None:
         """Initialize the download worker.
 
@@ -70,10 +73,15 @@ class DownloadWorker:
             logger: Logger instance for recording download events and errors
             emitter: Event emitter for broadcasting worker lifecycle events.
                     If None, a new EventEmitter will be created.
+            retry_handler: Retry handler for automatic retry with exponential backoff.
+                          If None, a NullRetryHandler is used (no retries).
         """
         self.client = client
         self.logger = logger
         self.emitter = emitter if emitter is not None else EventEmitter(logger)
+        self.retry_handler = (
+            retry_handler if retry_handler is not None else NullRetryHandler()
+        )
 
     def _write_chunk_to_file(self, chunk: bytes, file_handle: BufferedWriter) -> None:
         """Write a data chunk to the output file.
@@ -147,10 +155,11 @@ class DownloadWorker:
         chunk_size: int = 1024,
         timeout: float | None = None,
     ) -> None:
-        """Download a file from URL to local path with error handling.
+        """Download a file from URL to local path with error handling and retry support.
 
         This method streams the download in chunks for memory efficiency and provides
-        error handling with automatic cleanup of partial files.
+        error handling with automatic cleanup of partial files. If retry is enabled,
+        transient errors will be retried with exponential backoff.
 
         Implementation decisions:
         - Uses streaming to handle large files without loading into memory
@@ -158,6 +167,7 @@ class DownloadWorker:
         - Cleans up partial files on any error to prevent corruption
         - Re-raises exceptions after logging to allow caller-specific handling
         - Uses asyncio.Timeout for consistent timeout behavior
+        - Wraps download in retry handler if configured
 
         Args:
             url: HTTP/HTTPS URL to download from
@@ -176,6 +186,25 @@ class DownloadWorker:
                 worker = DownloadWorker(session, logger)
                 await worker.download("https://example.com/file.zip", Path("./file.zip"))
             ```
+        """
+        # Always use retry handler (NullRetryHandler if no retries configured)
+        await self.retry_handler.execute_with_retry(
+            operation=lambda: self._download_with_cleanup(
+                url, destination_path, chunk_size, timeout
+            ),
+            url=url,
+        )
+
+    async def _download_with_cleanup(
+        self,
+        url: str,
+        destination_path: Path,
+        chunk_size: int,
+        timeout: float | None,
+    ) -> None:
+        """Internal download implementation with error handling and cleanup.
+
+        This is the core download logic that gets wrapped by the retry handler.
         """
         self.logger.debug(f"Starting download: {url} -> {destination_path}")
 

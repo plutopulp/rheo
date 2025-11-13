@@ -16,6 +16,7 @@ from .worker_events import (
     WorkerEvent,
     WorkerFailedEvent,
     WorkerProgressEvent,
+    WorkerRetryEvent,
     WorkerStartedEvent,
 )
 
@@ -37,4 +38,5 @@ __all__ = [
     "WorkerProgressEvent",
     "WorkerCompletedEvent",
     "WorkerFailedEvent",
+    "WorkerRetryEvent",
 ]

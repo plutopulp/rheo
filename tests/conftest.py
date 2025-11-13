@@ -8,6 +8,7 @@ from aiohttp import ClientSession
 from async_download_manager.app import create_app
 from async_download_manager.config.settings import Environment, Settings
 from async_download_manager.downloads import DownloadManager
+from async_download_manager.events import EventEmitter
 from async_download_manager.infrastructure.logging import reset_logging
 from async_download_manager.tracking import DownloadTracker
 
@@ -37,6 +38,15 @@ def mock_logger(mocker):
     """Provide a mock logger for testing that captures log calls."""
     logger = mocker.Mock(spec=loguru.logger)
     return logger
+
+
+@pytest.fixture
+def mock_emitter(mocker):
+    """Provide a mock event emitter for testing event emission."""
+
+    emitter = mocker.Mock(spec=EventEmitter)
+    emitter.emit = mocker.AsyncMock()
+    return emitter
 
 
 @pytest.fixture(autouse=True)
