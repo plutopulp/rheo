@@ -77,10 +77,11 @@ Key pieces:
 **DownloadManager**:
 
 - Entry point for the library
-- Manages worker pool
+- Manages worker pool with graceful shutdown support
 - Initialises HTTP client
 - Wires events from workers to tracker
 - Context manager for resource cleanup
+- Event-based shutdown mechanism for clean termination
 
 **DownloadWorker**:
 
@@ -220,6 +221,34 @@ Key pieces:
    d. If max retries exhausted → raise last exception
 4. If operation succeeds → return result
 ```
+
+### Shutdown Flow
+
+The manager uses an event-based shutdown mechanism for clean termination:
+
+```text
+1. User calls manager.shutdown(wait_for_current=True/False)
+2. Manager sets internal _shutdown_event
+3. Worker process_queue loops check event status:
+   a. If shutdown event set → exit loop gracefully
+   b. Queue get_next uses 1-second timeout to periodically check event
+   c. If item retrieved after shutdown → requeue item and exit
+4. If wait_for_current=True:
+   - Manager waits for all workers to complete current downloads
+   - Workers finish naturally and log "Worker shutting down gracefully"
+5. If wait_for_current=False:
+   - Manager immediately cancels all worker tasks
+   - Workers raise CancelledError and stop immediately
+6. Manager clears task list and returns
+```
+
+**Key features**:
+
+- Workers periodically check shutdown event (1-second intervals)
+- No downloads are lost - items are requeued if shutdown during retrieval
+- Graceful shutdown allows current downloads to complete
+- Immediate cancellation available for urgent stops
+- Context manager (`async with`) automatically triggers graceful shutdown on exit
 
 ## Design Patterns
 

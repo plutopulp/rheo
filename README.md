@@ -44,6 +44,7 @@ That's it. The manager handles worker pools, state tracking, and cleanup automat
 - **Concurrent downloads**: Worker pool manages multiple downloads simultaneously
 - **Priority queue**: Download urgent files first
 - **Retry logic**: Automatic retry with exponential backoff for transient errors
+- **Graceful shutdown**: Stop downloads cleanly or cancel immediately
 - **Event system**: React to download lifecycle events (started, progress, completed, failed, retry)
 - **Progress tracking**: Track bytes downloaded, completion status, errors
 - **Async/await**: Built on asyncio for efficient I/O
@@ -204,6 +205,38 @@ for url, info in tracker.get_all_downloads().items():
         print(f"Failed: {url} - {info.error}")
 ```
 
+### Graceful Shutdown
+
+Control when and how downloads stop:
+
+```python
+# Graceful shutdown - complete current downloads before stopping
+async with DownloadManager(download_dir=Path("./downloads"), max_workers=3) as manager:
+    await manager.add_to_queue(files)
+
+    # Start processing...
+    await asyncio.sleep(5)
+
+    # Gracefully shut down (waits for current downloads to finish)
+    await manager.shutdown(wait_for_current=True)
+```
+
+**Immediate cancellation** when you need to stop right away:
+
+```python
+# Immediate shutdown - cancel all downloads immediately
+async with DownloadManager(download_dir=Path("./downloads")) as manager:
+    await manager.add_to_queue(large_file_list)
+
+    # Start processing...
+    await asyncio.sleep(2)
+
+    # Stop immediately without waiting
+    await manager.shutdown(wait_for_current=False)
+```
+
+**Note**: The context manager (`async with`) automatically triggers graceful shutdown on exit, so explicit `shutdown()` calls are only needed for early termination.
+
 ## Project Status
 
 **Alpha/Early Development**: The core library works, but we're still adding features. API might change before 1.0.
@@ -213,6 +246,7 @@ Recently completed:
 - ✅ Retry logic with exponential backoff
 - ✅ Configurable retry policies
 - ✅ Smart error categorization (transient vs permanent)
+- ✅ Graceful shutdown with configurable behavior
 
 Current focus:
 
