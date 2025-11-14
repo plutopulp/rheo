@@ -8,7 +8,7 @@ from aiohttp import ClientSession
 from async_download_manager.app import create_app
 from async_download_manager.config.settings import Environment, Settings
 from async_download_manager.downloads import DownloadManager
-from async_download_manager.events import EventEmitter
+from async_download_manager.events import BaseEmitter
 from async_download_manager.infrastructure.logging import reset_logging
 from async_download_manager.tracking import DownloadTracker
 
@@ -44,7 +44,7 @@ def mock_logger(mocker):
 def mock_emitter(mocker):
     """Provide a mock event emitter for testing event emission."""
 
-    emitter = mocker.Mock(spec=EventEmitter)
+    emitter = mocker.Mock(spec=BaseEmitter)
     emitter.emit = mocker.AsyncMock()
     return emitter
 

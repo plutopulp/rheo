@@ -101,7 +101,7 @@ class TestPriorityDownloadQueueRetrieval:
         retrieved = await queue.get_next()
 
         assert isinstance(retrieved, FileConfig)
-        assert retrieved.url == "https://example.com/file.txt"
+        assert str(retrieved.url) == "https://example.com/file.txt"
         assert retrieved.priority == 3
 
     @pytest.mark.asyncio
@@ -117,17 +117,17 @@ class TestPriorityDownloadQueueRetrieval:
 
         # Should get high priority first
         first = await queue.get_next()
-        assert first.url == "https://example.com/high.txt"
+        assert str(first.url) == "https://example.com/high.txt"
         assert first.priority == 5
 
         # Then medium priority
         second = await queue.get_next()
-        assert second.url == "https://example.com/medium.txt"
+        assert str(second.url) == "https://example.com/medium.txt"
         assert second.priority == 3
 
         # Finally low priority
         third = await queue.get_next()
-        assert third.url == "https://example.com/low.txt"
+        assert str(third.url) == "https://example.com/low.txt"
         assert third.priority == 1
 
     @pytest.mark.asyncio
@@ -146,9 +146,9 @@ class TestPriorityDownloadQueueRetrieval:
         second = await queue.get_next()
         third = await queue.get_next()
 
-        assert first.url == "https://example.com/first.txt"
-        assert second.url == "https://example.com/second.txt"
-        assert third.url == "https://example.com/third.txt"
+        assert str(first.url) == "https://example.com/first.txt"
+        assert str(second.url) == "https://example.com/second.txt"
+        assert str(third.url) == "https://example.com/third.txt"
 
 
 class TestPriorityDownloadQueueTaskManagement:

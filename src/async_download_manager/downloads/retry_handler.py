@@ -1,7 +1,7 @@
 """Retry handler with exponential backoff."""
 
 import asyncio
-from typing import TYPE_CHECKING, Awaitable, Callable, TypeVar
+import typing as t
 
 from ..domain.exceptions import RetryError
 from ..domain.retry import ErrorCategory, RetryConfig
@@ -10,10 +10,10 @@ from ..infrastructure.logging import get_logger
 from .base_retry import BaseRetryHandler
 from .error_categoriser import ErrorCategoriser
 
-if TYPE_CHECKING:
+if t.TYPE_CHECKING:
     import loguru
 
-T = TypeVar("T")
+T = t.TypeVar("T")
 
 
 class RetryHandler(BaseRetryHandler):
@@ -47,7 +47,7 @@ class RetryHandler(BaseRetryHandler):
 
     async def execute_with_retry(
         self,
-        operation: Callable[[], Awaitable[T]],
+        operation: t.Callable[[], t.Awaitable[T]],
         url: str,
         max_retries: int | None = None,
     ) -> T:

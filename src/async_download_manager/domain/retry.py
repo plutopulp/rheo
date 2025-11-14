@@ -1,8 +1,9 @@
 """Domain models for retry configuration and policies."""
 
 import random
-from dataclasses import dataclass, field
 from enum import Enum
+
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ErrorCategory(Enum):
@@ -13,17 +14,18 @@ class ErrorCategory(Enum):
     UNKNOWN = "unknown"  # Conservative: don't retry
 
 
-@dataclass
-class RetryPolicy:
+class RetryPolicy(BaseModel):
     """Policy for determining if errors should be retried.
 
     This is a configuration object that defines which errors are transient.
     Users can customise status codes and error types.
     """
 
+    model_config = ConfigDict(frozen=True)
+
     # HTTP status codes that indicate transient errors
-    transient_status_codes: frozenset[int] = field(
-        default_factory=lambda: frozenset(
+    transient_status_codes: frozenset[int] = Field(
+        default=frozenset(
             {
                 408,  # Request Timeout
                 429,  # Too Many Requests
@@ -32,12 +34,13 @@ class RetryPolicy:
                 503,  # Service Unavailable
                 504,  # Gateway Timeout
             }
-        )
+        ),
+        description="HTTP status codes considered transient (will retry)",
     )
 
     # HTTP status codes that indicate permanent errors
-    permanent_status_codes: frozenset[int] = field(
-        default_factory=lambda: frozenset(
+    permanent_status_codes: frozenset[int] = Field(
+        default=frozenset(
             {
                 400,  # Bad Request
                 401,  # Unauthorised
@@ -46,11 +49,15 @@ class RetryPolicy:
                 405,  # Method Not Allowed
                 410,  # Gone
             }
-        )
+        ),
+        description="HTTP status codes considered permanent (won't retry)",
     )
 
     # Whether to retry on unknown errors (conservative default: False)
-    retry_unknown_errors: bool = False
+    retry_unknown_errors: bool = Field(
+        default=False,
+        description="Whether to retry errors not in transient/permanent lists",
+    )
 
     def should_retry_status(self, status_code: int) -> bool:
         """
@@ -72,16 +79,39 @@ class RetryPolicy:
         return self.retry_unknown_errors
 
 
-@dataclass
-class RetryConfig:
+class RetryConfig(BaseModel):
     """Configuration for retry behaviour with exponential backoff."""
 
-    max_retries: int = 3
-    base_delay: float = 1.0  # Initial delay in seconds
-    max_delay: float = 60.0  # Cap maximum delay
-    exponential_base: float = 2.0  # Delay multiplier
-    jitter: bool = True  # Add randomness to avoid thundering herd
-    policy: RetryPolicy = field(default_factory=RetryPolicy)
+    model_config = ConfigDict(frozen=True)
+
+    max_retries: int = Field(
+        default=3,
+        ge=0,
+        description="Maximum number of retry attempts for transient errors",
+    )
+    base_delay: float = Field(
+        default=1.0,
+        gt=0,
+        description="Initial delay in seconds before first retry",
+    )
+    max_delay: float = Field(
+        default=60.0,
+        gt=0,
+        description="Maximum delay cap in seconds",
+    )
+    exponential_base: float = Field(
+        default=2.0,
+        gt=1.0,
+        description="Delay multiplier for exponential backoff",
+    )
+    jitter: bool = Field(
+        default=True,
+        description="Add randomness to delays to avoid thundering herd",
+    )
+    policy: RetryPolicy = Field(
+        default_factory=RetryPolicy,
+        description="Policy defining which errors are retryable",
+    )
 
     def calculate_delay(self, attempt: int) -> float:
         """
