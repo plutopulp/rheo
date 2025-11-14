@@ -9,8 +9,11 @@ from async_download_manager.domain.file_config import FileConfig
 from async_download_manager.downloads import (
     DownloadManager,
     DownloadWorker,
+    ErrorCategoriser,
     PriorityDownloadQueue,
+    RetryHandler,
 )
+from async_download_manager.events import EventEmitter
 
 
 @pytest.fixture
@@ -33,6 +36,50 @@ def mock_worker(mocker):
 def test_worker(aio_client, mock_logger):
     """Provide a real DownloadWorker with real client and mocked logger."""
     return DownloadWorker(aio_client, mock_logger)
+
+
+@pytest.fixture
+def fast_retry_config():
+    """Provide a RetryConfig with fast retries for testing.
+
+    Uses minimal delays and no jitter to speed up retry tests.
+    """
+    from async_download_manager.domain.retry import RetryConfig
+
+    return RetryConfig(
+        max_retries=2,
+        base_delay=0.01,  # 10ms base delay
+        max_delay=0.1,  # 100ms max delay
+        jitter=False,  # Deterministic timing for tests
+    )
+
+
+@pytest.fixture
+def worker_with_real_events(aio_client, mock_logger, fast_retry_config):
+    """Provide a DownloadWorker with retry handler and real EventEmitter.
+
+    Uses fast_retry_config for quick test execution. Includes a real
+    EventEmitter (not mocked) for testing actual event emission and handlers.
+
+    Use this when you need to test event subscribers that react to events
+    (e.g., speed tracking, retry event handlers).
+    """
+
+    emitter = EventEmitter(mock_logger)
+    categoriser = ErrorCategoriser(fast_retry_config.policy)
+    retry_handler = RetryHandler(
+        config=fast_retry_config,
+        logger=mock_logger,
+        emitter=emitter,
+        categoriser=categoriser,
+    )
+
+    return DownloadWorker(
+        client=aio_client,
+        logger=mock_logger,
+        emitter=emitter,
+        retry_handler=retry_handler,
+    )
 
 
 @pytest.fixture

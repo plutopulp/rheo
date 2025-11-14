@@ -26,6 +26,36 @@ class TestSpeedCalculator:
         # ETA can't be calculated with zero speed
         assert metrics.eta_seconds is None
 
+    def test_chunks_at_same_timestamp_return_zero_speed(self) -> None:
+        """Test that chunks arriving at same timestamp don't cause division by zero.
+
+        This can happen when chunks are processed extremely fast or in tests.
+        The calculator should gracefully return 0 speed instead of raising
+        a ZeroDivisionError.
+        """
+        calc = SpeedCalculator(window_seconds=5.0)
+        start_time = 100.0
+
+        # First chunk
+        calc.record_chunk(
+            chunk_bytes=1024,
+            bytes_downloaded=1024,
+            total_bytes=10240,
+            current_time=start_time,
+        )
+
+        # Second chunk at SAME timestamp (time_delta = 0)
+        metrics = calc.record_chunk(
+            chunk_bytes=1024,
+            bytes_downloaded=2048,
+            total_bytes=10240,
+            current_time=start_time,  # Same time!
+        )
+
+        # Should not raise ZeroDivisionError
+        # Current speed should be 0 when time_delta is 0
+        assert metrics.current_speed_bps == 0.0
+
     def test_second_chunk_calculates_current_speed(self) -> None:
         """Test that second chunk calculates speed correctly."""
         calc = SpeedCalculator(window_seconds=5.0)

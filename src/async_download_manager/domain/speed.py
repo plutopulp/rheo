@@ -171,7 +171,7 @@ class SpeedCalculator:
         assert self._last_time is not None, "last_time must be set after first chunk"
 
         time_delta = current_time - self._last_time
-        return chunk_bytes / time_delta if time_delta is not None else 0.0
+        return chunk_bytes / time_delta if time_delta > 0 else 0.0
 
     def _update_chunk_window(
         self,

@@ -8,7 +8,7 @@ from aiohttp import ClientSession
 from async_download_manager.app import create_app
 from async_download_manager.config.settings import Environment, Settings
 from async_download_manager.downloads import DownloadManager
-from async_download_manager.events import BaseEmitter
+from async_download_manager.events import BaseEmitter, EventEmitter
 from async_download_manager.infrastructure.logging import reset_logging
 from async_download_manager.tracking import DownloadTracker
 
@@ -47,6 +47,19 @@ def mock_emitter(mocker):
     emitter = mocker.Mock(spec=BaseEmitter)
     emitter.emit = mocker.AsyncMock()
     return emitter
+
+
+@pytest.fixture
+def real_emitter(mock_logger):
+    """Provide a real EventEmitter for testing actual event emission.
+
+    Use this when you need to test event handlers or subscribers that
+    actually receive and process events (e.g., speed tracking, retry events).
+
+    For simple tests that only verify emit() was called, use mock_emitter instead.
+    """
+
+    return EventEmitter(mock_logger)
 
 
 @pytest.fixture(autouse=True)

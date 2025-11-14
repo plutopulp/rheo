@@ -205,15 +205,12 @@ class DownloadWorker:
                 await worker.download("https://example.com/file.zip", Path("./file.zip"))
             ```
         """
-        # Create default speed calculator if not provided
-        calc = speed_calculator or SpeedCalculator(
-            window_seconds=self._speed_window_seconds
-        )
-
         # Always use retry handler (NullRetryHandler if no retries configured)
+        # Note: SpeedCalculator is created inside _download_with_cleanup to ensure
+        # each retry attempt gets a fresh calculator with clean state
         await self.retry_handler.execute_with_retry(
             operation=lambda: self._download_with_cleanup(
-                url, destination_path, chunk_size, timeout, calc
+                url, destination_path, chunk_size, timeout, speed_calculator
             ),
             url=url,
         )
@@ -224,20 +221,29 @@ class DownloadWorker:
         destination_path: Path,
         chunk_size: int,
         timeout: float | None,
-        speed_calculator: SpeedCalculator,
+        speed_calculator: SpeedCalculator | None,
     ) -> None:
         """Internal download implementation with error handling and cleanup.
 
         This is the core download logic that gets wrapped by the retry handler.
+        Creates a fresh SpeedCalculator for each retry attempt to avoid stale state.
 
         Args:
             url: HTTP/HTTPS URL to download from
             destination_path: Local filesystem path to save the file
             chunk_size: Size of data chunks to read/write
             timeout: Maximum time to wait for the entire download
-            speed_calculator: Speed calculator instance for this download
+            speed_calculator: Optional speed calculator. If None, creates a fresh one
+                            with configured window. Creating fresh instances ensures
+                            retry attempts don't inherit stale state from failed
+                            attempts.
         """
         self.logger.debug(f"Starting download: {url} -> {destination_path}")
+
+        # Create fresh calculator for this attempt (ensures clean state on retry)
+        calc = speed_calculator or SpeedCalculator(
+            window_seconds=self._speed_window_seconds
+        )
 
         bytes_downloaded = 0
 
@@ -264,7 +270,7 @@ class DownloadWorker:
                         bytes_downloaded += len(chunk)
 
                         # Calculate speed metrics
-                        speed_metrics = speed_calculator.record_chunk(
+                        speed_metrics = calc.record_chunk(
                             chunk_bytes=len(chunk),
                             bytes_downloaded=bytes_downloaded,
                             total_bytes=total_bytes,
