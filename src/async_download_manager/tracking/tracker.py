@@ -8,6 +8,7 @@ import typing as t
 from collections import Counter
 
 from ..domain.downloads import DownloadInfo, DownloadStats, DownloadStatus
+from ..domain.speed import SpeedMetrics
 from ..events import (
     DownloadCompletedEvent,
     DownloadEvent,
@@ -69,6 +70,7 @@ class DownloadTracker(BaseTracker):
                     If None, a new EventEmitter will be created.
         """
         self._downloads: dict[str, DownloadInfo] = {}
+        self._speed_metrics: dict[str, SpeedMetrics] = {}
         self._lock = asyncio.Lock()
         self._logger = logger
         self._emitter = emitter if emitter is not None else EventEmitter(logger)
@@ -175,12 +177,86 @@ class DownloadTracker(BaseTracker):
             ),
         )
 
+    async def track_speed_update(
+        self,
+        url: str,
+        current_speed_bps: float,
+        average_speed_bps: float,
+        eta_seconds: float | None,
+        elapsed_seconds: float,
+    ) -> None:
+        """Update speed metrics for a download.
+
+        Stores the latest speed and ETA information for active downloads.
+        Speed metrics are cleared when download completes or fails.
+
+        Args:
+            url: The URL being downloaded
+            current_speed_bps: Instantaneous speed in bytes per second
+            average_speed_bps: Moving average speed in bytes per second
+            eta_seconds: Estimated time to completion in seconds (None if unknown)
+            elapsed_seconds: Time elapsed since download started in seconds
+        """
+        async with self._lock:
+            self._speed_metrics[url] = SpeedMetrics(
+                current_speed_bps=current_speed_bps,
+                average_speed_bps=average_speed_bps,
+                eta_seconds=eta_seconds,
+                elapsed_seconds=elapsed_seconds,
+            )
+
+    def get_speed_metrics(self, url: str) -> SpeedMetrics | None:
+        """Get current speed metrics for a download.
+
+        Args:
+            url: The URL to query
+
+        Returns:
+            SpeedMetrics if available, None otherwise
+        """
+        return self._speed_metrics.get(url)
+
+    def _ensure_download_exists(self, url: str) -> None:
+        """Ensure DownloadInfo exists for URL, create if missing.
+
+        Must be called within _lock context.
+
+        Args:
+            url: The URL to ensure exists in tracking
+        """
+        if url not in self._downloads:
+            self._downloads[url] = DownloadInfo(url=url)
+
+    def _capture_and_clear_final_speed(self, url: str) -> float | None:
+        """Capture final average speed and clear transient metrics.
+
+        Extracts the average speed from transient metrics for persistence,
+        then clears the transient metrics to free memory.
+
+        Must be called within _lock context.
+
+        Args:
+            url: The URL to capture speed for
+
+        Returns:
+            Final average speed in bytes/second, or None if no metrics exist
+        """
+        final_speed = None
+        if url in self._speed_metrics:
+            final_speed = self._speed_metrics[url].average_speed_bps
+
+        # Clear transient speed metrics
+        self._speed_metrics.pop(url, None)
+
+        return final_speed
+
     async def track_completed(
         self, url: str, total_bytes: int = 0, destination_path: str = ""
     ) -> None:
         """Record that a download completed successfully.
 
         Sets status to COMPLETED and updates final byte count.
+        Persists average speed from final metrics, then clears transient metrics.
         Emits DownloadCompletedEvent.
 
         Args:
@@ -189,12 +265,13 @@ class DownloadTracker(BaseTracker):
             destination_path: Where the file was saved
         """
         async with self._lock:
-            if url not in self._downloads:
-                self._downloads[url] = DownloadInfo(url=url)
+            self._ensure_download_exists(url)
+            final_speed = self._capture_and_clear_final_speed(url)
 
             self._downloads[url].status = DownloadStatus.COMPLETED
             self._downloads[url].bytes_downloaded = total_bytes
             self._downloads[url].total_bytes = total_bytes
+            self._downloads[url].average_speed_bps = final_speed
 
         await self._emit(
             "tracker.completed",
@@ -207,6 +284,8 @@ class DownloadTracker(BaseTracker):
         """Record that a download failed.
 
         Sets status to FAILED and stores error message.
+        Persists average speed from metrics if available (useful for failure analysis).
+        Clears transient speed metrics.
         Emits DownloadFailedEvent.
 
         Args:
@@ -214,11 +293,12 @@ class DownloadTracker(BaseTracker):
             error: The exception that occurred
         """
         async with self._lock:
-            if url not in self._downloads:
-                self._downloads[url] = DownloadInfo(url=url)
+            self._ensure_download_exists(url)
+            final_speed = self._capture_and_clear_final_speed(url)
 
             self._downloads[url].status = DownloadStatus.FAILED
             self._downloads[url].error = str(error)
+            self._downloads[url].average_speed_bps = final_speed
 
         await self._emit(
             "tracker.failed",

@@ -22,6 +22,7 @@ class DownloadInfo(BaseModel):
     """File download state container.
 
     Contains all information about a download: URL, status, progress, and errors.
+    For completed downloads, includes final average speed for historical analysis.
     """
 
     url: str = Field(description="URL of the file being downloaded")
@@ -42,6 +43,11 @@ class DownloadInfo(BaseModel):
     error: str | None = Field(
         default=None,
         description="Error message if download failed",
+    )
+    average_speed_bps: float | None = Field(
+        default=None,
+        ge=0.0,
+        description="Average download speed in bytes/second (set at completion)",
     )
 
     def get_progress(self) -> float:

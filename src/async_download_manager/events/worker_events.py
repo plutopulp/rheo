@@ -96,5 +96,6 @@ class WorkerSpeedUpdatedEvent(WorkerEvent):
     current_speed_bps: float = 0.0  # Instantaneous speed in bytes/second
     average_speed_bps: float = 0.0  # Moving average speed in bytes/second
     eta_seconds: float | None = None  # Estimated time to completion
+    elapsed_seconds: float = 0.0  # Time elapsed since download started
     bytes_downloaded: int = 0  # Cumulative bytes downloaded
     total_bytes: int | None = None  # Total file size if known

@@ -290,6 +290,7 @@ class DownloadWorker:
                                 current_speed_bps=speed_metrics.current_speed_bps,
                                 average_speed_bps=speed_metrics.average_speed_bps,
                                 eta_seconds=speed_metrics.eta_seconds,
+                                elapsed_seconds=speed_metrics.elapsed_seconds,
                                 bytes_downloaded=bytes_downloaded,
                                 total_bytes=total_bytes,
                             ),
