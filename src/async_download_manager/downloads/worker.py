@@ -5,17 +5,20 @@ with proper error handling, partial file cleanup, and logging.
 """
 
 import asyncio
+import time
 import typing as t
 from io import BufferedWriter
 from pathlib import Path
 
 import aiohttp
 
+from ..domain.speed import SpeedCalculator
 from ..events import (
     EventEmitter,
     WorkerCompletedEvent,
     WorkerFailedEvent,
     WorkerProgressEvent,
+    WorkerSpeedUpdatedEvent,
     WorkerStartedEvent,
 )
 from ..infrastructure.logging import get_logger
@@ -50,6 +53,7 @@ class DownloadWorker:
     - Comprehensive error handling and logging
     - Configurable chunk sizes and timeouts
     - HTTP status code validation
+    - Real-time speed tracking and ETA estimation
 
     Implementation Decisions:
     - Uses dependency injection for client, logger and emitter to enable easy testing
@@ -57,6 +61,11 @@ class DownloadWorker:
     - Cleans up partial files on any error to avoid corrupted downloads
     - Re-raises exceptions after logging to allow caller-specific error handling
     - Uses aiohttp's raise_for_status() for consistent HTTP error handling
+
+    TODO: Performance Optimization
+        High-frequency events (progress, speed_updated) are emitted on every chunk
+        even when no listeners are subscribed. Consider adding emitter.has_listeners()
+        check before event creation to reduce overhead when events aren't needed.
     """
 
     def __init__(
@@ -65,6 +74,7 @@ class DownloadWorker:
         logger: "loguru.Logger" = get_logger(__name__),
         emitter: EventEmitter | None = None,
         retry_handler: BaseRetryHandler | None = None,
+        speed_window_seconds: float = 5.0,
     ) -> None:
         """Initialize the download worker.
 
@@ -75,6 +85,9 @@ class DownloadWorker:
                     If None, a new EventEmitter will be created.
             retry_handler: Retry handler for automatic retry with exponential backoff.
                           If None, a NullRetryHandler is used (no retries).
+            speed_window_seconds: Time window in seconds for moving average speed
+                                calculation. Shorter windows react faster to speed
+                                changes; longer windows provide smoother averages.
         """
         self.client = client
         self.logger = logger
@@ -82,6 +95,7 @@ class DownloadWorker:
         self.retry_handler = (
             retry_handler if retry_handler is not None else NullRetryHandler()
         )
+        self._speed_window_seconds = speed_window_seconds
 
     def _write_chunk_to_file(self, chunk: bytes, file_handle: BufferedWriter) -> None:
         """Write a data chunk to the output file.
@@ -154,6 +168,7 @@ class DownloadWorker:
         destination_path: Path,
         chunk_size: int = 1024,
         timeout: float | None = None,
+        speed_calculator: SpeedCalculator | None = None,
     ) -> None:
         """Download a file from URL to local path with error handling and retry support.
 
@@ -174,6 +189,9 @@ class DownloadWorker:
             destination_path: Local filesystem path to save the file
             chunk_size: Size of data chunks to read/write (default: 1024 bytes)
             timeout: Maximum time to wait for the entire download (None = no timeout)
+            speed_calculator: Speed calculator for tracking download speed and ETA.
+                            If None, creates a new calculator with configured window.
+                            Provide custom implementation for alternative speed tracking.
 
         Raises:
             aiohttp.ClientError: For network/HTTP related errors
@@ -187,10 +205,15 @@ class DownloadWorker:
                 await worker.download("https://example.com/file.zip", Path("./file.zip"))
             ```
         """
+        # Create default speed calculator if not provided
+        calc = speed_calculator or SpeedCalculator(
+            window_seconds=self._speed_window_seconds
+        )
+
         # Always use retry handler (NullRetryHandler if no retries configured)
         await self.retry_handler.execute_with_retry(
             operation=lambda: self._download_with_cleanup(
-                url, destination_path, chunk_size, timeout
+                url, destination_path, chunk_size, timeout, calc
             ),
             url=url,
         )
@@ -201,10 +224,18 @@ class DownloadWorker:
         destination_path: Path,
         chunk_size: int,
         timeout: float | None,
+        speed_calculator: SpeedCalculator,
     ) -> None:
         """Internal download implementation with error handling and cleanup.
 
         This is the core download logic that gets wrapped by the retry handler.
+
+        Args:
+            url: HTTP/HTTPS URL to download from
+            destination_path: Local filesystem path to save the file
+            chunk_size: Size of data chunks to read/write
+            timeout: Maximum time to wait for the entire download
+            speed_calculator: Speed calculator instance for this download
         """
         self.logger.debug(f"Starting download: {url} -> {destination_path}")
 
@@ -232,12 +263,33 @@ class DownloadWorker:
                         self._write_chunk_to_file(chunk, file_handle)
                         bytes_downloaded += len(chunk)
 
+                        # Calculate speed metrics
+                        speed_metrics = speed_calculator.record_chunk(
+                            chunk_bytes=len(chunk),
+                            bytes_downloaded=bytes_downloaded,
+                            total_bytes=total_bytes,
+                            current_time=time.monotonic(),
+                        )
+
                         # Emit progress event after each chunk
                         await self.emitter.emit(
                             "worker.progress",
                             WorkerProgressEvent(
                                 url=url,
                                 chunk_size=len(chunk),
+                                bytes_downloaded=bytes_downloaded,
+                                total_bytes=total_bytes,
+                            ),
+                        )
+
+                        # Emit speed event after each chunk
+                        await self.emitter.emit(
+                            "worker.speed_updated",
+                            WorkerSpeedUpdatedEvent(
+                                url=url,
+                                current_speed_bps=speed_metrics.current_speed_bps,
+                                average_speed_bps=speed_metrics.average_speed_bps,
+                                eta_seconds=speed_metrics.eta_seconds,
                                 bytes_downloaded=bytes_downloaded,
                                 total_bytes=total_bytes,
                             ),

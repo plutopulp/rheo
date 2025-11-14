@@ -82,3 +82,19 @@ class WorkerRetryEvent(WorkerEvent):
     max_retries: int = 3
     error_message: str = ""
     retry_delay: float = 1.0
+
+
+@dataclass
+class WorkerSpeedUpdatedEvent(WorkerEvent):
+    """Emitted when download speed metrics are updated.
+
+    This event is fired after each chunk is downloaded, providing
+    real-time speed and ETA information.
+    """
+
+    event_type: str = "worker.speed_updated"
+    current_speed_bps: float = 0.0  # Instantaneous speed in bytes/second
+    average_speed_bps: float = 0.0  # Moving average speed in bytes/second
+    eta_seconds: float | None = None  # Estimated time to completion
+    bytes_downloaded: int = 0  # Cumulative bytes downloaded
+    total_bytes: int | None = None  # Total file size if known
