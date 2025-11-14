@@ -2,14 +2,17 @@
 with real URLs.
 Categories: small (<1MB), medium (1-10MB), large (10-100MB), xl (>100MB)
 Special cases: slow_drip, chunked_data, delayed_response, likely_to_fail
+
 """
+
+from pydantic import HttpUrl
 
 from async_download_manager.domain.file_config import FileConfig
 
 TEST_FILES: dict[str, FileConfig] = {
     # Small files (< 1MB) - Quick downloads for basic testing
     "small_text": FileConfig(
-        url="https://raw.githubusercontent.com/nodejs/node/master/README.md",
+        url=HttpUrl("https://raw.githubusercontent.com/nodejs/node/master/README.md"),
         size_bytes=10_000,
         size_human="10 KB",
         type="text/markdown",
@@ -17,7 +20,7 @@ TEST_FILES: dict[str, FileConfig] = {
         priority=1,
     ),
     "small_json": FileConfig(
-        url="https://jsonplaceholder.typicode.com/users",
+        url=HttpUrl("https://jsonplaceholder.typicode.com/users"),
         size_bytes=5_000,
         size_human="5 KB",
         type="application/json",
@@ -25,7 +28,7 @@ TEST_FILES: dict[str, FileConfig] = {
         priority=1,
     ),
     "small_image": FileConfig(
-        url="https://picsum.photos/200/300",
+        url=HttpUrl("https://picsum.photos/200/300"),
         size_bytes=15_000,
         size_human="15 KB",
         type="image/jpeg",
@@ -34,7 +37,7 @@ TEST_FILES: dict[str, FileConfig] = {
     ),
     # Medium files (1MB - 10MB)
     "medium_binary": FileConfig(
-        url="https://proof.ovh.net/files/1Mb.dat",
+        url=HttpUrl("https://proof.ovh.net/files/1Mb.dat"),
         size_bytes=1_048_576,
         size_human="1 MB",
         type="application/octet-stream",
@@ -42,9 +45,9 @@ TEST_FILES: dict[str, FileConfig] = {
         priority=2,
     ),
     "medium_image": FileConfig(
-        url=(
+        url=HttpUrl(
             "https://file-examples.com/wp-content/storage/2017/10/"
-            "file_example_PNG_1MB.png"
+            + "file_example_PNG_1MB.png"
         ),
         size_bytes=1_000_000,
         size_human="1 MB",
@@ -53,9 +56,9 @@ TEST_FILES: dict[str, FileConfig] = {
         priority=2,
     ),
     "medium_audio": FileConfig(
-        url=(
+        url=HttpUrl(
             "https://file-examples.com/wp-content/uploads/2017/11/"
-            "file_example_MP3_5MG.mp3"
+            + "file_example_MP3_5MG.mp3"
         ),
         size_bytes=5_000_000,
         size_human="5 MB",
@@ -64,7 +67,7 @@ TEST_FILES: dict[str, FileConfig] = {
         priority=3,
     ),
     "medium_zip": FileConfig(
-        url="http://ipv4.download.thinkbroadband.com/5MB.zip",
+        url=HttpUrl("http://ipv4.download.thinkbroadband.com/5MB.zip"),
         size_bytes=5_000_000,
         size_human="5 MB",
         type="application/zip",
@@ -72,7 +75,7 @@ TEST_FILES: dict[str, FileConfig] = {
         priority=3,
     ),
     "medium_pdf": FileConfig(
-        url="https://research.nhm.org/pdfs/10840/10840.pdf",
+        url=HttpUrl("https://research.nhm.org/pdfs/10840/10840.pdf"),
         size_bytes=3_000_000,
         size_human="3 MB",
         type="application/pdf",
@@ -81,7 +84,7 @@ TEST_FILES: dict[str, FileConfig] = {
     ),
     # Large files (10MB - 100MB)
     "large_binary": FileConfig(
-        url="https://proof.ovh.net/files/10Mb.dat",
+        url=HttpUrl("https://proof.ovh.net/files/10Mb.dat"),
         size_bytes=10_485_760,
         size_human="10 MB",
         type="application/octet-stream",
@@ -89,7 +92,7 @@ TEST_FILES: dict[str, FileConfig] = {
         priority=4,
     ),
     "large_video": FileConfig(
-        url=(
+        url=HttpUrl(
             "https://file-examples.com/wp-content/uploads/2017/04/"
             "file_example_MP4_1920_18MG.mp4"
         ),
@@ -100,7 +103,7 @@ TEST_FILES: dict[str, FileConfig] = {
         priority=4,
     ),
     "large_zip": FileConfig(
-        url="http://ipv4.download.thinkbroadband.com/20MB.zip",
+        url=HttpUrl("http://ipv4.download.thinkbroadband.com/20MB.zip"),
         size_bytes=20_000_000,
         size_human="20 MB",
         type="application/zip",
@@ -109,7 +112,7 @@ TEST_FILES: dict[str, FileConfig] = {
     ),
     # Very large files (>100MB) - use with caution
     "xl_binary": FileConfig(
-        url="https://speed.hetzner.de/100MB.bin",
+        url=HttpUrl("https://speed.hetzner.de/100MB.bin"),
         size_bytes=100_000_000,
         size_human="100 MB",
         type="application/octet-stream",
@@ -117,7 +120,7 @@ TEST_FILES: dict[str, FileConfig] = {
         priority=5,
     ),
     "xl_dat": FileConfig(
-        url="https://proof.ovh.net/files/100Mb.dat",
+        url=HttpUrl("https://proof.ovh.net/files/100Mb.dat"),
         size_bytes=100_000_000,
         size_human="100 MB",
         type="application/octet-stream",
@@ -126,7 +129,7 @@ TEST_FILES: dict[str, FileConfig] = {
     ),
     # Special test cases
     "slow_drip": FileConfig(
-        url="https://httpbin.org/drip?duration=10&numbytes=1000&code=200",
+        url=HttpUrl("https://httpbin.org/drip?duration=10&numbytes=1000&code=200"),
         size_bytes=1_000,
         size_human="1 KB",
         type="application/octet-stream",
@@ -134,7 +137,7 @@ TEST_FILES: dict[str, FileConfig] = {
         priority=2,
     ),
     "chunked_data": FileConfig(
-        url="https://httpbin.org/stream-bytes/1048576?chunk_size=65536",
+        url=HttpUrl("https://httpbin.org/stream-bytes/1048576?chunk_size=65536"),
         size_bytes=1_048_576,
         size_human="1 MB",
         type="application/octet-stream",
@@ -142,7 +145,7 @@ TEST_FILES: dict[str, FileConfig] = {
         priority=2,
     ),
     "delayed_response": FileConfig(
-        url="https://httpbin.org/delay/3",
+        url=HttpUrl("https://httpbin.org/delay/3"),
         size_bytes=500,
         size_human="500 B",
         type="application/json",
@@ -150,7 +153,7 @@ TEST_FILES: dict[str, FileConfig] = {
         priority=1,
     ),
     "random_bytes": FileConfig(
-        url="https://httpbin.org/bytes/512000",
+        url=HttpUrl("https://httpbin.org/bytes/512000"),
         size_bytes=512_000,
         size_human="500 KB",
         type="application/octet-stream",
@@ -158,7 +161,7 @@ TEST_FILES: dict[str, FileConfig] = {
         priority=1,
     ),
     "likely_to_fail": FileConfig(
-        url="https://thisdomainprobablydoesntexist.org/file.txt",
+        url=HttpUrl("https://thisdomainprobablydoesntexist.org/file.txt"),
         size_bytes=None,
         size_human="Unknown",
         type="text/plain",

@@ -1,7 +1,8 @@
 """Core domain models for download operations."""
 
-from dataclasses import dataclass
 from enum import Enum
+
+from pydantic import BaseModel, Field
 
 
 class DownloadStatus(Enum):
@@ -17,18 +18,31 @@ class DownloadStatus(Enum):
     FAILED = "failed"  # Error occurred
 
 
-@dataclass
-class DownloadInfo:
+class DownloadInfo(BaseModel):
     """File download state container.
 
     Contains all information about a download: URL, status, progress, and errors.
     """
 
-    url: str
-    status: DownloadStatus = DownloadStatus.PENDING
-    bytes_downloaded: int = 0
-    total_bytes: int | None = None
-    error: str | None = None
+    url: str = Field(description="URL of the file being downloaded")
+    status: DownloadStatus = Field(
+        default=DownloadStatus.PENDING,
+        description="Current status of the download",
+    )
+    bytes_downloaded: int = Field(
+        default=0,
+        ge=0,
+        description="Bytes downloaded so far",
+    )
+    total_bytes: int | None = Field(
+        default=None,
+        ge=0,
+        description="Total file size in bytes if known",
+    )
+    error: str | None = Field(
+        default=None,
+        description="Error message if download failed",
+    )
 
     def get_progress(self) -> float:
         """Calculate progress as fraction (0.0 to 1.0)."""
@@ -41,13 +55,17 @@ class DownloadInfo:
         return self.status in (DownloadStatus.COMPLETED, DownloadStatus.FAILED)
 
 
-@dataclass
-class DownloadStats:
+class DownloadStats(BaseModel):
     """Aggregate statistics about all downloads."""
 
-    total: int
-    queued: int
-    in_progress: int
-    completed: int
-    failed: int
-    completed_bytes: int
+    total: int = Field(ge=0, description="Total number of downloads tracked")
+    queued: int = Field(ge=0, description="Number of downloads in queue")
+    in_progress: int = Field(ge=0, description="Number of downloads currently active")
+    completed: int = Field(
+        ge=0, description="Number of successfully completed downloads"
+    )
+    failed: int = Field(ge=0, description="Number of failed downloads")
+    completed_bytes: int = Field(
+        ge=0,
+        description="Total bytes successfully downloaded",
+    )

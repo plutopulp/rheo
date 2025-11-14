@@ -5,9 +5,9 @@ with proper error handling, partial file cleanup, and logging.
 """
 
 import asyncio
+import typing as t
 from io import BufferedWriter
 from pathlib import Path
-from typing import TYPE_CHECKING, Union
 
 import aiohttp
 
@@ -22,23 +22,23 @@ from ..infrastructure.logging import get_logger
 from .base_retry import BaseRetryHandler
 from .null_retry import NullRetryHandler
 
-if TYPE_CHECKING:
+if t.TYPE_CHECKING:
     import loguru
 
 # Type alias for all exceptions that can occur during downloads
-DownloadException = Union[
-    aiohttp.ClientError,  # Network/HTTP errors
-    aiohttp.ClientConnectorError,
-    aiohttp.ClientOSError,
-    aiohttp.ClientSSLError,
-    aiohttp.ClientResponseError,
-    aiohttp.ClientPayloadError,
-    asyncio.TimeoutError,
-    FileNotFoundError,
-    PermissionError,
-    OSError,
-    Exception,  # Generic fallback
-]
+DownloadException = (
+    aiohttp.ClientError
+    | aiohttp.ClientConnectorError
+    | aiohttp.ClientOSError
+    | aiohttp.ClientSSLError
+    | aiohttp.ClientResponseError
+    | aiohttp.ClientPayloadError
+    | asyncio.TimeoutError
+    | FileNotFoundError
+    | PermissionError
+    | OSError
+    | Exception  # Generic fallback
+)
 
 
 class DownloadWorker:

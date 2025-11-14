@@ -1,10 +1,10 @@
 """Null Object implementation for retry handler."""
 
-from typing import Awaitable, Callable, TypeVar
+import typing as t
 
 from .base_retry import BaseRetryHandler
 
-T = TypeVar("T")
+T = t.TypeVar("T")
 
 
 class NullRetryHandler(BaseRetryHandler):
@@ -17,7 +17,7 @@ class NullRetryHandler(BaseRetryHandler):
 
     async def execute_with_retry(
         self,
-        operation: Callable[[], Awaitable[T]],
+        operation: t.Callable[[], t.Awaitable[T]],
         url: str,
         max_retries: int | None = None,
     ) -> T:

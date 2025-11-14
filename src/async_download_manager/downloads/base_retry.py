@@ -1,9 +1,9 @@
 """Base interface for retry handlers."""
 
+import typing as t
 from abc import ABC, abstractmethod
-from typing import Awaitable, Callable, TypeVar
 
-T = TypeVar("T")
+T = t.TypeVar("T")
 
 
 class BaseRetryHandler(ABC):
@@ -17,7 +17,7 @@ class BaseRetryHandler(ABC):
     @abstractmethod
     async def execute_with_retry(
         self,
-        operation: Callable[[], Awaitable[T]],
+        operation: t.Callable[[], t.Awaitable[T]],
         url: str,
         max_retries: int | None = None,
     ) -> T:

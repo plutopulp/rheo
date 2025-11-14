@@ -259,7 +259,7 @@ class DownloadManager:
                 self._logger.info(
                     f"Downloading {file_config.url} to {destination_path}"
                 )
-                await self.worker.download(file_config.url, destination_path)
+                await self.worker.download(str(file_config.url), destination_path)
                 self._logger.info(f"Downloaded {file_config.url} to {destination_path}")
             except asyncio.TimeoutError:
                 # No item available within timeout period. This is normal when

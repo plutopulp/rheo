@@ -6,13 +6,13 @@ and contextual information including module name, function, and line number.
 """
 
 import sys
-from typing import TYPE_CHECKING
+import typing as t
 
 from loguru import logger
 
 from ..config.settings import Environment, Settings
 
-if TYPE_CHECKING:
+if t.TYPE_CHECKING:
     import loguru
 # Remove default logger
 logger.remove()

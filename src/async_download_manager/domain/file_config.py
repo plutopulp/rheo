@@ -1,11 +1,9 @@
 """File configuration and filename handling for downloads."""
 
 import re
-from dataclasses import dataclass
 from pathlib import Path
-from urllib.parse import urlparse
 
-from .exceptions import ValidationError
+from pydantic import BaseModel, Field, HttpUrl
 
 # Reserved Windows filenames that need special handling
 _WINDOWS_RESERVED_NAMES = {
@@ -128,31 +126,40 @@ def _sanitize_filename(filename: str) -> str:
     return filename
 
 
-def _generate_filename_from_url(url: str) -> str:
+def _generate_filename_from_url(url: HttpUrl) -> str:
     """Generate sanitized filename from URL.
 
     Format: "domain-filename" or just "domain" if no path.
     Strips query parameters and fragments.
+    Pydantic's HttpUrl automatically omits default ports (80/443) when
+    converted to string, so we don't need to handle that manually.
 
     Args:
-        url: The URL to generate filename from
+        url: The Pydantic HttpUrl to generate filename from
 
     Returns:
         Generated filename in format "domain-filename"
 
     Examples:
-        >>> _generate_filename_from_url("https://example.com/path/file.txt")
+        >>> from pydantic import HttpUrl
+        >>> _generate_filename_from_url(HttpUrl("https://example.com/path/file.txt"))
         'example.com-file.txt'
-        >>> _generate_filename_from_url("https://example.com/")
+        >>> _generate_filename_from_url(HttpUrl("https://example.com/"))
         'example.com'
     """
-    parsed_url = urlparse(url)
+    from urllib.parse import urlparse
 
-    # Get domain, replacing colons in port numbers with underscores
-    domain = parsed_url.netloc.replace(":", "_")
+    # Convert to string - Pydantic already normalized it (default ports removed)
+    url_str = str(url)
+
+    # Parse the normalized string to extract components
+    parsed = urlparse(url_str)
+
+    # Get domain (netloc won't have :443 or :80 for default ports)
+    domain = parsed.netloc
 
     # Get path part, strip leading/trailing slashes
-    path_part = parsed_url.path.strip("/")
+    path_part = parsed.path.strip("/")
 
     if path_part:
         # Extract filename from path (last segment), remove query params
@@ -166,8 +173,7 @@ def _generate_filename_from_url(url: str) -> str:
     return _sanitize_filename(filename)
 
 
-@dataclass
-class FileConfig:
+class FileConfig(BaseModel):
     """Download specification with URL, priority, and metadata.
 
     Priority: higher numbers = higher priority (1=low, 5=high)
@@ -175,50 +181,53 @@ class FileConfig:
     """
 
     # ========== Required ==========
-    url: str
+    url: HttpUrl = Field(description="HTTP/HTTPS URL to download from")
 
     # ========== Metadata (for UI/logging) ==========
-    # The MIME type of the file (optional, for content validation)
-    type: str | None = None
-    # Human-readable description of the file (optional, for UI/logging)
-    description: str | None = None
-    # Priority for queue scheduling - higher numbers = higher priority (default: 1)
-    priority: int = 1
-    # Human-readable size estimate for display (optional)
-    size_human: str | None = None
-    # Exact size in bytes for progress calculation (optional)
-    size_bytes: int | None = None
+    type: str | None = Field(
+        default=None,
+        description="MIME type of the file (for content validation)",
+    )
+    description: str | None = Field(
+        default=None,
+        description="Human-readable description of the file",
+    )
+    priority: int = Field(
+        default=1,
+        ge=1,
+        description="Queue priority - higher numbers = higher priority",
+    )
+    size_human: str | None = Field(
+        default=None,
+        description="Human-readable size estimate for display",
+    )
+    size_bytes: int | None = Field(
+        default=None,
+        ge=0,
+        description="Exact size in bytes for progress calculation",
+    )
 
     # ========== File Management ==========
-    filename: str | None = None  # Custom filename override
-    destination_subdir: str | None = None  # Subdirectory within base download dir
+    filename: str | None = Field(
+        default=None,
+        description="Custom filename override",
+    )
+    destination_subdir: str | None = Field(
+        default=None,
+        description="Subdirectory within base download dir",
+    )
 
     # ========== Download Behavior ==========
-    # TODO: Implement per-file timeout override in worker.download()
-    timeout: float | None = None
-    # TODO: Implement retry logic in manager or worker
-    max_retries: int = 0
-
-    def __post_init__(self) -> None:
-        """Validate configuration after initialization."""
-        self._validate_url()
-
-    def _validate_url(self) -> None:
-        """Validate URL format and protocol.
-
-        Raises:
-            ValidationError: If URL is empty, missing components, or uses
-            unsupported protocol
-        """
-        # Check for empty or whitespace-only URL
-        if not self.url or not self.url.strip():
-            raise ValidationError("Invalid URL: URL cannot be empty")
-
-        parsed = urlparse(self.url)
-
-        # Check for valid scheme and netloc
-        if not all([parsed.scheme in ("http", "https"), parsed.netloc]):
-            raise ValidationError(f"Invalid URL: {self.url}")
+    timeout: float | None = Field(
+        default=None,
+        gt=0,
+        description="Per-file timeout override in seconds",
+    )
+    max_retries: int = Field(
+        default=0,
+        ge=0,
+        description="Maximum retry attempts for this file",
+    )
 
     def get_destination_filename(self) -> str:
         """Get the destination filename for this download.

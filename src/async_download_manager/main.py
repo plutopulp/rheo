@@ -2,6 +2,8 @@ import asyncio
 import os
 from pathlib import Path
 
+from pydantic import HttpUrl
+
 from async_download_manager.domain.file_config import FileConfig
 
 from .app import App, create_app
@@ -46,12 +48,14 @@ async def main() -> App:
         TEST_FILES.get("medium_zip"),
         # Add intentionally failing URLs to demonstrate error handling
         FileConfig(
-            url="https://invalid-domain-that-does-not-exist-12345.com/file.txt",
+            url=HttpUrl(
+                "https://invalid-domain-that-does-not-exist-12345.com/file.txt"
+            ),
             description="Invalid URL (should fail)",
             priority=2,
         ),
         FileConfig(
-            url="https://httpstat.us/404",
+            url=HttpUrl("https://httpstat.us/404"),
             description="404 Not Found (should fail)",
             priority=3,
         ),
@@ -90,15 +94,18 @@ async def main() -> App:
             expected_path = file_config.get_destination_path(download_dir_path)
             if expected_path.exists():
                 successful_downloads.append(
-                    (file_config.description or file_config.url, expected_path)
+                    (file_config.description or str(file_config.url), expected_path)
                 )
             else:
                 failed_downloads.append(
-                    (file_config.description or file_config.url, "File not created")
+                    (
+                        file_config.description or str(file_config.url),
+                        "File not created",
+                    )
                 )
         except Exception as e:
             failed_downloads.append(
-                (file_config.description or file_config.url, str(e))
+                (file_config.description or str(file_config.url), str(e))
             )
 
     # Print summary
