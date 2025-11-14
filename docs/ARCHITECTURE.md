@@ -63,9 +63,11 @@ Each layer has clear responsibilities and minimal coupling.
 Key pieces:
 
 - `FileConfig`: Download configuration (URL, destination, priority, etc.)
-- `DownloadInfo`: Current state of a download
+- `DownloadInfo`: Current state of a download (includes final average speed for completed/failed downloads)
 - `DownloadStatus`: Enum for states (pending, downloading, completed, failed)
 - `DownloadStats`: Aggregated statistics
+- `SpeedMetrics`: Real-time speed and ETA snapshot
+- `SpeedCalculator`: Calculates instantaneous and moving average speeds with ETA estimation
 - Custom exceptions: `ValidationError`, `ManagerNotInitializedError`, etc.
 
 **Why**: Keeps business logic separate from infrastructure. These models can be used anywhere without importing heavy dependencies.
@@ -87,7 +89,8 @@ Key pieces:
 
 - Does the actual HTTP download
 - Chunks data for progress reporting
-- Emits events for lifecycle stages
+- Emits events for lifecycle stages (including real-time speed updates)
+- Tracks download speed and ETA using injected `SpeedCalculator`
 - Handles errors with optional retry logic
 - Uses injected `RetryHandler` for automatic retries
 
@@ -127,8 +130,9 @@ Key pieces:
 **Event Models**:
 
 - `WorkerEvent`: Base class with `url` and `timestamp`
-- Specific events: `WorkerStartedEvent`, `WorkerProgressEvent`, `WorkerCompletedEvent`, `WorkerFailedEvent`, `WorkerRetryEvent`
+- Specific events: `WorkerStartedEvent`, `WorkerProgressEvent`, `WorkerSpeedUpdatedEvent`, `WorkerCompletedEvent`, `WorkerFailedEvent`, `WorkerRetryEvent`
 - Self-contained payloads (no external state needed)
+- Speed events include instantaneous speed, moving average, ETA, and elapsed time
 
 **Why events**: Loose coupling. Worker doesn't know tracker exists. Tracker doesn't know worker implementation. Easy to add new observers without modifying existing code.
 
@@ -138,10 +142,12 @@ Key pieces:
 
 **DownloadTracker**:
 
-- Observes worker events
+- Observes worker events (including real-time speed updates)
 - Maintains `DownloadInfo` for each URL
+- Tracks transient `SpeedMetrics` for active downloads
+- Persists average speed in `DownloadInfo` upon completion/failure
 - Thread-safe via `asyncio.Lock`
-- Provides query methods (`get_download`, `get_all_downloads`, `get_stats`)
+- Provides query methods (`get_download`, `get_all_downloads`, `get_stats`, `get_speed_metrics`)
 
 **BaseTracker / NullTracker**:
 
@@ -181,10 +187,26 @@ Key pieces:
 1. Manager starts N worker tasks
 2. Each worker calls queue.get_next() (blocks until available)
 3. Worker downloads file in chunks
-4. Worker emits events: started → chunk → chunk → ... → completed
-5. Tracker observes events, updates state
+4. Worker emits events: started → progress + speed → progress + speed → ... → completed
+5. Tracker observes events, updates state (including real-time speed metrics)
 6. Worker marks queue task as done
 7. Worker loops back to step 2
+```
+
+**Speed Tracking Flow**:
+
+```text
+1. Worker creates SpeedCalculator for each download
+2. After each chunk downloaded:
+   a. Worker calls speed_calculator.record_chunk(bytes, total, timestamp)
+   b. Calculator updates instantaneous speed and moving average
+   c. Calculator estimates ETA based on average speed
+   d. Worker emits WorkerSpeedUpdatedEvent with metrics
+3. Tracker receives speed event, stores transient SpeedMetrics
+4. On completion/failure:
+   a. Tracker captures final average_speed_bps
+   b. Tracker persists speed to DownloadInfo
+   c. Tracker clears transient SpeedMetrics (frees memory)
 ```
 
 ### Handling Events
@@ -397,6 +419,7 @@ Simple and effective:
 Things we explicitly didn't build (yet):
 
 - ✅ ~~No retry logic~~ - **Implemented with exponential backoff**
+- ✅ ~~No speed/ETA tracking~~ - **Implemented with moving average and real-time updates**
 - No resume support (planned for Phase 1)
 - No multi-segment parallel downloads (planned for Phase 1)
 - No persistent storage (planned for Phase 2)

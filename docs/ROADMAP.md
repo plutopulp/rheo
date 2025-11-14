@@ -15,12 +15,12 @@ What we're actually building, in order of priority.
 - [x] Comprehensive error handling
 - [x] **Retry logic with exponential backoff**
 - [x] **Configurable retry policies (transient vs permanent errors)**
+- [x] **Speed and ETA tracking**
 - [ ] Download resume support (HTTP Range requests)
 - [ ] Multi-segment downloads (parallel chunks per file)
 - [ ] Hash validation (MD5, SHA256, SHA512)
 - [ ] Custom HTTP headers and cookies support
 - [ ] Basic proxy support (HTTP/HTTPS)
-- [ ] Speed and ETA tracking
 - [ ] Skip existing files option
 
 ### CLI Tool
