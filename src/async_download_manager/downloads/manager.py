@@ -37,6 +37,13 @@ def _create_event_wiring(
         "worker.progress": lambda e: tracker.track_progress(
             e.url, e.bytes_downloaded, e.total_bytes
         ),
+        "worker.speed_updated": lambda e: tracker.track_speed_update(
+            e.url,
+            e.current_speed_bps,
+            e.average_speed_bps,
+            e.eta_seconds,
+            e.elapsed_seconds,
+        ),
         "worker.completed": lambda e: tracker.track_completed(
             e.url, e.total_bytes, e.destination_path
         ),

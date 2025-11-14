@@ -44,9 +44,10 @@ That's it. The manager handles worker pools, state tracking, and cleanup automat
 - **Concurrent downloads**: Worker pool manages multiple downloads simultaneously
 - **Priority queue**: Download urgent files first
 - **Retry logic**: Automatic retry with exponential backoff for transient errors
+- **Speed & ETA tracking**: Real-time download speed with moving averages and estimated completion time
 - **Graceful shutdown**: Stop downloads cleanly or cancel immediately
-- **Event system**: React to download lifecycle events (started, progress, completed, failed, retry)
-- **Progress tracking**: Track bytes downloaded, completion status, errors
+- **Event system**: React to download lifecycle events (started, progress, speed, completed, failed, retry)
+- **Progress tracking**: Track bytes downloaded, completion status, errors, and final average speeds
 - **Async/await**: Built on asyncio for efficient I/O
 - **Type hints**: Full type annotations throughout
 - **Dependency injection**: Easy to test and customise
@@ -134,16 +135,61 @@ stats = tracker.get_stats()
 print(f"Completed: {stats.completed}, Failed: {stats.failed}")
 ```
 
+### Monitor Download Speed & ETA
+
+Track real-time download speeds and get completion estimates:
+
+```python
+from async_download_manager.tracking import DownloadTracker
+
+tracker = DownloadTracker()
+
+async with DownloadManager(
+    download_dir=Path("./downloads"),
+    tracker=tracker,
+) as manager:
+    await manager.add_to_queue(files)
+
+    # Query speed metrics while download is active
+    await asyncio.sleep(2)  # Let downloads start
+
+    for url in files:
+        metrics = tracker.get_speed_metrics(url.url)
+        if metrics:
+            print(f"{url.url}:")
+            print(f"  Current: {metrics.current_speed_bps / 1024:.2f} KB/s")
+            print(f"  Average: {metrics.average_speed_bps / 1024:.2f} KB/s")
+            print(f"  ETA: {metrics.eta_seconds:.1f}s" if metrics.eta_seconds else "  ETA: Unknown")
+
+    await manager.queue.join()
+
+    # After completion, average speed is persisted in DownloadInfo
+    for url, info in tracker.get_all_downloads().items():
+        if info.average_speed_bps:
+            print(f"{url}: {info.average_speed_bps / 1024:.2f} KB/s average")
+```
+
+**Key features**:
+
+- **Instantaneous speed**: Current chunk speed (reacts quickly to changes)
+- **Moving average**: Smoothed speed over configurable window (default 5s)
+- **ETA**: Estimated time to completion based on average speed
+- **Historical data**: Final average speed persisted for completed/failed downloads
+
 ### React to Events
 
 ```python
-from async_download_manager.events import ChunkDownloaded
+from async_download_manager.events import WorkerProgressEvent, WorkerSpeedUpdatedEvent
 
-async def on_progress(event: ChunkDownloaded):
+async def on_progress(event: WorkerProgressEvent):
     print(f"Downloaded {event.bytes_downloaded} bytes from {event.url}")
 
+async def on_speed_update(event: WorkerSpeedUpdatedEvent):
+    print(f"{event.url}: {event.average_speed_bps / 1024:.2f} KB/s, ETA: {event.eta_seconds:.1f}s")
+
 async with DownloadManager(download_dir=Path("./downloads")) as manager:
-    manager.worker.emitter.on("worker.chunk_downloaded", on_progress)
+    manager.worker.emitter.on("worker.progress", on_progress)
+    manager.worker.emitter.on("worker.speed_updated", on_speed_update)
     await manager.add_to_queue(files)
     await manager.queue.join()
 ```
@@ -247,9 +293,11 @@ Recently completed:
 - ✅ Configurable retry policies
 - ✅ Smart error categorization (transient vs permanent)
 - ✅ Graceful shutdown with configurable behavior
+- ✅ Real-time speed and ETA tracking
 
 Current focus:
 
+- Hash validation (MD5, SHA256, SHA512)
 - Download resume support (HTTP Range requests)
 - Multi-segment parallel downloads
 - CLI interface
@@ -282,10 +330,10 @@ poetry run python -m src.async_download_manager.main
 
 The library is organised into bounded contexts:
 
-- **Domain**: Core models (`FileConfig`, `DownloadInfo`, `DownloadStatus`)
+- **Domain**: Core models (`FileConfig`, `DownloadInfo`, `DownloadStatus`, `SpeedMetrics`, `SpeedCalculator`)
 - **Downloads**: Queue, manager, and worker implementations
-- **Events**: Event system and typed event models
-- **Tracking**: State tracking and statistics
+- **Events**: Event system and typed event models (including speed updates)
+- **Tracking**: State tracking, statistics, and real-time speed metrics
 - **Infrastructure**: Logging, HTTP client setup
 
 See `docs/ARCHITECTURE.md` for detailed design decisions.

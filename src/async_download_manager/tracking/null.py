@@ -22,5 +22,16 @@ class NullTracker(BaseTracker):
     ) -> None:
         pass
 
+    async def track_speed_update(
+        self,
+        url: str,
+        current_speed_bps: float,
+        average_speed_bps: float,
+        eta_seconds: float | None,
+        elapsed_seconds: float,
+    ) -> None:
+        """No-op speed tracking."""
+        pass
+
     async def track_failed(self, url: str, error: Exception) -> None:
         pass

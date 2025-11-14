@@ -312,3 +312,57 @@ class TestWorkerRetryWithCustomPolicy:
 
         assert test_data.path.exists()
         assert test_data.path.read_bytes() == test_data.content
+
+    @pytest.mark.asyncio
+    async def test_retry_uses_fresh_speed_calculator(
+        self, worker_with_real_events, tmp_path, test_data
+    ):
+        """Test that each retry attempt gets a fresh SpeedCalculator with clean state.
+
+        Bug: When a download is retried, the same SpeedCalculator instance is reused,
+        retaining stale state (_chunks, _start_time, _last_time, _last_bytes) from
+        the failed attempt. This causes corrupted speed metrics on retry.
+
+        Expected: Each retry attempt should get a fresh calculator or reset the
+        existing one.
+        """
+        test_data.content = b"a" * 5000  # 5KB for multiple chunks
+        # Collect speed events to verify calculator state
+        speed_events = []
+        worker_with_real_events.emitter.on(
+            "worker.speed_updated", lambda e: speed_events.append(e)
+        )
+
+        with aioresponses() as mock:
+            # First attempt: fails immediately (transient error - no chunks)
+            mock.get(test_data.url, status=503, body="Service Unavailable")
+            # Second attempt: succeeds with full download
+            mock.get(
+                test_data.url,
+                status=200,
+                body=test_data.content,
+                headers={"Content-Length": str(len(test_data.content))},
+            )
+
+            await worker_with_real_events.download(
+                test_data.url, test_data.path, chunk_size=1024
+            )
+
+        # Verify file was successfully downloaded
+        assert test_data.path.exists()
+        assert test_data.path.read_bytes() == test_data.content
+
+        # Verify we got speed events (should be from successful attempt only)
+        assert len(speed_events) > 0
+
+        # Critical check: First speed event of successful attempt should have
+        # elapsed_seconds starting near 0, not continuing from failed attempt
+        # If calculator was reused, elapsed_seconds would be much higher
+        first_speed_event = speed_events[0]
+
+        # First event should have very small elapsed time (< 1 second typically)
+        # If calculator state was stale, this would be much larger
+        assert first_speed_event.elapsed_seconds < 1.0, (
+            f"Speed calculator appears to have stale state from failed attempt. "
+            f"First event elapsed_seconds: {first_speed_event.elapsed_seconds}"
+        )
