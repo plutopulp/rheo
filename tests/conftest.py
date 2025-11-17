@@ -6,7 +6,7 @@ import pytest_asyncio
 from aiohttp import ClientSession
 
 from async_download_manager.app import create_app
-from async_download_manager.config.settings import Environment, Settings
+from async_download_manager.config.settings import Environment, LogLevel, Settings
 from async_download_manager.downloads import DownloadManager
 from async_download_manager.events import BaseEmitter, EventEmitter
 from async_download_manager.infrastructure.logging import reset_logging
@@ -18,7 +18,7 @@ def test_settings():
     """Provide test-specific settings."""
     return Settings(
         environment=Environment.TESTING,
-        log_level="CRITICAL",  # Minimal logging during tests
+        log_level=LogLevel.CRITICAL,  # Minimal logging during tests
     )
 
 

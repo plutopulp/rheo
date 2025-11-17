@@ -1,6 +1,6 @@
 """Tests for logging infrastructure."""
 
-from async_download_manager.config.settings import Environment, Settings
+from async_download_manager.config.settings import Environment, LogLevel, Settings
 from async_download_manager.infrastructure.logging import (
     configure_logger,
     get_logger,
@@ -38,7 +38,7 @@ def test_configure_logger_development():
     reset_logging()
 
     # Should not raise
-    configure_logger(level="DEBUG", environment=Environment.DEVELOPMENT)
+    configure_logger(level=LogLevel.DEBUG, environment=Environment.DEVELOPMENT)
 
     logger = get_logger(__name__)
     logger.debug("Development debug message")
@@ -49,7 +49,7 @@ def test_configure_logger_production():
     reset_logging()
 
     # Should not raise
-    configure_logger(level="WARNING", environment=Environment.PRODUCTION)
+    configure_logger(level=LogLevel.WARNING, environment=Environment.PRODUCTION)
 
     logger = get_logger(__name__)
     logger.warning("Production warning message")

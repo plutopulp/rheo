@@ -10,7 +10,7 @@ import typing as t
 
 from loguru import logger
 
-from ..config.settings import Environment, Settings
+from ..config.settings import Environment, LogLevel, Settings
 
 if t.TYPE_CHECKING:
     import loguru
@@ -30,7 +30,7 @@ _configured = False
 
 
 def configure_logger(
-    level: str = "INFO", environment: Environment = Environment.DEVELOPMENT
+    level: LogLevel = LogLevel.INFO, environment: Environment = Environment.DEVELOPMENT
 ) -> None:
     """Configure the logger with the given level and environment."""
     global _configured
@@ -55,7 +55,7 @@ def configure_logger(
                 "sink": sys.stderr,
                 "format": format_string,
                 "colorize": environment == Environment.DEVELOPMENT,
-                "level": level,
+                "level": level.value,
                 "diagnose": environment == Environment.DEVELOPMENT,
             }
         ],
