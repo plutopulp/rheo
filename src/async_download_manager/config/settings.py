@@ -1,29 +1,104 @@
-from dataclasses import dataclass
-from enum import Enum
+"""Application settings with Pydantic for validation and env var support."""
+
+import enum
+import typing as t
 from pathlib import Path
 
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
-class Environment(Enum):
-    """Runtime environment for the application.
 
-    Kept small and explicit to support simple environment-driven behavior
-    without introducing configuration dependencies.
-    """
+class Environment(enum.StrEnum):
+    """Runtime environment for the application."""
 
     DEVELOPMENT = "development"
     PRODUCTION = "production"
     TESTING = "testing"
 
 
-@dataclass(frozen=True)
-class Settings:
-    """Minimal settings container used to bootstrap the app.
+class LogLevel(enum.StrEnum):
+    """Logging levels matching Loguru's standard levels."""
 
-    Rationale: keep a stable shape that core code depends on while allowing
-    the app/CLI layer to decide how values are populated (env vars now,
-    a config library later).
+    TRACE = "TRACE"
+    DEBUG = "DEBUG"
+    INFO = "INFO"
+    SUCCESS = "SUCCESS"
+    WARNING = "WARNING"
+    ERROR = "ERROR"
+    CRITICAL = "CRITICAL"
+
+
+class Settings(BaseSettings):
+    """Application settings with sensible defaults.
+
+    Can be populated from:
+    - Defaults (defined here)
+    - Environment variables (ADM_* prefix)
+    - CLI flags (highest priority, applied via build_settings)
     """
 
-    environment: Environment = Environment.DEVELOPMENT
-    log_level: str = "INFO"
-    download_dir: Path = Path(__file__).parent.parent.parent / "downloads"
+    # Core settings
+    environment: Environment = Field(
+        default=Environment.PRODUCTION,
+        description="Runtime environment",
+    )
+    log_level: LogLevel = Field(
+        default=LogLevel.INFO,
+        description="Logging level",
+    )
+    download_dir: Path = Field(
+        default_factory=lambda: Path.home() / "Downloads",
+        description="Directory to save downloads",
+    )
+
+    # Download behavior
+    max_workers: int = Field(
+        default=3,
+        ge=1,
+        description="Number of concurrent download workers",
+    )
+    chunk_size: int = Field(
+        default=8192,
+        ge=1024,
+        description="Download chunk size in bytes",
+    )
+    timeout: float = Field(
+        default=300.0,
+        gt=0.0,
+        description="Download timeout in seconds",
+    )
+
+    model_config = SettingsConfigDict(
+        env_prefix="ADM_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+        extra="ignore",
+    )
+
+
+def build_settings(**overrides: t.Any) -> Settings:
+    """Build Settings with overrides applied.
+
+    Loads from environment variables and applies overrides.
+    Filters out None values from overrides.
+
+    Args:
+        **overrides: Keyword arguments to override default/env settings
+
+    Returns:
+        Settings instance
+
+    Example:
+        settings = build_settings(max_workers=5, log_level=LogLevel.DEBUG)
+    """
+    base_settings = Settings()
+
+    # Filter out None values from overrides
+    filtered_overrides = {k: v for k, v in overrides.items() if v is not None}
+
+    # Create new settings with overrides
+    if filtered_overrides:
+        return base_settings.model_copy(update=filtered_overrides)
+
+    return base_settings

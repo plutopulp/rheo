@@ -7,7 +7,7 @@ from pydantic import HttpUrl
 from async_download_manager.domain.file_config import FileConfig
 
 from .app import App, create_app
-from .config.settings import Environment, Settings
+from .config.settings import Environment, LogLevel, Settings
 from .downloads import DownloadManager
 from .infrastructure.logging import get_logger
 
@@ -31,7 +31,7 @@ async def main() -> App:
     Downloads 7-8 files of varying priorities and includes intentionally
     failing URLs to demonstrate robust error handling.
     """
-    settings = Settings(environment=Environment.DEVELOPMENT, log_level="DEBUG")
+    settings = Settings(environment=Environment.DEVELOPMENT, log_level=LogLevel.DEBUG)
     app = create_app(settings)
 
     logger = get_logger(__name__)

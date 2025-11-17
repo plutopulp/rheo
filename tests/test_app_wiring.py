@@ -1,5 +1,5 @@
 from async_download_manager.app import App, create_app
-from async_download_manager.config.settings import Environment, Settings
+from async_download_manager.config.settings import Environment, LogLevel, Settings
 from async_download_manager.infrastructure.logging import get_logger, is_configured
 
 
@@ -7,8 +7,8 @@ def test_create_app_uses_default_settings():
     app = create_app()
     assert isinstance(app, App)
     assert isinstance(app.settings, Settings)
-    assert app.settings.environment == Environment.DEVELOPMENT
-    assert isinstance(app.settings.log_level, str)
+    assert app.settings.environment == Environment.PRODUCTION
+    assert app.settings.log_level == LogLevel.INFO
 
 
 def test_create_app_with_custom_settings(test_settings):
@@ -16,7 +16,7 @@ def test_create_app_with_custom_settings(test_settings):
     app = create_app(settings=test_settings)
     assert app.settings is test_settings
     assert app.settings.environment == Environment.TESTING
-    assert app.settings.log_level == "CRITICAL"
+    assert app.settings.log_level == LogLevel.CRITICAL
 
 
 def test_create_app_configures_logging():
