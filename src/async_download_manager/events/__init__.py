@@ -10,6 +10,9 @@ from .tracker_events import (
     DownloadProgressEvent,
     DownloadQueuedEvent,
     DownloadStartedEvent,
+    DownloadValidationCompletedEvent,
+    DownloadValidationFailedEvent,
+    DownloadValidationStartedEvent,
 )
 from .worker_events import (
     WorkerCompletedEvent,
@@ -19,6 +22,9 @@ from .worker_events import (
     WorkerRetryEvent,
     WorkerSpeedUpdatedEvent,
     WorkerStartedEvent,
+    WorkerValidationCompletedEvent,
+    WorkerValidationFailedEvent,
+    WorkerValidationStartedEvent,
 )
 
 __all__ = [
@@ -33,6 +39,9 @@ __all__ = [
     "DownloadProgressEvent",
     "DownloadCompletedEvent",
     "DownloadFailedEvent",
+    "DownloadValidationStartedEvent",
+    "DownloadValidationCompletedEvent",
+    "DownloadValidationFailedEvent",
     # Worker Events
     "WorkerEvent",
     "WorkerStartedEvent",
@@ -41,4 +50,7 @@ __all__ = [
     "WorkerFailedEvent",
     "WorkerRetryEvent",
     "WorkerSpeedUpdatedEvent",
+    "WorkerValidationStartedEvent",
+    "WorkerValidationCompletedEvent",
+    "WorkerValidationFailedEvent",
 ]

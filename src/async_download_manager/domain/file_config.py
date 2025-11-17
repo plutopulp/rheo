@@ -5,6 +5,8 @@ from pathlib import Path
 
 from pydantic import BaseModel, Field, HttpUrl
 
+from .hash_validation import HashConfig
+
 # Reserved Windows filenames that need special handling
 _WINDOWS_RESERVED_NAMES = {
     "CON",
@@ -215,6 +217,12 @@ class FileConfig(BaseModel):
     destination_subdir: str | None = Field(
         default=None,
         description="Subdirectory within base download dir",
+    )
+
+    # ========== Validation ==========
+    hash_config: HashConfig | None = Field(
+        default=None,
+        description="Optional hash validation configuration",
     )
 
     # ========== Download Behavior ==========

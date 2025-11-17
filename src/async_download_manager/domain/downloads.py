@@ -4,6 +4,8 @@ from enum import Enum
 
 from pydantic import BaseModel, Field
 
+from .hash_validation import ValidationState
+
 
 class DownloadStatus(Enum):
     """Download lifecycle states.
@@ -48,6 +50,10 @@ class DownloadInfo(BaseModel):
         default=None,
         ge=0.0,
         description="Average download speed in bytes/second (set at completion)",
+    )
+    validation: ValidationState | None = Field(
+        default=None,
+        description="Validation state if hash validation is configured",
     )
 
     def get_progress(self) -> float:

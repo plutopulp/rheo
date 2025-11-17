@@ -4,6 +4,10 @@ import pytest
 
 from async_download_manager.domain.downloads import DownloadInfo, DownloadStatus
 from async_download_manager.domain.file_config import FileConfig
+from async_download_manager.domain.hash_validation import (
+    ValidationState,
+    ValidationStatus,
+)
 
 
 @pytest.fixture
@@ -94,3 +98,19 @@ class TestDownloadInfo:
         )
 
         assert not info.is_terminal()
+
+    def test_validation_field_default_none(self):
+        """Validation info defaults to None when validation not requested."""
+        info = DownloadInfo(url="https://example.com/file.txt")
+        assert info.validation is None
+
+    def test_validation_field_stores_state(self):
+        """Validation info stores state when provided."""
+        state = ValidationState(
+            status=ValidationStatus.SUCCEEDED, validated_hash="abc123", error=None
+        )
+        info = DownloadInfo(
+            url="https://example.com/file.txt",
+            validation=state,
+        )
+        assert info.validation == state
