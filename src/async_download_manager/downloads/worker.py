@@ -12,6 +12,8 @@ from pathlib import Path
 
 import aiohttp
 
+from ..domain.exceptions import HashMismatchError
+from ..domain.hash_validation import HashConfig
 from ..domain.speed import SpeedCalculator
 from ..events import (
     EventEmitter,
@@ -20,10 +22,15 @@ from ..events import (
     WorkerProgressEvent,
     WorkerSpeedUpdatedEvent,
     WorkerStartedEvent,
+    WorkerValidationCompletedEvent,
+    WorkerValidationFailedEvent,
+    WorkerValidationStartedEvent,
 )
 from ..infrastructure.logging import get_logger
 from .base_retry import BaseRetryHandler
+from .base_validator import BaseFileValidator
 from .null_retry import NullRetryHandler
+from .validation import FileValidator
 
 if t.TYPE_CHECKING:
     import loguru
@@ -74,6 +81,7 @@ class DownloadWorker:
         logger: "loguru.Logger" = get_logger(__name__),
         emitter: EventEmitter | None = None,
         retry_handler: BaseRetryHandler | None = None,
+        validator: BaseFileValidator | None = None,
         speed_window_seconds: float = 5.0,
     ) -> None:
         """Initialize the download worker.
@@ -85,6 +93,8 @@ class DownloadWorker:
                     If None, a new EventEmitter will be created.
             retry_handler: Retry handler for automatic retry with exponential backoff.
                           If None, a NullRetryHandler is used (no retries).
+            validator: File validator for post-download hash verification.
+                      If None, a FileValidator is used.
             speed_window_seconds: Time window in seconds for moving average speed
                                 calculation. Shorter windows react faster to speed
                                 changes; longer windows provide smoother averages.
@@ -95,6 +105,7 @@ class DownloadWorker:
         self.retry_handler = (
             retry_handler if retry_handler is not None else NullRetryHandler()
         )
+        self._validator = validator if validator is not None else FileValidator()
         self._speed_window_seconds = speed_window_seconds
 
     def _write_chunk_to_file(self, chunk: bytes, file_handle: BufferedWriter) -> None:
@@ -169,12 +180,14 @@ class DownloadWorker:
         chunk_size: int = 1024,
         timeout: float | None = None,
         speed_calculator: SpeedCalculator | None = None,
+        hash_config: HashConfig | None = None,
     ) -> None:
         """Download a file from URL to local path with error handling and retry support.
 
         This method streams the download in chunks for memory efficiency and provides
         error handling with automatic cleanup of partial files. If retry is enabled,
-        transient errors will be retried with exponential backoff.
+        transient errors will be retried with exponential backoff. If hash_config is
+        provided, validates the downloaded file after completion.
 
         Implementation decisions:
         - Uses streaming to handle large files without loading into memory
@@ -183,6 +196,7 @@ class DownloadWorker:
         - Re-raises exceptions after logging to allow caller-specific handling
         - Uses asyncio.Timeout for consistent timeout behavior
         - Wraps download in retry handler if configured
+        - Performs hash validation after download if hash_config provided
 
         Args:
             url: HTTP/HTTPS URL to download from
@@ -192,11 +206,14 @@ class DownloadWorker:
             speed_calculator: Speed calculator for tracking download speed and ETA.
                             If None, creates a new calculator with configured window.
                             Provide custom implementation for alternative speed tracking.
+            hash_config: Optional hash configuration for post-download validation.
+                        If provided, validates file hash matches expected value.
 
         Raises:
             aiohttp.ClientError: For network/HTTP related errors
             asyncio.TimeoutError: If download exceeds timeout
             OSError: For filesystem errors (FileNotFoundError, PermissionError, etc.)
+            HashMismatchError: If hash validation fails
 
         Example:
             ```python
@@ -210,7 +227,12 @@ class DownloadWorker:
         # each retry attempt gets a fresh calculator with clean state
         await self.retry_handler.execute_with_retry(
             operation=lambda: self._download_with_cleanup(
-                url, destination_path, chunk_size, timeout, speed_calculator
+                url,
+                destination_path,
+                chunk_size,
+                timeout,
+                speed_calculator,
+                hash_config,
             ),
             url=url,
         )
@@ -222,6 +244,7 @@ class DownloadWorker:
         chunk_size: int,
         timeout: float | None,
         speed_calculator: SpeedCalculator | None,
+        hash_config: HashConfig | None,
     ) -> None:
         """Internal download implementation with error handling and cleanup.
 
@@ -237,6 +260,7 @@ class DownloadWorker:
                             with configured window. Creating fresh instances ensures
                             retry attempts don't inherit stale state from failed
                             attempts.
+            hash_config: Optional hash configuration for post-download validation.
         """
         self.logger.debug(f"Starting download: {url} -> {destination_path}")
 
@@ -304,6 +328,10 @@ class DownloadWorker:
 
             self.logger.debug(f"Download completed successfully: {destination_path}")
 
+            # Validate hash if configured
+            if hash_config is not None:
+                await self._validate_download(url, destination_path, hash_config)
+
             # Emit completed event
             await self.emitter.emit(
                 "worker.completed",
@@ -353,3 +381,76 @@ class DownloadWorker:
                 self.logger.warning(
                     f"Failed to clean up partial file {file_path}: {cleanup_error}"
                 )
+
+    async def _validate_download(
+        self, url: str, file_path: Path, hash_config: HashConfig
+    ) -> None:
+        """Validate downloaded file hash matches expected value.
+
+        Emits validation events and raises HashMismatchError on failure.
+        Hash mismatches are treated as permanent errors and will not be retried
+        by default.
+
+        TODO: Future enhancement - add retry_on_mismatch configuration to
+        allow retrying hash validation failures in case of network corruption
+        during file transfer (similar to retry policies for download errors).
+
+        Args:
+            url: The URL that was downloaded
+            file_path: Path to the downloaded file
+            hash_config: Hash configuration with algorithm and expected hash
+
+        Raises:
+            HashMismatchError: If calculated hash does not match expected hash
+            FileValidationError: If file cannot be accessed or read
+        """
+        # Emit validation started event
+        await self.emitter.emit(
+            "worker.validation_started",
+            WorkerValidationStartedEvent(url=url, algorithm=hash_config.algorithm),
+        )
+
+        validation_start = time.monotonic()
+
+        try:
+            # Perform validation (raises HashMismatchError on failure)
+            # Returns the actual calculated hash
+            calculated_hash = await self._validator.validate(file_path, hash_config)
+
+            duration_ms = (time.monotonic() - validation_start) * 1000
+
+            # Emit validation completed event
+            await self.emitter.emit(
+                "worker.validation_completed",
+                WorkerValidationCompletedEvent(
+                    url=url,
+                    algorithm=hash_config.algorithm,
+                    calculated_hash=calculated_hash,
+                    duration_ms=duration_ms,
+                ),
+            )
+
+            self.logger.debug(
+                f"Validation succeeded for {file_path} "
+                f"({hash_config.algorithm}, {duration_ms:.2f}ms)"
+            )
+
+        except HashMismatchError as exc:
+            # Emit validation failed event
+            await self.emitter.emit(
+                "worker.validation_failed",
+                WorkerValidationFailedEvent(
+                    url=url,
+                    algorithm=hash_config.algorithm,
+                    expected_hash=exc.expected_hash,
+                    actual_hash=exc.actual_hash,
+                    error_message=str(exc),
+                ),
+            )
+
+            self.logger.error(f"Validation failed for {url}: {exc}")
+
+            # Re-raise to trigger cleanup and mark download as failed
+            # Note: Hash mismatch is treated as a permanent error by default
+            # and will not be retried unless retry_on_mismatch is configured
+            raise

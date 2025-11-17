@@ -99,3 +99,36 @@ class WorkerSpeedUpdatedEvent(WorkerEvent):
     elapsed_seconds: float = 0.0  # Time elapsed since download started
     bytes_downloaded: int = 0  # Cumulative bytes downloaded
     total_bytes: int | None = None  # Total file size if known
+
+
+@dataclass
+class WorkerValidationStartedEvent(WorkerEvent):
+    """Emitted when hash validation starts."""
+
+    event_type: str = "worker.validation_started"
+    algorithm: str = ""
+    file_path: str = ""
+    file_size_bytes: int | None = None
+
+
+@dataclass
+class WorkerValidationCompletedEvent(WorkerEvent):
+    """Emitted when hash validation succeeds."""
+
+    event_type: str = "worker.validation_completed"
+    algorithm: str = ""
+    calculated_hash: str = ""
+    duration_ms: float = 0.0
+    file_path: str = ""
+
+
+@dataclass
+class WorkerValidationFailedEvent(WorkerEvent):
+    """Emitted when hash validation fails."""
+
+    event_type: str = "worker.validation_failed"
+    algorithm: str = ""
+    expected_hash: str = ""
+    actual_hash: str | None = None
+    error_message: str = ""
+    file_path: str = ""

@@ -6,6 +6,7 @@ import pytest
 from pydantic import ValidationError
 
 from async_download_manager.domain.file_config import FileConfig
+from async_download_manager.domain.hash_validation import HashAlgorithm, HashConfig
 
 
 class TestFileConfigURLValidation:
@@ -338,3 +339,16 @@ class TestFileConfigEdgeCases:
         """Test multiple URL cases using parametrization."""
         config = FileConfig(url=url)
         assert config.get_destination_filename() == expected_filename
+
+
+class TestFileConfigHashIntegration:
+    """Ensure FileConfig stores optional hash configuration."""
+
+    def test_accepts_hash_config(self):
+        """FileConfig can store and expose HashConfig."""
+        hash_config = HashConfig(
+            algorithm=HashAlgorithm.MD5,
+            expected_hash="a" * HashAlgorithm.MD5.hex_length,
+        )
+        config = FileConfig(url="https://example.com/file.txt", hash_config=hash_config)
+        assert config.hash_config is hash_config

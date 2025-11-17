@@ -69,3 +69,31 @@ class DownloadFailedEvent(DownloadEvent):
     event_type: str = "tracker.failed"
     error_message: str = ""
     error_type: str = ""
+
+
+@dataclass
+class DownloadValidationStartedEvent(DownloadEvent):
+    """Fired when hash validation starts."""
+
+    event_type: str = "tracker.validation_started"
+    algorithm: str = ""
+
+
+@dataclass
+class DownloadValidationCompletedEvent(DownloadEvent):
+    """Fired when hash validation succeeds."""
+
+    event_type: str = "tracker.validation_completed"
+    algorithm: str = ""
+    calculated_hash: str = ""
+
+
+@dataclass
+class DownloadValidationFailedEvent(DownloadEvent):
+    """Fired when hash validation fails."""
+
+    event_type: str = "tracker.validation_failed"
+    algorithm: str = ""
+    expected_hash: str = ""
+    actual_hash: str | None = None
+    error_message: str = ""

@@ -24,6 +24,7 @@ async def main() -> App:
     Demonstrates:
     - Priority queue management with multiple files
     - Concurrent downloads with worker pool (3 workers)
+    - Hash validation for file integrity
     - Mixed success/failure scenarios with error handling
     - Basic statistics reporting
 
@@ -46,6 +47,20 @@ async def main() -> App:
         TEST_FILES.get("medium_binary"),
         TEST_FILES.get("medium_image"),
         TEST_FILES.get("medium_zip"),
+        # Add file with hash validation to demonstrate integrity checking
+        # Note: This will fail validation unless you provide a correct hash
+        # To use validation, download the file first, calculate its hash, then add
+        # it here
+        # Example: echo -n $(shasum -a 256 1Mb.dat | cut -d' ' -f1)
+        # FileConfig(
+        #     url=HttpUrl("https://proof.ovh.net/files/1Mb.dat"),
+        #     description="1MB test file (with SHA256 validation)",
+        #     priority=1,
+        #     hash_config=HashConfig(
+        #         algorithm=HashAlgorithm.SHA256,
+        #         expected_hash="<insert-correct-hash-here>",
+        #     ),
+        # ),
         # Add intentionally failing URLs to demonstrate error handling
         FileConfig(
             url=HttpUrl(

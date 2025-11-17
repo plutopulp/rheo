@@ -44,6 +44,15 @@ def _create_event_wiring(
             e.eta_seconds,
             e.elapsed_seconds,
         ),
+        "worker.validation_started": lambda e: tracker.track_validation_started(
+            e.url, e.algorithm
+        ),
+        "worker.validation_completed": lambda e: tracker.track_validation_completed(
+            e.url, e.algorithm, e.calculated_hash
+        ),
+        "worker.validation_failed": lambda e: tracker.track_validation_failed(
+            e.url, e.algorithm, e.expected_hash, e.actual_hash, e.error_message
+        ),
         "worker.completed": lambda e: tracker.track_completed(
             e.url, e.total_bytes, e.destination_path
         ),
@@ -266,7 +275,11 @@ class DownloadManager:
                 self._logger.info(
                     f"Downloading {file_config.url} to {destination_path}"
                 )
-                await self.worker.download(str(file_config.url), destination_path)
+                await self.worker.download(
+                    str(file_config.url),
+                    destination_path,
+                    hash_config=file_config.hash_config,
+                )
                 self._logger.info(f"Downloaded {file_config.url} to {destination_path}")
             except asyncio.TimeoutError:
                 # No item available within timeout period. This is normal when

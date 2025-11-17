@@ -43,11 +43,12 @@ That's it. The manager handles worker pools, state tracking, and cleanup automat
 
 - **Concurrent downloads**: Worker pool manages multiple downloads simultaneously
 - **Priority queue**: Download urgent files first
+- **Hash validation**: Verify file integrity with MD5, SHA256, or SHA512 checksums
 - **Retry logic**: Automatic retry with exponential backoff for transient errors
 - **Speed & ETA tracking**: Real-time download speed with moving averages and estimated completion time
 - **Graceful shutdown**: Stop downloads cleanly or cancel immediately
-- **Event system**: React to download lifecycle events (started, progress, speed, completed, failed, retry)
-- **Progress tracking**: Track bytes downloaded, completion status, errors, and final average speeds
+- **Event system**: React to download lifecycle events (started, progress, speed, completed, failed, retry, validation)
+- **Progress tracking**: Track bytes downloaded, completion status, errors, validation state, and final average speeds
 - **Async/await**: Built on asyncio for efficient I/O
 - **Type hints**: Full type annotations throughout
 - **Dependency injection**: Easy to test and customise
@@ -194,6 +195,71 @@ async with DownloadManager(download_dir=Path("./downloads")) as manager:
     await manager.queue.join()
 ```
 
+### Hash Validation
+
+Verify file integrity with cryptographic hashes to ensure downloads aren't corrupted:
+
+```python
+from async_download_manager.domain import FileConfig, HashConfig
+from async_download_manager.domain.hash_validation import HashAlgorithm
+
+# Single file with hash validation
+files = [
+    FileConfig(
+        url="https://example.com/important-file.zip",
+        hash_config=HashConfig(
+            algorithm=HashAlgorithm.SHA256,
+            expected_hash="e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        )
+    )
+]
+
+async with DownloadManager(download_dir=Path("./downloads")) as manager:
+    await manager.add_to_queue(files)
+    await manager.queue.join()
+# Download succeeds only if hash matches, otherwise raises HashMismatchError
+```
+
+**Convenient checksum string format**:
+
+```python
+# Use the shorthand "algorithm:hash" format
+file_config = FileConfig(
+    url="https://example.com/file.tar.gz",
+    hash_config=HashConfig.from_checksum_string("sha256:abc123...")
+)
+```
+
+**Supported algorithms**: MD5, SHA256, SHA512
+
+**How it works**:
+
+- Hash is calculated after download completes
+- Uses streaming validation (memory-efficient for large files)
+- Runs in thread pool to avoid blocking event loop
+- Uses constant-time comparison to prevent timing attacks
+- Failed validation deletes corrupted file and raises `HashMismatchError`
+- Emits validation events: `validation_started`, `validation_completed`, `validation_failed`
+
+**Track validation state**:
+
+```python
+tracker = DownloadTracker()
+
+async with DownloadManager(download_dir=Path("./downloads"), tracker=tracker) as manager:
+    await manager.add_to_queue(files)
+    await manager.queue.join()
+
+# Check validation results
+for url, info in tracker.get_all_downloads().items():
+    if info.validation:
+        print(f"{url}: {info.validation.status}")
+        if info.validation.status == "succeeded":
+            print(f"  Hash: {info.validation.calculated_hash}")
+        elif info.validation.status == "failed":
+            print(f"  Error: {info.validation.error_message}")
+```
+
 ### Retry on Transient Errors
 
 Automatic retry with exponential backoff - just provide a config:
@@ -294,13 +360,14 @@ Recently completed:
 - ✅ Smart error categorization (transient vs permanent)
 - ✅ Graceful shutdown with configurable behavior
 - ✅ Real-time speed and ETA tracking
+- ✅ Hash validation (MD5, SHA256, SHA512)
 
 Current focus:
 
-- Hash validation (MD5, SHA256, SHA512)
 - Download resume support (HTTP Range requests)
 - Multi-segment parallel downloads
 - CLI interface
+- Custom HTTP headers and authentication
 
 See `docs/ROADMAP.md` for details.
 
@@ -330,10 +397,10 @@ poetry run python -m src.async_download_manager.main
 
 The library is organised into bounded contexts:
 
-- **Domain**: Core models (`FileConfig`, `DownloadInfo`, `DownloadStatus`, `SpeedMetrics`, `SpeedCalculator`)
-- **Downloads**: Queue, manager, and worker implementations
-- **Events**: Event system and typed event models (including speed updates)
-- **Tracking**: State tracking, statistics, and real-time speed metrics
+- **Domain**: Core models (`FileConfig`, `DownloadInfo`, `DownloadStatus`, `HashConfig`, `ValidationState`, `SpeedMetrics`, `SpeedCalculator`)
+- **Downloads**: Queue, manager, worker, and file validation implementations
+- **Events**: Event system and typed event models (including speed and validation events)
+- **Tracking**: State tracking, statistics, real-time speed metrics, and validation state
 - **Infrastructure**: Logging, HTTP client setup
 
 See `docs/ARCHITECTURE.md` for detailed design decisions.

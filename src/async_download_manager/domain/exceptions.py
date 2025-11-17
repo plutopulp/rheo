@@ -1,5 +1,7 @@
 """Custom exceptions for the async download manager."""
 
+from pathlib import Path
+
 
 class DownloadManagerError(Exception):
     """Base exception for DownloadManager errors."""
@@ -59,3 +61,35 @@ class RetryError(DownloadManagerError):
     """
 
     pass
+
+
+class FileValidationError(DownloadError):
+    """Base exception for file validation failures."""
+
+    pass
+
+
+class FileAccessError(FileValidationError):
+    """Raised when files cannot be accessed for validation."""
+
+    pass
+
+
+class HashMismatchError(FileValidationError):
+    """Raised when calculated hash does not match expected value."""
+
+    def __init__(
+        self,
+        *,
+        expected_hash: str,
+        actual_hash: str | None,
+        file_path: Path,
+    ) -> None:
+        self.expected_hash = expected_hash
+        self.actual_hash = actual_hash
+        self.file_path = file_path
+        message = (
+            f"Hash mismatch for {file_path}: expected {expected_hash[:16]}..., "
+            f"got {actual_hash[:16] if actual_hash else 'unknown'}..."
+        )
+        super().__init__(message)

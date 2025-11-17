@@ -8,6 +8,7 @@ import typing as t
 from collections import Counter
 
 from ..domain.downloads import DownloadInfo, DownloadStats, DownloadStatus
+from ..domain.hash_validation import ValidationState, ValidationStatus
 from ..domain.speed import SpeedMetrics
 from ..events import (
     DownloadCompletedEvent,
@@ -16,6 +17,9 @@ from ..events import (
     DownloadProgressEvent,
     DownloadQueuedEvent,
     DownloadStartedEvent,
+    DownloadValidationCompletedEvent,
+    DownloadValidationFailedEvent,
+    DownloadValidationStartedEvent,
     EventEmitter,
 )
 from ..infrastructure.logging import get_logger
@@ -304,6 +308,71 @@ class DownloadTracker(BaseTracker):
             "tracker.failed",
             DownloadFailedEvent(
                 url=url, error_message=str(error), error_type=type(error).__name__
+            ),
+        )
+
+    async def track_validation_started(self, url: str, algorithm: str) -> None:
+        """Record that validation has started for a download."""
+        async with self._lock:
+            self._ensure_download_exists(url)
+            self._downloads[url].validation = ValidationState(
+                status=ValidationStatus.IN_PROGRESS,
+            )
+
+        await self._emit(
+            "tracker.validation_started",
+            DownloadValidationStartedEvent(url=url, algorithm=algorithm),
+        )
+
+    async def track_validation_completed(
+        self,
+        url: str,
+        algorithm: str,
+        calculated_hash: str,
+    ) -> None:
+        """Record successful validation."""
+        async with self._lock:
+            self._ensure_download_exists(url)
+            self._downloads[url].validation = ValidationState(
+                status=ValidationStatus.SUCCEEDED,
+                validated_hash=calculated_hash,
+                error=None,
+            )
+
+        await self._emit(
+            "tracker.validation_completed",
+            DownloadValidationCompletedEvent(
+                url=url,
+                algorithm=algorithm,
+                calculated_hash=calculated_hash,
+            ),
+        )
+
+    async def track_validation_failed(
+        self,
+        url: str,
+        algorithm: str,
+        expected_hash: str,
+        actual_hash: str | None,
+        error_message: str,
+    ) -> None:
+        """Record failed validation attempt."""
+        async with self._lock:
+            self._ensure_download_exists(url)
+            self._downloads[url].validation = ValidationState(
+                status=ValidationStatus.FAILED,
+                validated_hash=actual_hash,
+                error=error_message,
+            )
+
+        await self._emit(
+            "tracker.validation_failed",
+            DownloadValidationFailedEvent(
+                url=url,
+                algorithm=algorithm,
+                expected_hash=expected_hash,
+                actual_hash=actual_hash,
+                error_message=error_message,
             ),
         )
 
