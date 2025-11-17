@@ -19,8 +19,8 @@ def create_cli_app(settings: Settings | None = None) -> typer.Typer:
         Configured Typer application with commands registered
     """
     app = typer.Typer(
-        name="adm",
         help="Async Download Manager - Concurrent HTTP downloads with progress tracking",
+        name="adm",
         no_args_is_help=True,
     )
 

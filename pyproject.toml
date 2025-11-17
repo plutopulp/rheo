@@ -31,7 +31,7 @@ pytest-cov = "^7.0.0"
 mypy = "^1.11.0"
 
 [tool.poetry.scripts]
-adm = "async_download_manager.cli:cli"
+adm = "async_download_manager.cli.main:app"
 
 [tool.isort]
 profile = 'black'
