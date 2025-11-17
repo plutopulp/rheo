@@ -1,11 +1,14 @@
 """Fixtures for download operation tests."""
 
 import asyncio
+import hashlib
 
 import pytest
 from aiohttp import ClientSession
 
 from async_download_manager.domain.file_config import FileConfig
+from async_download_manager.domain.hash_validation import HashAlgorithm
+from async_download_manager.domain.retry import RetryConfig
 from async_download_manager.downloads import (
     DownloadManager,
     DownloadWorker,
@@ -14,6 +17,26 @@ from async_download_manager.downloads import (
     RetryHandler,
 )
 from async_download_manager.events import EventEmitter
+
+
+@pytest.fixture
+def calculate_hash():
+    """Factory fixture to calculate hash for test content.
+
+    Common helper for hash validation tests to avoid duplication.
+    Returns a function that calculates hashes.
+
+    Usage:
+        def test_something(calculate_hash):
+            hash_value = calculate_hash(b"content", HashAlgorithm.SHA256)
+    """
+
+    def _calculate(content: bytes, algorithm: HashAlgorithm) -> str:
+        hasher = hashlib.new(algorithm)
+        hasher.update(content)
+        return hasher.hexdigest()
+
+    return _calculate
 
 
 @pytest.fixture
@@ -44,13 +67,35 @@ def fast_retry_config():
 
     Uses minimal delays and no jitter to speed up retry tests.
     """
-    from async_download_manager.domain.retry import RetryConfig
 
     return RetryConfig(
         max_retries=2,
         base_delay=0.01,  # 10ms base delay
         max_delay=0.1,  # 100ms max delay
         jitter=False,  # Deterministic timing for tests
+    )
+
+
+@pytest.fixture
+def test_worker_with_retry(aio_client, mock_logger, fast_retry_config):
+    """Provide a DownloadWorker with retry handler for validation tests.
+
+    Uses fast_retry_config for quick test execution.
+    """
+    emitter = EventEmitter(mock_logger)
+    categoriser = ErrorCategoriser(fast_retry_config.policy)
+    retry_handler = RetryHandler(
+        config=fast_retry_config,
+        logger=mock_logger,
+        emitter=emitter,
+        categoriser=categoriser,
+    )
+
+    return DownloadWorker(
+        client=aio_client,
+        logger=mock_logger,
+        emitter=emitter,
+        retry_handler=retry_handler,
     )
 
 

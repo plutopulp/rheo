@@ -35,3 +35,21 @@ class NullTracker(BaseTracker):
 
     async def track_failed(self, url: str, error: Exception) -> None:
         pass
+
+    async def track_validation_started(self, url: str, algorithm: str) -> None:
+        pass
+
+    async def track_validation_completed(
+        self, url: str, algorithm: str, calculated_hash: str
+    ) -> None:
+        pass
+
+    async def track_validation_failed(
+        self,
+        url: str,
+        algorithm: str,
+        expected_hash: str,
+        actual_hash: str | None,
+        error_message: str,
+    ) -> None:
+        pass

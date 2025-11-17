@@ -1,6 +1,5 @@
 """Tests for file hash validator."""
 
-import hashlib
 from pathlib import Path
 
 import pytest
@@ -18,17 +17,11 @@ def _write_file(path: Path, content: bytes) -> None:
     path.write_bytes(content)
 
 
-def _hash(content: bytes, algorithm: HashAlgorithm) -> str:
-    hasher = hashlib.new(str(algorithm))
-    hasher.update(content)
-    return hasher.hexdigest()
-
-
 class TestFileValidatorSuccessCases:
     """Happy-path validation behaviour."""
 
     @pytest.mark.asyncio
-    async def test_file_validator_success(self, tmp_path: Path) -> None:
+    async def test_file_validator_success(self, calculate_hash, tmp_path: Path) -> None:
         """Validator passes when hash matches."""
         file_path = tmp_path / "file.bin"
         content = b"hello world"
@@ -36,7 +29,7 @@ class TestFileValidatorSuccessCases:
 
         config = HashConfig(
             algorithm=HashAlgorithm.SHA256,
-            expected_hash=_hash(content, HashAlgorithm.SHA256),
+            expected_hash=calculate_hash(content, HashAlgorithm.SHA256),
         )
         validator = FileValidator()
 
@@ -47,7 +40,9 @@ class TestFileValidatorFailureCases:
     """Error handling scenarios for FileValidator."""
 
     @pytest.mark.asyncio
-    async def test_file_validator_hash_mismatch(self, tmp_path: Path) -> None:
+    async def test_file_validator_hash_mismatch(
+        self, calculate_hash, tmp_path: Path
+    ) -> None:
         """Validator raises on mismatch with actual hash available."""
         file_path = tmp_path / "file.bin"
         _write_file(file_path, b"hello world")
