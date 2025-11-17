@@ -9,5 +9,10 @@ from .base_validator import BaseFileValidator
 class NullFileValidator(BaseFileValidator):
     """No-op validator used when hash validation is disabled."""
 
-    async def validate(self, file_path: Path, config: HashConfig) -> None:
-        return None
+    async def validate(self, file_path: Path, config: HashConfig) -> str:
+        """No-op validation that always succeeds.
+
+        Returns:
+            The expected hash (since no actual validation is performed).
+        """
+        return config.expected_hash

@@ -414,7 +414,8 @@ class DownloadWorker:
 
         try:
             # Perform validation (raises HashMismatchError on failure)
-            await self._validator.validate(file_path, hash_config)
+            # Returns the actual calculated hash
+            calculated_hash = await self._validator.validate(file_path, hash_config)
 
             duration_ms = (time.monotonic() - validation_start) * 1000
 
@@ -424,7 +425,7 @@ class DownloadWorker:
                 WorkerValidationCompletedEvent(
                     url=url,
                     algorithm=hash_config.algorithm,
-                    calculated_hash=hash_config.expected_hash,
+                    calculated_hash=calculated_hash,
                     duration_ms=duration_ms,
                 ),
             )

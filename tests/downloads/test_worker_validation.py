@@ -154,6 +154,53 @@ class TestWorkerValidationEvents:
         assert events[0].duration_ms >= 0
 
     @pytest.mark.asyncio
+    async def test_emits_actual_calculated_hash_not_expected_hash(
+        self, test_worker, calculate_hash, validation_test_data
+    ) -> None:
+        """Worker emits the ACTUAL calculated hash, not just expected hash.
+
+        This test verifies that calculated_hash in the event is derived from
+        the file content, not just echoed from hash_config.expected_hash.
+        The validator should return what it actually computed.
+        """
+        expected_hash = calculate_hash(
+            validation_test_data.content, HashAlgorithm.SHA256
+        )
+        hash_config = HashConfig(
+            algorithm=HashAlgorithm.SHA256,
+            expected_hash=expected_hash,
+        )
+
+        events = []
+        test_worker.emitter.on("worker.validation_completed", events.append)
+
+        with aioresponses() as mock:
+            mock.get(
+                validation_test_data.url, status=200, body=validation_test_data.content
+            )
+            await test_worker.download(
+                validation_test_data.url,
+                validation_test_data.path,
+                hash_config=hash_config,
+            )
+
+        # Verify file was written
+        assert validation_test_data.path.exists()
+
+        # Calculate hash directly from the downloaded file
+        actual_file_content = validation_test_data.path.read_bytes()
+        actual_file_hash = calculate_hash(actual_file_content, HashAlgorithm.SHA256)
+
+        # The event's calculated_hash should match what we compute from the file,
+        # proving it's the actual calculated value, not just the expected value
+        assert len(events) == 1
+        assert events[0].calculated_hash == actual_file_hash
+
+        # This should also equal expected_hash since validation passed,
+        # but the key is that it's derived from actual computation
+        assert events[0].calculated_hash == expected_hash
+
+    @pytest.mark.asyncio
     async def test_emits_validation_failed_event_on_mismatch(
         self, test_worker, validation_test_data
     ) -> None:

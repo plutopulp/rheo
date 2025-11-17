@@ -22,18 +22,20 @@ class TestFileValidatorSuccessCases:
 
     @pytest.mark.asyncio
     async def test_file_validator_success(self, calculate_hash, tmp_path: Path) -> None:
-        """Validator passes when hash matches."""
+        """Validator passes when hash matches and returns calculated hash."""
         file_path = tmp_path / "file.bin"
         content = b"hello world"
         _write_file(file_path, content)
 
+        expected_hash = calculate_hash(content, HashAlgorithm.SHA256)
         config = HashConfig(
             algorithm=HashAlgorithm.SHA256,
-            expected_hash=calculate_hash(content, HashAlgorithm.SHA256),
+            expected_hash=expected_hash,
         )
         validator = FileValidator()
 
-        await validator.validate(file_path, config)
+        result = await validator.validate(file_path, config)
+        assert result == expected_hash
 
 
 class TestFileValidatorFailureCases:
@@ -93,14 +95,16 @@ class TestNullFileValidator:
 
     @pytest.mark.asyncio
     async def test_null_file_validator_noop(self, tmp_path: Path) -> None:
-        """NullFileValidator ignores validation entirely."""
+        """NullFileValidator ignores validation entirely and returns expected hash."""
         file_path = tmp_path / "file.bin"
         _write_file(file_path, b"noop")
 
         validator = NullFileValidator()
+        expected = "a" * HashAlgorithm.MD5.hex_length
         config = HashConfig(
             algorithm=HashAlgorithm.MD5,
-            expected_hash="a" * HashAlgorithm.MD5.hex_length,
+            expected_hash=expected,
         )
 
-        await validator.validate(file_path, config)
+        result = await validator.validate(file_path, config)
+        assert result == expected

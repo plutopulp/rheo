@@ -27,8 +27,16 @@ class FileValidator(BaseFileValidator):
         self._chunk_size = chunk_size
         self._logger = logger or get_logger(__name__)
 
-    async def validate(self, file_path: Path, config: HashConfig) -> None:
-        """Validate file using configured hash."""
+    async def validate(self, file_path: Path, config: HashConfig) -> str:
+        """Validate file using configured hash.
+
+        Returns:
+            The calculated hash value (hex string).
+
+        Raises:
+            HashMismatchError: If calculated hash doesn't match expected hash.
+            FileAccessError: If file cannot be accessed or read.
+        """
         if not file_path.exists():
             raise FileAccessError(f"File not found for validation: {file_path}")
         if not file_path.is_file():
@@ -53,6 +61,8 @@ class FileValidator(BaseFileValidator):
             file=str(file_path),
             algorithm=str(config.algorithm),
         )
+
+        return actual_hash
 
     async def _calculate_hash(self, file_path: Path, config: HashConfig) -> str:
         return await asyncio.to_thread(
