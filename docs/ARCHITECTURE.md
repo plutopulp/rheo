@@ -62,13 +62,17 @@ Each layer has clear responsibilities and minimal coupling.
 
 Key pieces:
 
-- `FileConfig`: Download configuration (URL, destination, priority, etc.)
-- `DownloadInfo`: Current state of a download (includes final average speed for completed/failed downloads)
+- `FileConfig`: Download configuration (URL, destination, priority, hash validation, etc.)
+- `DownloadInfo`: Current state of a download (includes final average speed and validation state)
 - `DownloadStatus`: Enum for states (pending, downloading, completed, failed)
 - `DownloadStats`: Aggregated statistics
+- `HashConfig`: Hash validation configuration (algorithm and expected hash)
+- `HashAlgorithm`: Supported hash algorithms (MD5, SHA256, SHA512)
+- `ValidationState`: Current validation status and calculated hash
+- `ValidationStatus`: Enum for validation states (not_requested, in_progress, succeeded, failed)
 - `SpeedMetrics`: Real-time speed and ETA snapshot
 - `SpeedCalculator`: Calculates instantaneous and moving average speeds with ETA estimation
-- Custom exceptions: `ValidationError`, `ManagerNotInitializedError`, etc.
+- Custom exceptions: `ValidationError`, `HashMismatchError`, `FileAccessError`, `ManagerNotInitializedError`, etc.
 
 **Why**: Keeps business logic separate from infrastructure. These models can be used anywhere without importing heavy dependencies.
 
@@ -89,8 +93,9 @@ Key pieces:
 
 - Does the actual HTTP download
 - Chunks data for progress reporting
-- Emits events for lifecycle stages (including real-time speed updates)
+- Emits events for lifecycle stages (including real-time speed and validation updates)
 - Tracks download speed and ETA using injected `SpeedCalculator`
+- Validates downloaded files using injected `BaseFileValidator`
 - Handles errors with optional retry logic
 - Uses injected `RetryHandler` for automatic retries
 
@@ -114,7 +119,16 @@ Key pieces:
 - Null object pattern for no-retry behavior
 - Worker always has a handler (no None checks)
 
-**Why this structure**: Separation of concerns. Manager orchestrates, worker executes, queue organises, retry handler manages failure recovery.
+**FileValidator / BaseFileValidator / NullFileValidator**:
+
+- Validates downloaded files against expected hashes
+- Supports MD5, SHA256, and SHA512 algorithms
+- Streams file in chunks for memory efficiency
+- Runs in thread pool to avoid blocking event loop
+- Uses constant-time comparison to prevent timing attacks
+- Abstract base and null object pattern for optional validation
+
+**Why this structure**: Separation of concerns. Manager orchestrates, worker executes, queue organises, retry handler manages failure recovery, validator ensures file integrity.
 
 ### Events Layer
 
@@ -130,9 +144,10 @@ Key pieces:
 **Event Models**:
 
 - `WorkerEvent`: Base class with `url` and `timestamp`
-- Specific events: `WorkerStartedEvent`, `WorkerProgressEvent`, `WorkerSpeedUpdatedEvent`, `WorkerCompletedEvent`, `WorkerFailedEvent`, `WorkerRetryEvent`
+- Specific events: `WorkerStartedEvent`, `WorkerProgressEvent`, `WorkerSpeedUpdatedEvent`, `WorkerCompletedEvent`, `WorkerFailedEvent`, `WorkerRetryEvent`, `WorkerValidationStartedEvent`, `WorkerValidationCompletedEvent`, `WorkerValidationFailedEvent`
 - Self-contained payloads (no external state needed)
 - Speed events include instantaneous speed, moving average, ETA, and elapsed time
+- Validation events include algorithm, calculated hash (if available), and error details
 
 **Why events**: Loose coupling. Worker doesn't know tracker exists. Tracker doesn't know worker implementation. Easy to add new observers without modifying existing code.
 
@@ -142,10 +157,11 @@ Key pieces:
 
 **DownloadTracker**:
 
-- Observes worker events (including real-time speed updates)
+- Observes worker events (including real-time speed and validation updates)
 - Maintains `DownloadInfo` for each URL
 - Tracks transient `SpeedMetrics` for active downloads
-- Persists average speed in `DownloadInfo` upon completion/failure
+- Tracks `ValidationState` for files with hash validation
+- Persists average speed and validation results in `DownloadInfo` upon completion/failure
 - Thread-safe via `asyncio.Lock`
 - Provides query methods (`get_download`, `get_all_downloads`, `get_stats`, `get_speed_metrics`)
 
@@ -187,8 +203,8 @@ Key pieces:
 1. Manager starts N worker tasks
 2. Each worker calls queue.get_next() (blocks until available)
 3. Worker downloads file in chunks
-4. Worker emits events: started → progress + speed → progress + speed → ... → completed
-5. Tracker observes events, updates state (including real-time speed metrics)
+4. Worker emits events: started → progress + speed → progress + speed → ... → (validation if configured) → completed
+5. Tracker observes events, updates state (including real-time speed metrics and validation state)
 6. Worker marks queue task as done
 7. Worker loops back to step 2
 ```
@@ -242,6 +258,29 @@ Key pieces:
       - Retry operation
    d. If max retries exhausted → raise last exception
 4. If operation succeeds → return result
+```
+
+### Validation Flow
+
+```text
+1. Worker completes file download successfully
+2. If FileConfig has hash_config:
+   a. Worker emits WorkerValidationStartedEvent
+   b. Worker calls validator.validate(file_path, hash_config)
+   c. Validator calculates hash in thread pool (via asyncio.to_thread):
+      - Opens file in binary mode
+      - Reads file in 8KB chunks
+      - Updates hasher with each chunk
+      - Returns hexadecimal hash
+   d. Validator compares hashes using hmac.compare_digest (constant-time)
+   e. If hashes match:
+      - Worker emits WorkerValidationCompletedEvent
+      - Worker emits WorkerCompletedEvent
+   f. If hashes don't match:
+      - Worker emits WorkerValidationFailedEvent
+      - Worker deletes corrupted file
+      - Worker raises HashMismatchError (not retried by default)
+3. Tracker observes validation events, updates DownloadInfo.validation
 ```
 
 ### Shutdown Flow
@@ -420,6 +459,7 @@ Things we explicitly didn't build (yet):
 
 - ✅ ~~No retry logic~~ - **Implemented with exponential backoff**
 - ✅ ~~No speed/ETA tracking~~ - **Implemented with moving average and real-time updates**
+- ✅ ~~No hash validation~~ - **Implemented with MD5, SHA256, SHA512 support**
 - No resume support (planned for Phase 1)
 - No multi-segment parallel downloads (planned for Phase 1)
 - No persistent storage (planned for Phase 2)

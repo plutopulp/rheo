@@ -22,7 +22,7 @@ class FileValidator(BaseFileValidator):
         self,
         *,
         chunk_size: int = 8192,
-        logger: "Logger" | None = None,
+        logger: t.Optional["Logger"] = None,
     ) -> None:
         self._chunk_size = chunk_size
         self._logger = logger or get_logger(__name__)

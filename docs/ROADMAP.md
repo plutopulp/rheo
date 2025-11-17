@@ -16,9 +16,9 @@ What we're actually building, in order of priority.
 - [x] **Retry logic with exponential backoff**
 - [x] **Configurable retry policies (transient vs permanent errors)**
 - [x] **Speed and ETA tracking**
+- [x] **Hash validation (MD5, SHA256, SHA512)**
 - [ ] Download resume support (HTTP Range requests)
 - [ ] Multi-segment downloads (parallel chunks per file)
-- [ ] Hash validation (MD5, SHA256, SHA512)
 - [ ] Custom HTTP headers and cookies support
 - [ ] Basic proxy support (HTTP/HTTPS)
 - [ ] Skip existing files option
@@ -39,8 +39,8 @@ What we're actually building, in order of priority.
 - Shows progress in terminal with speed and ETA
 - Handles failures gracefully
 - Can be installed via pip
+- Verifies file integrity with hashes ✅
 - Downloads faster with multi-segment support
-- Verifies file integrity with hashes
 
 ## Phase 2: Production Ready
 
