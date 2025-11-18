@@ -74,6 +74,32 @@ python examples/01_basic_download.py
 python examples/02_multiple_with_priority.py
 ```
 
+### 03_hash_validation.py
+
+**Demonstrates:** File integrity verification with SHA256
+
+**What it does:**
+
+- Shows real-world checksums workflow (how Linux ISOs, Python releases work)
+- Downloads file with correct hash → validates successfully ✓
+- Downloads file with wrong hash → catches mismatch ✗
+- Demonstrates where checksums come from in practice
+- Shows proper error handling for validation failures
+
+**Key concepts:**
+
+- Using `HashConfig` with SHA256 algorithm
+- File integrity checking (prevents corrupted/tampered downloads)
+- How checksums files work (SHA256SUMS.txt, checksums.txt)
+- Hash mismatch error handling
+- Real-world security practices
+
+**Run it:**
+
+```bash
+python examples/03_hash_validation.py
+```
+
 ## What to Expect
 
 Each example will:
