@@ -62,7 +62,7 @@ jobs:
       - name: Run tests with coverage
         run: |
           poetry run pytest tests \
-            --cov=src/async_download_manager \
+            --cov=src/rheo \
             --cov-report=xml \
             --cov-report=term-missing \
             --cov-report=html \
