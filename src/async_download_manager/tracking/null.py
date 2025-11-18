@@ -1,10 +1,25 @@
 """Null object implementation of tracker."""
 
+from ..domain.downloads import DownloadInfo
+from ..events import BaseEmitter, NullEmitter
 from .base import BaseTracker
 
 
 class NullTracker(BaseTracker):
     """Null object implementation of tracker that does nothing."""
+
+    def __init__(self) -> None:
+        """Initialize null tracker with null emitter."""
+        self._emitter = NullEmitter()
+
+    @property
+    def emitter(self) -> BaseEmitter:
+        """Returns no-op emitter."""
+        return self._emitter
+
+    def get_download_info(self, url: str) -> DownloadInfo | None:
+        """No-op: always returns None."""
+        return None
 
     async def track_queued(self, url: str, priority: int = 1) -> None:
         pass

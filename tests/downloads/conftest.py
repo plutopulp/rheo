@@ -128,19 +128,6 @@ def worker_with_real_events(aio_client, mock_logger, fast_retry_config):
 
 
 @pytest.fixture
-def mock_queue(mocker):
-    """Provide a mocked PriorityDownloadQueue for unit tests."""
-    queue = mocker.Mock(spec=PriorityDownloadQueue)
-    queue.add = mocker.AsyncMock()
-    queue.get_next = mocker.AsyncMock()
-    queue.task_done = mocker.Mock()
-    queue.is_empty = mocker.Mock(return_value=False)
-    queue.size = mocker.Mock(return_value=0)
-    queue.join = mocker.AsyncMock()
-    return queue
-
-
-@pytest.fixture
 def real_priority_queue(mock_logger):
     """Provide a real PriorityDownloadQueue with injected asyncio.PriorityQueue."""
     async_queue = asyncio.PriorityQueue()

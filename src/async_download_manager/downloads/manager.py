@@ -5,10 +5,12 @@ download workers, manages HTTP sessions, and handles priority queues.
 """
 
 import asyncio
+import ssl
 import typing as t
 from pathlib import Path
 
 import aiohttp
+import certifi
 
 from ..domain.exceptions import ManagerNotInitializedError
 from ..domain.file_config import FileConfig
@@ -147,12 +149,21 @@ class DownloadManager:
 
         Initializes HTTP client and worker if not provided during construction.
         Wires worker events to tracker if both are available.
+        Ensures download directory exists.
 
         Returns:
             Self for use in async with statements.
         """
+        # Ensure download directory exists
+        self.download_dir.mkdir(parents=True, exist_ok=True)
+
         if self._client is None:
-            self._client = await aiohttp.ClientSession().__aenter__()
+            # Create SSL context using certifi's certificate bundle for portable
+            # SSL certificate verification across all platforms and Python versions
+            # e.g. SSL certs not handled by default on macOS with Python 3.14
+            ssl_context = ssl.create_default_context(cafile=certifi.where())
+            connector = aiohttp.TCPConnector(ssl=ssl_context)
+            self._client = await aiohttp.ClientSession(connector=connector).__aenter__()
             self._owns_client = True
         if self._worker is None:
             self._worker = DownloadWorker(self._client, self._logger)

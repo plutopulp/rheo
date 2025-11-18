@@ -118,6 +118,39 @@ class TestDownloadManagerContextManager:
         # External client should remain open
         assert not aio_client.closed
 
+    @pytest.mark.asyncio
+    async def test_context_manager_creates_download_directory(
+        self, mock_logger, tmp_path
+    ):
+        """Test that context manager creates download directory if it doesn't exist."""
+        download_dir = tmp_path / "nested" / "download" / "path"
+        assert not download_dir.exists()
+
+        async with DownloadManager(
+            download_dir=download_dir, logger=mock_logger
+        ) as manager:
+            # Directory should be created
+            assert download_dir.exists()
+            assert download_dir.is_dir()
+            assert manager.download_dir == download_dir
+
+    @pytest.mark.asyncio
+    async def test_context_manager_handles_existing_directory(
+        self, mock_logger, tmp_path
+    ):
+        """Test that context manager handles existing directories gracefully."""
+        download_dir = tmp_path / "existing"
+        download_dir.mkdir()
+        assert download_dir.exists()
+
+        async with DownloadManager(
+            download_dir=download_dir, logger=mock_logger
+        ) as manager:
+            # Directory should still exist and be usable
+            assert download_dir.exists()
+            assert download_dir.is_dir()
+            assert manager.download_dir == download_dir
+
 
 class TestDownloadManagerProperties:
     """Test DownloadManager property access and error handling."""

@@ -50,6 +50,7 @@ Downloads     → Queue, Manager, Worker
 Events        → Event system and data
 Tracking      → State tracking and aggregation
 Infrastructure→ Logging, HTTP client
+CLI           → Command-line interface and configuration
 ```
 
 Each layer has clear responsibilities and minimal coupling.
@@ -185,6 +186,29 @@ Key pieces:
 - Each component gets its own logger
 
 **Why**: Centralised, consistent logging. Easy to test without output noise.
+
+### CLI Layer
+
+**What it does**: Provides command-line interface for end users.
+
+**Key components**:
+
+- **`CLIState`**: Application state container with factory methods for creating configured components
+- **`create_cli_app()`**: Typer app factory with dependency injection support for testing
+- **`download` command**: Single file download with progress tracking and hash validation
+- **Configuration system**: Layered config (CLI flags > env vars > .env file > defaults)
+- **Event-driven display**: Subscribes to tracker events for real-time progress updates
+- **Settings**: `pydantic-settings` based configuration with environment variable support
+
+**Design patterns**:
+
+- **Factory pattern**: `CLIState` factories create pre-configured manager and tracker instances
+- **Dependency injection**: Factories accept overrides for testing (using `TypedDict` and `Unpack`)
+- **Event-driven**: Display functions respond to tracker events (no polling)
+- **Layered configuration**: Multiple config sources with clear precedence
+- **Early validation**: Input validation at CLI boundary (URL, hash format)
+
+**Why**: Clean separation between CLI concerns and library logic. The CLI is just another consumer of the library, with its own configuration and display logic. Event-driven architecture eliminates polling and ensures real-time updates.
 
 ## Data Flow
 
