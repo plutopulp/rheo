@@ -19,6 +19,7 @@ from ..events import (
 )
 from ..infrastructure.logging import get_logger
 from ..tracking.base import BaseTracker
+from ..tracking.tracker import DownloadTracker
 from .queue import PriorityDownloadQueue
 from .worker import DownloadWorker
 
@@ -104,7 +105,9 @@ class DownloadManager:
             client: HTTP session for downloads. If None, one will be created.
             worker: Download worker instance. If None, one will be created.
             queue: Priority download queue for tasks. If None, one will be created.
-            tracker: Download tracker for observability. Optional - if None, no tracking.
+            tracker: Download tracker for observability. If None, a DownloadTracker
+                    will be created automatically. Pass NullTracker() to
+                    disable tracking.
             timeout: Default timeout for downloads in seconds.
             max_workers: Maximum number of concurrent workers.
             logger: Logger instance for recording manager events.
@@ -114,13 +117,42 @@ class DownloadManager:
         self._owns_client = False  # Track if we created the client
         self._worker = worker
         self._logger = logger
-        self._tracker = tracker
+        # Auto-create tracker if not provided (always available for observability)
+        # Users can pass NullTracker() if tracking is unwanted
+        self._tracker = (
+            tracker if tracker is not None else DownloadTracker(logger=logger)
+        )
         self.queue = queue or PriorityDownloadQueue(logger=logger)
         self.timeout = timeout
         self.max_workers = max_workers
         self._tasks: list[asyncio.Task[None]] = []
         self._shutdown_event = asyncio.Event()
         self.download_dir = download_dir
+
+    @property
+    def tracker(self) -> BaseTracker:
+        """Access the download tracker for querying download state and subscribing
+        to events.
+
+        The tracker is always available - if not explicitly provided during
+        initialization, a DownloadTracker is created automatically.
+
+        Returns:
+            BaseTracker: The download tracker instance
+
+        Example:
+            ```python
+            async with DownloadManager(download_dir=Path("./downloads")) as manager:
+                await manager.add_to_queue([file_config])
+                await manager.queue.join()
+
+                # Query download status
+                info = manager.tracker.get_download_info(str(url))
+                if info and info.status == DownloadStatus.FAILED:
+                    print(f"Download failed: {info.error}")
+            ```
+        """
+        return self._tracker
 
     def _wire_worker_events(
         self,
@@ -135,7 +167,7 @@ class DownloadManager:
 
         Note: Future improvement - store handler references for cleanup in __aexit__().
         """
-        if self._worker is None or self._tracker is None:
+        if self._worker is None:
             return
 
         wiring = event_wiring or _create_event_wiring(self._tracker)

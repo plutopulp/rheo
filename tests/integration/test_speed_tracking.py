@@ -54,7 +54,7 @@ class TestSpeedTrackingIntegration:
                 )
 
             # Speed metrics should be available via tracker
-            metrics = manager._tracker.get_speed_metrics(test_data.url)
+            metrics = manager.tracker.get_speed_metrics(test_data.url)
             # Metrics should be cleared after completion
             assert metrics is None
 
@@ -76,7 +76,7 @@ class TestSpeedTrackingIntegration:
                 )
 
             # Download should be completed
-            info = manager._tracker.get_download_info(test_data.url)
+            info = manager.tracker.get_download_info(test_data.url)
             assert info is not None
             assert info.status == DownloadStatus.COMPLETED
 
@@ -99,7 +99,7 @@ class TestSpeedTrackingIntegration:
                     await manager._worker.download(test_data.url, test_data.path)
 
             # Download should be failed
-            info = manager._tracker.get_download_info(test_data.url)
+            info = manager.tracker.get_download_info(test_data.url)
             assert info is not None
             assert info.status == DownloadStatus.FAILED
 
@@ -155,9 +155,9 @@ class TestSpeedTrackingIntegration:
                 )
 
             # All downloads should be completed with independent speeds
-            info1 = manager._tracker.get_download_info(url1)
-            info2 = manager._tracker.get_download_info(url2)
-            info3 = manager._tracker.get_download_info(url3)
+            info1 = manager.tracker.get_download_info(url1)
+            info2 = manager.tracker.get_download_info(url2)
+            info3 = manager.tracker.get_download_info(url3)
 
             assert info1.status == DownloadStatus.COMPLETED
             assert info2.status == DownloadStatus.COMPLETED
@@ -203,7 +203,7 @@ class TestSpeedTrackingIntegration:
 
                 for _ in range(10):  # Check 10 times
                     await asyncio.sleep(0.01)  # Small delay
-                    metrics = manager._tracker.get_speed_metrics(test_data.url)
+                    metrics = manager.tracker.get_speed_metrics(test_data.url)
                     if metrics is not None:
                         speed_metrics_seen.append(metrics)
 
@@ -233,7 +233,7 @@ class TestSpeedTrackingIntegration:
                 )
 
             # Download should complete successfully
-            info = manager._tracker.get_download_info(test_data.url)
+            info = manager.tracker.get_download_info(test_data.url)
             assert info is not None
             assert info.status == DownloadStatus.COMPLETED
 
