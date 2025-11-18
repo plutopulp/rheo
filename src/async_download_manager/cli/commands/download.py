@@ -1,8 +1,8 @@
 """Download command implementation."""
 
 import asyncio
+import typing as t
 from pathlib import Path
-from typing import Optional
 
 import typer
 from pydantic import HttpUrl, ValidationError
@@ -13,10 +13,11 @@ from ...domain.hash_validation import HashConfig
 from ...downloads import DownloadManager
 from ...tracking.base import BaseTracker
 from ..output.progress import (
-    display_download_complete,
-    display_download_error,
-    display_download_start,
-    display_validation_result,
+    display_download_completed,
+    display_download_failed,
+    display_download_started,
+    display_validation_completed,
+    display_validation_failed,
 )
 from ..state import CLIState
 
@@ -62,65 +63,59 @@ def validate_hash(hash_str: str) -> HashConfig:
 
 async def download_file(
     url: HttpUrl,
-    filename: Optional[str],
-    hash_config: Optional[HashConfig],
+    filename: str | None,
+    hash_config: HashConfig | None,
     manager: DownloadManager,
     tracker: BaseTracker,
 ) -> None:
-    """Core download logic with injected dependencies.
+    """Core download logic with event-driven display.
 
     Args:
         url: Pre-validated HTTP URL
         filename: Optional custom filename
         hash_config: Optional hash validation config
         manager: DownloadManager instance (already entered context)
-        tracker: DownloadTracker instance
+        tracker: BaseTracker instance with emitter
 
     Raises:
-        typer.Exit: On download failure or validation error
+        typer.Exit: On download failure
     """
-    display_download_start(str(url))
+    # Define event handlers mapping (adding a new handler? just add it here!)
+    event_handlers: dict[str, t.Callable[[t.Any], None]] = {
+        "tracker.started": display_download_started,
+        "tracker.completed": display_download_completed,
+        "tracker.failed": display_download_failed,
+        "tracker.validation_completed": display_validation_completed,
+        "tracker.validation_failed": display_validation_failed,
+    }
 
-    # Create and queue download
-    file_config = FileConfig(url=url, filename=filename, hash_config=hash_config)
-    await manager.add_to_queue([file_config])
-    await manager.queue.join()
+    # Subscribe to all events
+    for event_type, handler in event_handlers.items():
+        tracker.emitter.on(event_type, handler)
 
-    # Get download info - guard clause for missing info
-    info = tracker.get_download_info(str(url))
-    if not info:
-        typer.secho("Warning: No download info available", fg=typer.colors.YELLOW)
-        return
+    try:
+        # Create and queue download
+        file_config = FileConfig(url=url, filename=filename, hash_config=hash_config)
+        await manager.add_to_queue([file_config])
+        await manager.queue.join()
 
-    # Guard clause - handle failure first
-    if info.status == DownloadStatus.FAILED:
-        error = Exception(info.error or "Unknown error")
-        display_download_error(str(url), error)
-        raise typer.Exit(code=1)
+        # Query final state to determine exit code
+        info = tracker.get_download_info(str(url))
+        if info and info.status == DownloadStatus.FAILED:
+            raise typer.Exit(code=1)
 
-    # Guard clause - handle unexpected status
-    if info.status != DownloadStatus.COMPLETED:
-        typer.secho(
-            f"Warning: Unexpected status: {info.status}", fg=typer.colors.YELLOW
-        )
-        return
-
-    # Flat success path - no nesting
-    display_download_complete(info)
-
-    # Optional validation display
-    if info.validation:
-        display_validation_result(info)
+    finally:
+        # Cleanup: unsubscribe from all events automatically
+        for event_type, handler in event_handlers.items():
+            tracker.emitter.off(event_type, handler)
 
 
 def download(
     ctx: typer.Context,
     url: str = typer.Argument(..., help="URL to download"),
-    output: Optional[Path] = typer.Option(
-        None, "-o", "--output", help="Output directory"
-    ),
-    filename: Optional[str] = typer.Option(None, "--filename", help="Custom filename"),
-    hash_str: Optional[str] = typer.Option(
+    output: Path | None = typer.Option(None, "-o", "--output", help="Output directory"),
+    filename: str | None = typer.Option(None, "--filename", help="Custom filename"),
+    hash_str: str | None = typer.Option(
         None, "--hash", help="Hash for validation (format: algorithm:hash)"
     ),
 ) -> None:

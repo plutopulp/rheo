@@ -47,7 +47,6 @@ def mock_emitter(mocker):
     """Provide a mock event emitter for testing event emission."""
 
     emitter = mocker.Mock(spec=BaseEmitter)
-    emitter.emit = mocker.AsyncMock()
     return emitter
 
 

@@ -52,9 +52,10 @@ def mock_download_manager(mocker, mock_queue):
 
 
 @pytest.fixture
-def mock_tracker(mocker):
-    """Provide fully mocked DownloadTracker with spec."""
+def mock_tracker(mocker, mock_emitter):
+    """Provide fully mocked DownloadTracker with spec and mock emitter."""
     mock = mocker.Mock(spec=DownloadTracker)
+    mock.emitter = mock_emitter
     return mock
 
 

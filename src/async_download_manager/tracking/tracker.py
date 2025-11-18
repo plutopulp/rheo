@@ -81,6 +81,11 @@ class DownloadTracker(BaseTracker):
 
         self._logger.debug("DownloadTracker initialized")
 
+    @property
+    def emitter(self) -> EventEmitter:
+        """Event emitter for tracker events."""
+        return self._emitter
+
     def on(self, event_type: str, handler: EventHandler) -> None:
         """Subscribe to download events.
 

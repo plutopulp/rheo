@@ -3,10 +3,24 @@
 from abc import ABC, abstractmethod
 
 from ..domain.downloads import DownloadInfo
+from ..events import BaseEmitter
 
 
 class BaseTracker(ABC):
     """Abstract base class for download trackers."""
+
+    @property
+    @abstractmethod
+    def emitter(self) -> BaseEmitter:
+        """Event emitter for tracker events.
+
+        All tracker implementations must provide an emitter for event-driven
+        communication. Use NullEmitter for implementations that don't need events.
+
+        Returns:
+            BaseEmitter instance for subscribing to tracker events
+        """
+        pass
 
     @abstractmethod
     def get_download_info(self, url: str) -> DownloadInfo | None:
