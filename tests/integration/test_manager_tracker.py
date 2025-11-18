@@ -5,6 +5,7 @@ import pytest
 from aioresponses import aioresponses
 
 from rheo import DownloadManager, DownloadStatus
+from rheo.tracking import NullTracker
 
 
 class TestManagerTrackerWiring:
@@ -14,7 +15,8 @@ class TestManagerTrackerWiring:
     async def test_manager_works_without_tracker(self, aio_client, mock_logger):
         """Test that manager works when no tracker provided."""
         async with DownloadManager(client=aio_client, logger=mock_logger) as manager:
-            assert manager._tracker is None
+            # Tracker is now auto-created, never None
+            assert manager.tracker is not None
             assert manager._worker is not None
 
     @pytest.mark.asyncio
@@ -31,7 +33,7 @@ class TestManagerTrackerWiring:
                 await manager._worker.download(test_url, dest)
 
             # Tracker should have recorded the download
-            info = manager._tracker.get_download_info(test_url)
+            info = manager.tracker.get_download_info(test_url)
             assert info is not None
             assert info.status == DownloadStatus.COMPLETED
 
@@ -49,7 +51,7 @@ class TestManagerTrackerWiring:
                 mock.get(test_url, status=200, body=test_content)
                 await manager._worker.download(test_url, dest, chunk_size=1024)
 
-            info = manager._tracker.get_download_info(test_url)
+            info = manager.tracker.get_download_info(test_url)
             assert info.bytes_downloaded == len(test_content)
 
     @pytest.mark.asyncio
@@ -66,7 +68,7 @@ class TestManagerTrackerWiring:
                 mock.get(test_url, status=200, body=test_content)
                 await manager._worker.download(test_url, dest)
 
-            info = manager._tracker.get_download_info(test_url)
+            info = manager.tracker.get_download_info(test_url)
             assert info.status == DownloadStatus.COMPLETED
             assert info.total_bytes == len(test_content)
 
@@ -83,7 +85,7 @@ class TestManagerTrackerWiring:
                 with pytest.raises(aiohttp.ClientResponseError):
                     await manager._worker.download(test_url, dest)
 
-            info = manager._tracker.get_download_info(test_url)
+            info = manager.tracker.get_download_info(test_url)
             assert info is not None
             assert info.status == DownloadStatus.FAILED
             assert "404" in info.error or "ClientResponseError" in info.error
@@ -114,3 +116,19 @@ class TestManagerTrackerWiring:
 
             # Custom handler should have been called
             assert custom_started_handler.called
+
+
+class TestPublicTrackerProperty:
+    """Test that tracker property exposes the configured tracker instance."""
+
+    def test_tracker_property_returns_provided_tracker(self, aio_client, tracker):
+        """Verify tracker property returns the explicitly provided tracker."""
+        manager = DownloadManager(client=aio_client, tracker=tracker)
+        assert manager.tracker is tracker
+
+    def test_tracker_property_with_null_tracker(self, aio_client):
+        """Verify tracker property works with NullTracker."""
+
+        null_tracker = NullTracker()
+        manager = DownloadManager(client=aio_client, tracker=null_tracker)
+        assert manager.tracker is null_tracker

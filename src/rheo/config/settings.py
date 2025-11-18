@@ -43,8 +43,8 @@ class Settings(BaseSettings):
         description="Runtime environment",
     )
     log_level: LogLevel = Field(
-        default=LogLevel.INFO,
-        description="Logging level",
+        default=LogLevel.WARNING,
+        description="Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)",
     )
     download_dir: Path = Field(
         default_factory=lambda: Path.home() / "Downloads",

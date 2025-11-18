@@ -57,7 +57,7 @@ class PriorityDownloadQueue:
             file_configs: Sequence of FileConfig objects to add to the queue.
         """
         for file_config in file_configs:
-            self._logger.info(f"Adding {file_config.url} to the queue")
+            self._logger.debug(f"Adding {file_config.url} to the queue")
             # Negate priority for min-heap behavior (higher priority = lower number)
             # Use counter as tiebreaker to maintain FIFO order for same priority
             await self._queue.put((-file_config.priority, self._counter, file_config))
@@ -72,7 +72,9 @@ class PriorityDownloadQueue:
         Returns:
             The FileConfig object with the highest priority.
         """
-        self._logger.info("Waiting for a file config to be available from the queue...")
+        self._logger.debug(
+            "Waiting for a file config to be available from the queue..."
+        )
         _, _, file_config = await self._queue.get()
         return file_config
 
