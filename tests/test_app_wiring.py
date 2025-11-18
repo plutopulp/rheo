@@ -8,7 +8,7 @@ def test_create_app_uses_default_settings():
     assert isinstance(app, App)
     assert isinstance(app.settings, Settings)
     assert app.settings.environment == Environment.PRODUCTION
-    assert app.settings.log_level == LogLevel.INFO
+    assert app.settings.log_level == LogLevel.WARNING
 
 
 def test_create_app_with_custom_settings(test_settings):

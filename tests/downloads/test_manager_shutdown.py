@@ -321,8 +321,8 @@ class TestEdgeCases:
         await manager.shutdown(wait_for_current=True)
 
         # Check logs for shutdown messages
-        # Note: mock_logger.info is called with formatted strings
-        log_messages = [call.args[0] for call in mock_logger.info.call_args_list]
+        # Note: Shutdown logs are now at DEBUG level
+        log_messages = [call.args[0] for call in mock_logger.debug.call_args_list]
 
         # Should have "Initiating shutdown" message
         assert any("Initiating shutdown" in msg for msg in log_messages)
@@ -402,15 +402,15 @@ class TestShutdownMechanismInternals:
                     destination_path = file_config.get_destination_path(
                         self.download_dir
                     )
-                    self._logger.info(
+                    self._logger.debug(
                         f"Downloading {file_config.url} to {destination_path}"
                     )
                     await self.worker.download(file_config.url, destination_path)
-                    self._logger.info(
+                    self._logger.debug(
                         f"Downloaded {file_config.url} to {destination_path}"
                     )
                 except asyncio.CancelledError:
-                    self._logger.info("Worker cancelled, stopping immediately")
+                    self._logger.debug("Worker cancelled, stopping immediately")
                     raise
                 except Exception as exc:
                     self._logger.error(f"Error processing queue: {exc}")
@@ -418,7 +418,7 @@ class TestShutdownMechanismInternals:
                     if file_config is not None:
                         self.queue.task_done()
 
-            self._logger.info("Worker shutting down gracefully")
+            self._logger.debug("Worker shutting down gracefully")
 
     class ManagerWithoutTaskDone:
         """Custom manager that skips task_done in the re-queue branch.
@@ -472,17 +472,17 @@ class TestShutdownMechanismInternals:
                     destination_path = file_config.get_destination_path(
                         self.download_dir
                     )
-                    self._logger.info(
+                    self._logger.debug(
                         f"Downloading {file_config.url} to {destination_path}"
                     )
                     await self.worker.download(file_config.url, destination_path)
-                    self._logger.info(
+                    self._logger.debug(
                         f"Downloaded {file_config.url} to {destination_path}"
                     )
                 except asyncio.TimeoutError:
                     continue
                 except asyncio.CancelledError:
-                    self._logger.info("Worker cancelled, stopping immediately")
+                    self._logger.debug("Worker cancelled, stopping immediately")
                     raise
                 except Exception as exc:
                     self._logger.error(f"Error processing queue: {exc}")
@@ -490,7 +490,7 @@ class TestShutdownMechanismInternals:
                     if file_config is not None and got_item:
                         self.queue.task_done()
 
-            self._logger.info("Worker shutting down gracefully")
+            self._logger.debug("Worker shutting down gracefully")
 
     @pytest.mark.asyncio
     async def test_without_timeout_shutdown_fails_on_empty_queue(

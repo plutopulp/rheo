@@ -238,7 +238,7 @@ class DownloadManager:
             wait_for_current: If True, wait for current downloads to complete.
                             If False, cancel immediately via stop_workers().
         """
-        self._logger.info(f"Initiating shutdown (wait_for_current={wait_for_current})")
+        self._logger.debug(f"Initiating shutdown (wait_for_current={wait_for_current})")
         self._shutdown_event.set()
 
         if wait_for_current:
@@ -283,7 +283,7 @@ class DownloadManager:
                 # FileConfig generates destination path and creates directories if needed
                 destination_path = file_config.get_destination_path(self.download_dir)
 
-                self._logger.info(
+                self._logger.debug(
                     f"Downloading {file_config.url} to {destination_path}"
                 )
                 await self.worker.download(
@@ -291,7 +291,9 @@ class DownloadManager:
                     destination_path,
                     hash_config=file_config.hash_config,
                 )
-                self._logger.info(f"Downloaded {file_config.url} to {destination_path}")
+                self._logger.debug(
+                    f"Downloaded {file_config.url} to {destination_path}"
+                )
             except asyncio.TimeoutError:
                 # No item available within timeout period. This is normal when
                 # queue is empty or all items were taken by other workers.
@@ -314,7 +316,7 @@ class DownloadManager:
                 if got_item:
                     self.queue.task_done()
 
-        self._logger.info("Worker shutting down gracefully")
+        self._logger.debug("Worker shutting down gracefully")
 
     async def start_workers(self) -> None:
         for _ in range(self.max_workers):
