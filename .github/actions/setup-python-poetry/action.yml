@@ -20,10 +20,10 @@ runs:
         path: |
           ~/.cache/pypoetry
           .venv
-        key: ${{ runner.os }}-poetry-${{ inputs.python-version }}-${{ hashFiles('poetry.lock') }}
+        key: ${{ runner.os }}-poetry-rheo-${{ inputs.python-version }}-${{ hashFiles('poetry.lock') }}
         restore-keys: |
-          ${{ runner.os }}-poetry-${{ inputs.python-version }}-
-          ${{ runner.os }}-poetry-
+          ${{ runner.os }}-poetry-rheo-${{ inputs.python-version }}-
+          ${{ runner.os }}-poetry-rheo-
 
     - name: Install Poetry
       shell: bash
