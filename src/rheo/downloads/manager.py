@@ -301,7 +301,7 @@ class DownloadManager:
                 # Raised when task.cancel() is called (immediate shutdown).
                 # Must re-raise to properly terminate the task, otherwise
                 # asyncio considers cancellation "handled" and keeps running.
-                self._logger.info("Worker cancelled, stopping immediately")
+                self._logger.debug("Worker cancelled, stopping immediately")
                 raise
             except Exception as e:
                 # file_config may not be defined if error getting from queue.

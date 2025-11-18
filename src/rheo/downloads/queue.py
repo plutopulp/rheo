@@ -72,7 +72,9 @@ class PriorityDownloadQueue:
         Returns:
             The FileConfig object with the highest priority.
         """
-        self._logger.info("Waiting for a file config to be available from the queue...")
+        self._logger.debug(
+            "Waiting for a file config to be available from the queue..."
+        )
         _, _, file_config = await self._queue.get()
         return file_config
 

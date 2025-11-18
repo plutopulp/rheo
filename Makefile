@@ -1,7 +1,7 @@
 # Async Downloader - Makefile
-CODE_PATHS := src tests
+CODE_PATHS := src tests examples
 
-.PHONY: help clean format lint test test-cov test-quick type-check ci docs-cli
+.PHONY: help clean format lint test test-cov test-quick type-check ci docs-cli examples
 
 .DEFAULT_GOAL := help
 
@@ -19,6 +19,7 @@ help:
 	@echo "  make test-cov                 Run tests with coverage and open HTML report"
 	@echo "  make ci                       Run all CI checks locally"
 	@echo "  make docs-cli                 Generate CLI documentation"
+	@echo "  make examples                 Run all example scripts"
 	@echo "  make clean                    Clean up build artifacts"
 
 clean:
@@ -71,3 +72,8 @@ docs-cli:
 	@echo "Generating CLI documentation..."
 	poetry run typer rheo.cli.main utils docs --name rheo --output docs/CLI.md
 	@echo "CLI documentation generated at docs/CLI.md"
+
+examples:
+	@echo "Running examples..."
+	poetry run python examples/01_basic_download.py
+	@echo "All examples completed successfully!"
