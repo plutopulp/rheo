@@ -4,10 +4,12 @@ import loguru
 import pytest
 import pytest_asyncio
 from aiohttp import ClientSession
+from typer.testing import CliRunner
 
 from async_download_manager.app import create_app
+from async_download_manager.cli.app import create_cli_app
 from async_download_manager.config.settings import Environment, LogLevel, Settings
-from async_download_manager.downloads import DownloadManager
+from async_download_manager.downloads import DownloadManager, PriorityDownloadQueue
 from async_download_manager.events import BaseEmitter, EventEmitter
 from async_download_manager.infrastructure.logging import reset_logging
 from async_download_manager.tracking import DownloadTracker
@@ -47,6 +49,13 @@ def mock_emitter(mocker):
     emitter = mocker.Mock(spec=BaseEmitter)
     emitter.emit = mocker.AsyncMock()
     return emitter
+
+
+@pytest.fixture
+def mock_queue(mocker):
+    """Provide a mocked PriorityDownloadQueue for unit tests."""
+    queue = mocker.Mock(spec=PriorityDownloadQueue)
+    return queue
 
 
 @pytest.fixture
@@ -93,3 +102,18 @@ def manager_with_tracker(aio_client, tracker, mock_logger):
         tracker=tracker,
         logger=mock_logger,
     )
+
+
+# CLI-specific fixtures (shared across all tests)
+
+
+@pytest.fixture
+def cli_runner():
+    """Provide Typer CLI test runner."""
+    return CliRunner()
+
+
+@pytest.fixture
+def default_app():
+    """Provide CLI app with default settings."""
+    return create_cli_app()

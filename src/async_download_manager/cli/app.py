@@ -6,14 +6,18 @@ from typing import Optional
 import typer
 
 from ..config.settings import LogLevel, Settings, build_settings
+from .commands import download
 from .state import CLIState
 
 
-def create_cli_app(settings: Settings | None = None) -> typer.Typer:
-    """Create CLI application with optional settings override.
+def create_cli_app(
+    settings: Settings | None = None, state: CLIState | None = None
+) -> typer.Typer:
+    """Create CLI application with optional settings or state override.
 
     Args:
-        settings: Optional Settings override for testing
+        settings: Optional Settings override (ignored if state provided)
+        state: Optional CLIState override for testing
 
     Returns:
         Configured Typer application with commands registered
@@ -48,17 +52,24 @@ def create_cli_app(settings: Settings | None = None) -> typer.Typer:
         ),
     ) -> None:
         """Global options available to all commands."""
-        if settings is not None:
-            resolved_settings = settings
+        # Use provided state if available (for testing)
+        if state is not None:
+            ctx.obj = state
+        elif settings is not None:
+            ctx.obj = CLIState(settings)
         else:
             resolved_settings = build_settings(
                 download_dir=download_dir,
                 max_workers=workers,
                 log_level=LogLevel.DEBUG if verbose else None,
             )
+            ctx.obj = CLIState(resolved_settings)
 
-        state = CLIState(resolved_settings)
-        ctx.obj = state
+    # Register commands
+    # Note: When we have 2+ command groups, migrate to sub-app pattern:
+    #   app.add_typer(download_app, name="download")
+    #   app.add_typer(config_app, name="config")
+    # See: src/async_download_manager/cli/commands/__init__.py for details
+    app.command()(download)
 
-    # Commands will be registered here later
     return app

@@ -73,6 +73,11 @@ class TestHashConfigHelpers:
         with pytest.raises(ValueError):
             HashConfig.from_checksum_string("notvalid")
 
+    def test_from_checksum_string_invalid_algorithm(self):
+        """Raises ValueError for unsupported hash algorithm."""
+        with pytest.raises(ValueError, match="Unsupported hash algorithm"):
+            HashConfig.from_checksum_string("invalid:abc123")
+
 
 class TestValidationState:
     """ValidationState behaviour."""

@@ -2,9 +2,23 @@
 
 from abc import ABC, abstractmethod
 
+from ..domain.downloads import DownloadInfo
+
 
 class BaseTracker(ABC):
     """Abstract base class for download trackers."""
+
+    @abstractmethod
+    def get_download_info(self, url: str) -> DownloadInfo | None:
+        """Get current state of a download.
+
+        Args:
+            url: The URL to query
+
+        Returns:
+            DownloadInfo if found, None otherwise
+        """
+        pass
 
     @abstractmethod
     async def track_queued(self, url: str, priority: int = 1) -> None:

@@ -1,10 +1,15 @@
 """Null object implementation of tracker."""
 
+from ..domain.downloads import DownloadInfo
 from .base import BaseTracker
 
 
 class NullTracker(BaseTracker):
     """Null object implementation of tracker that does nothing."""
+
+    def get_download_info(self, url: str) -> DownloadInfo | None:
+        """No-op: always returns None."""
+        return None
 
     async def track_queued(self, url: str, priority: int = 1) -> None:
         pass
