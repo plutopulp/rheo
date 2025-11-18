@@ -2,7 +2,7 @@
 
 import pytest
 
-from async_download_manager.events import EventEmitter
+from rheo.events import EventEmitter
 
 
 @pytest.fixture

@@ -4,8 +4,8 @@ from pathlib import Path
 
 import typer
 
-from async_download_manager.cli.state import CLIState
-from async_download_manager.config.settings import LogLevel
+from rheo.cli.state import CLIState
+from rheo.config.settings import LogLevel
 
 
 class TestCLIAppFactory:
@@ -14,7 +14,7 @@ class TestCLIAppFactory:
     def test_returns_typer_app(self, default_app):
         """create_cli_app returns a Typer instance."""
         assert isinstance(default_app, typer.Typer)
-        assert default_app.info.name == "adm"
+        assert default_app.info.name == "rheo"
 
     def test_app_with_injected_settings(self, test_app, test_settings):
         """create_cli_app accepts settings injection for testing."""

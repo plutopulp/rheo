@@ -70,24 +70,24 @@ Flexible HTTP configuration:
 
 ```bash
 # Core downloads
-adm download <url> [--output <path>] [--workers <n>] [--priority <n>]
-adm download <url> [--hash <algo>:<value>]  # With hash verification
-adm download <url> [--proxy <url>]          # With proxy
-adm download <url> [--segments <n>]         # Multi-segment
-adm download batch <file>                   # From file
-adm download batch -                        # From stdin
-adm download resume <id>                    # Resume specific download
-adm download retry --failed                 # Retry all failed
+rheo download <url> [--output <path>] [--workers <n>] [--priority <n>]
+rheo download <url> [--hash <algo>:<value>]  # With hash verification
+rheo download <url> [--proxy <url>]          # With proxy
+rheo download <url> [--segments <n>]         # Multi-segment
+rheo download batch <file>                   # From file
+rheo download batch -                        # From stdin
+rheo download resume <id>                    # Resume specific download
+rheo download retry --failed                 # Retry all failed
 
 # Testing
-adm test                            # Run default test suite
-adm test --size small|medium|large  # Test by file size
-adm test validate <url>             # Check if URL is downloadable
+rheo test                            # Run default test suite
+rheo test --size small|medium|large  # Test by file size
+rheo test validate <url>             # Check if URL is downloadable
 
 # Configuration
-adm config show                     # Show all settings
-adm config set <key> <value>        # Set configuration
-adm config get <key>                # Get specific setting
+rheo config show                     # Show all settings
+rheo config set <key> <value>        # Set configuration
+rheo config get <key>                # Get specific setting
 ```
 
 ### Retry Logic
@@ -208,32 +208,32 @@ Blocking API for simple use cases:
 ### Queue Management
 
 ```bash
-adm queue list                      # Show queued downloads
-adm queue add <url>                 # Add to persistent queue
-adm queue remove <id>               # Remove from queue
-adm queue pause                     # Pause processing
-adm queue resume                    # Resume processing
-adm queue clear                     # Clear entire queue
+rheo queue list                      # Show queued downloads
+rheo queue add <url>                 # Add to persistent queue
+rheo queue remove <id>               # Remove from queue
+rheo queue pause                     # Pause processing
+rheo queue resume                    # Resume processing
+rheo queue clear                     # Clear entire queue
 ```
 
 ### History Tracking
 
 ```bash
-adm history list [--failed] [--today] [--limit 20]
-adm history show <id>               # Detailed info
-adm history stats                   # Overall statistics
-adm history export <file>           # Export to JSON/CSV
-adm history clear                   # Clear history
+rheo history list [--failed] [--today] [--limit 20]
+rheo history show <id>               # Detailed info
+rheo history stats                   # Overall statistics
+rheo history export <file>           # Export to JSON/CSV
+rheo history clear                   # Clear history
 ```
 
 ### Authentication
 
 ```bash
-adm auth add <name> --token <token>
-adm auth add github --token ghp_xxx
-adm auth list
-adm auth remove <name>
-adm download <url> --auth github
+rheo auth add <name> --token <token>
+rheo auth add github --token ghp_xxx
+rheo auth list
+rheo auth remove <name>
+rheo download <url> --auth github
 ```
 
 Support for:
@@ -246,9 +246,9 @@ Support for:
 ### Workspace Isolation
 
 ```bash
-adm workspace create <name>
-adm workspace use <name>
-adm workspace list
+rheo workspace create <name>
+rheo workspace use <name>
+rheo workspace list
 ```
 
 Each workspace gets its own:
@@ -263,20 +263,20 @@ Use case: Separate work projects, personal downloads, etc.
 ### Monitoring
 
 ```bash
-adm monitor                         # Live dashboard (Rich UI)
-adm monitor workers                 # Worker status
-adm monitor bandwidth               # Bandwidth usage
-adm monitor watch <id>              # Watch specific download
+rheo monitor                         # Live dashboard (Rich UI)
+rheo monitor workers                 # Worker status
+rheo monitor bandwidth               # Bandwidth usage
+rheo monitor watch <id>              # Watch specific download
 ```
 
 ### Bulk Operations
 
 ```bash
-adm bulk import <file>              # Import JSON/YAML config
-adm bulk export                     # Export all downloads
-adm bulk retry --failed             # Retry all failed
-adm bulk pause --all                # Pause everything
-adm bulk clean --completed          # Remove completed from queue
+rheo bulk import <file>              # Import JSON/YAML config
+rheo bulk export                     # Export all downloads
+rheo bulk retry --failed             # Retry all failed
+rheo bulk pause --all                # Pause everything
+rheo bulk clean --completed          # Remove completed from queue
 ```
 
 ## 🧊 Ice Box
@@ -362,7 +362,7 @@ class S3UploadPlugin(DownloadPlugin):
 
 ```bash
 # Run as a service
-adm serve --host 0.0.0.0 --port 8080
+rheo serve --host 0.0.0.0 --port 8080
 
 # Then use REST API
 POST   /downloads          # Add download

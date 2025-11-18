@@ -4,7 +4,7 @@ import aiohttp
 import pytest
 from aioresponses import aioresponses
 
-from async_download_manager import DownloadManager, DownloadStatus
+from rheo import DownloadManager, DownloadStatus
 
 
 class TestManagerTrackerWiring:

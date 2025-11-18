@@ -8,8 +8,8 @@ import pytest
 from aioresponses import aioresponses
 from attr import dataclass
 
-from async_download_manager.domain.retry import RetryConfig, RetryPolicy
-from async_download_manager.downloads import (
+from rheo.domain.retry import RetryConfig, RetryPolicy
+from rheo.downloads import (
     DownloadWorker,
     ErrorCategoriser,
     NullRetryHandler,

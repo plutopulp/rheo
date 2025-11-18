@@ -6,9 +6,9 @@ from pathlib import Path
 import pytest
 from aioresponses import aioresponses
 
-from async_download_manager.domain.exceptions import HashMismatchError
-from async_download_manager.domain.hash_validation import HashAlgorithm, HashConfig
-from async_download_manager.events import (
+from rheo.domain.exceptions import HashMismatchError
+from rheo.domain.hash_validation import HashAlgorithm, HashConfig
+from rheo.events import (
     WorkerValidationCompletedEvent,
     WorkerValidationFailedEvent,
     WorkerValidationStartedEvent,

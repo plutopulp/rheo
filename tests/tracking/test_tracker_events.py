@@ -2,15 +2,15 @@
 
 import pytest
 
-from async_download_manager.domain.downloads import DownloadStatus
-from async_download_manager.events import (
+from rheo.domain.downloads import DownloadStatus
+from rheo.events import (
     DownloadCompletedEvent,
     DownloadFailedEvent,
     DownloadProgressEvent,
     DownloadQueuedEvent,
     DownloadStartedEvent,
 )
-from async_download_manager.tracking import DownloadTracker
+from rheo.tracking import DownloadTracker
 
 
 class TestDownloadTrackerEventSubscription:

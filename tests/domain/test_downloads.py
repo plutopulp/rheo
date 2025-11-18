@@ -2,9 +2,9 @@
 
 import pytest
 
-from async_download_manager.domain.downloads import DownloadInfo, DownloadStatus
-from async_download_manager.domain.file_config import FileConfig
-from async_download_manager.domain.hash_validation import (
+from rheo.domain.downloads import DownloadInfo, DownloadStatus
+from rheo.domain.file_config import FileConfig
+from rheo.domain.hash_validation import (
     ValidationState,
     ValidationStatus,
 )

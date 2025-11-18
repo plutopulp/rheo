@@ -6,17 +6,17 @@ import hashlib
 import pytest
 from aiohttp import ClientSession
 
-from async_download_manager.domain.file_config import FileConfig
-from async_download_manager.domain.hash_validation import HashAlgorithm
-from async_download_manager.domain.retry import RetryConfig
-from async_download_manager.downloads import (
+from rheo.domain.file_config import FileConfig
+from rheo.domain.hash_validation import HashAlgorithm
+from rheo.domain.retry import RetryConfig
+from rheo.downloads import (
     DownloadManager,
     DownloadWorker,
     ErrorCategoriser,
     PriorityDownloadQueue,
     RetryHandler,
 )
-from async_download_manager.events import EventEmitter
+from rheo.events import EventEmitter
 
 
 @pytest.fixture

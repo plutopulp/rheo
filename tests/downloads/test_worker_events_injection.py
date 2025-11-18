@@ -2,7 +2,7 @@
 
 import pytest
 
-from async_download_manager.downloads import DownloadWorker
+from rheo.downloads import DownloadWorker
 
 
 class TestWorkerEventInjection:

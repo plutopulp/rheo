@@ -7,7 +7,7 @@ import aiohttp
 import pytest
 from aioresponses import aioresponses
 
-from async_download_manager.events import (
+from rheo.events import (
     WorkerCompletedEvent,
     WorkerFailedEvent,
     WorkerProgressEvent,

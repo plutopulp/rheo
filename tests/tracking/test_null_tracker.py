@@ -2,7 +2,7 @@
 
 import pytest
 
-from async_download_manager.tracking import BaseTracker, NullTracker
+from rheo.tracking import BaseTracker, NullTracker
 
 
 @pytest.fixture

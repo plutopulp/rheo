@@ -2,7 +2,7 @@
 
 import pytest
 
-from async_download_manager.config.settings import LogLevel, Settings, build_settings
+from rheo.config.settings import LogLevel, Settings, build_settings
 
 
 @pytest.fixture

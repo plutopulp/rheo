@@ -1,6 +1,6 @@
-from async_download_manager.app import App, create_app
-from async_download_manager.config.settings import Environment, LogLevel, Settings
-from async_download_manager.infrastructure.logging import get_logger, is_configured
+from rheo.app import App, create_app
+from rheo.config.settings import Environment, LogLevel, Settings
+from rheo.infrastructure.logging import get_logger, is_configured
 
 
 def test_create_app_uses_default_settings():

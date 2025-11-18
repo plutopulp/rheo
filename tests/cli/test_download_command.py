@@ -1,7 +1,7 @@
 """Tests for download command."""
 
-from async_download_manager.domain.downloads import DownloadInfo, DownloadStatus
-from async_download_manager.domain.hash_validation import HashAlgorithm
+from rheo.domain.downloads import DownloadInfo, DownloadStatus
+from rheo.domain.hash_validation import HashAlgorithm
 
 
 class TestDownloadCommandBasics:
