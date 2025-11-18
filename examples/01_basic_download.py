@@ -16,7 +16,7 @@ async def main() -> None:
     """Download a single file to ./downloads directory."""
     print("Starting basic download example...")
 
-    files = [FileConfig(url="https://httpbin.org/bytes/1024")]
+    files = [FileConfig(url="https://proof.ovh.net/files/1Mb.dat")]
 
     async with DownloadManager(download_dir=Path("./downloads")) as manager:
         await manager.add_to_queue(files)

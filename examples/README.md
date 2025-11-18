@@ -6,7 +6,7 @@ Self-contained, runnable examples demonstrating common use cases for Rheo.
 
 - Python 3.12+
 - Rheo installed: `pip install rheopy` (or `poetry install` for development)
-- **Internet connection** (examples use httpbin.org for testing)
+- **Internet connection** (examples use proof.ovh.net for testing)
 
 ## Running Examples
 
@@ -34,7 +34,7 @@ make examples
 
 **What it does:**
 
-- Downloads a single 1KB test file from httpbin.org
+- Downloads a single 1MB test file from proof.ovh.net
 - Saves to `./downloads/` directory
 - Uses default settings (3 workers, no validation)
 
@@ -48,6 +48,30 @@ make examples
 
 ```bash
 python examples/01_basic_download.py
+```
+
+### 02_multiple_with_priority.py
+
+**Demonstrates:** Priority queue with concurrent downloads
+
+**What it does:**
+
+- Downloads 5 files with different priorities (3=high, 2=medium, 1=low)
+- Shows priority ordering in action
+- Uses 3 concurrent workers
+- Different file sizes (1MB, 10MB, 100MB)
+- Demonstrates that priority matters more than file size (small low-priority file waits)
+
+**Key concepts:**
+
+- Priority queue (higher numbers = higher priority)
+- Concurrent downloads with worker pool
+- FileConfig with priority and description parameters
+
+**Run it:**
+
+```bash
+python examples/02_multiple_with_priority.py
 ```
 
 ## What to Expect
