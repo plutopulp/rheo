@@ -1,7 +1,7 @@
 # Async Downloader - Makefile
 CODE_PATHS := src tests
 
-.PHONY: help clean format lint test test-cov test-quick type-check ci
+.PHONY: help clean format lint test test-cov test-quick type-check ci docs-cli
 
 .DEFAULT_GOAL := help
 
@@ -18,6 +18,7 @@ help:
 	@echo "  make test-quick               Run tests without coverage"
 	@echo "  make test-cov                 Run tests with coverage and open HTML report"
 	@echo "  make ci                       Run all CI checks locally"
+	@echo "  make docs-cli                 Generate CLI documentation"
 	@echo "  make clean                    Clean up build artifacts"
 
 clean:
@@ -65,3 +66,8 @@ ci:
 	poetry run mypy src
 	@echo "\n=== Tests with Coverage ==="
 	poetry run pytest tests --cov=src/async_download_manager --cov-report=term-missing --cov-report=html -v
+
+docs-cli:
+	@echo "Generating CLI documentation..."
+	poetry run typer async_download_manager.cli.main utils docs --name adm --output docs/CLI.md
+	@echo "CLI documentation generated at docs/CLI.md"

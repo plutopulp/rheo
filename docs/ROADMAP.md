@@ -25,22 +25,22 @@ What we're actually building, in order of priority.
 
 ### CLI Tool
 
-- [ ] Basic download command (`adm download <url>`)
+- [x] **Basic download command (`adm download <url>`)**
+- [x] **Hash verification option**
+- [x] **Configuration system (env vars, .env file, CLI flags)**
 - [ ] Batch downloads (`adm download batch urls.txt`)
 - [ ] Progress display with speed/ETA (Rich UI)
-- [ ] Hash verification option
 - [ ] Proxy configuration
 - [ ] Test command using built-in test files
-- [ ] Configuration system
 
 **Acceptance Criteria**:
 
-- Can download files from command line
-- Shows progress in terminal with speed and ETA
-- Handles failures gracefully
+- Can download files from command line ✅
+- Shows progress in terminal ✅ (basic, Rich UI pending)
+- Handles failures gracefully ✅
 - Can be installed via pip
 - Verifies file integrity with hashes ✅
-- Downloads faster with multi-segment support
+- Downloads faster with multi-segment support (pending)
 
 ## Phase 2: Production Ready
 
@@ -146,7 +146,7 @@ Things we're explicitly NOT building:
 Questions we need to answer:
 
 1. **Storage backend**: Use SQLite in Phase 3, JSON for state files in Phase 2
-2. **CLI framework**: Typer, Click, or argparse?
+2. **CLI framework**: ✅ Typer (with Rich for future enhanced UI)
 3. **Segment size algorithm**: Static vs adaptive vs user-configurable?
 4. **Mirror selection strategy**: Random, sequential, or fastest-first?
 

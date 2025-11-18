@@ -41,6 +41,7 @@ That's it. The manager handles worker pools, state tracking, and cleanup automat
 
 ## Features
 
+- **Command-line interface**: Simple `adm download` command with progress display and hash validation
 - **Concurrent downloads**: Worker pool manages multiple downloads simultaneously
 - **Priority queue**: Download urgent files first
 - **Hash validation**: Verify file integrity with MD5, SHA256, or SHA512 checksums
@@ -67,9 +68,68 @@ Or with Poetry:
 poetry add async-download-manager
 ```
 
-## Usage Examples
+## CLI Usage
+
+The package includes an `adm` command-line tool for quick downloads:
 
 ### Basic Download
+
+```bash
+adm download https://example.com/file.zip
+```
+
+### Custom Output Directory
+
+```bash
+adm download https://example.com/file.zip -o /path/to/dir
+```
+
+### Custom Filename
+
+```bash
+adm download https://example.com/file.zip --filename custom-name.zip
+```
+
+### Hash Verification
+
+```bash
+adm download https://example.com/file.zip --hash sha256:abc123...
+```
+
+### Global Options
+
+```bash
+# Verbose logging
+adm --verbose download https://example.com/file.zip
+
+# Custom worker count
+adm --workers 5 download https://example.com/file.zip
+
+# Custom download directory for all commands
+adm --download-dir /tmp/downloads download https://example.com/file.zip
+```
+
+### Configuration
+
+Settings can be configured via:
+
+1. **CLI flags** (highest priority): `--workers`, `--download-dir`, `--verbose`
+2. **Environment variables**: `ADM_DOWNLOAD_DIR`, `ADM_MAX_WORKERS`, `ADM_LOG_LEVEL`
+3. **`.env` file** in current directory
+4. **Defaults** (lowest priority)
+
+Example `.env` file:
+
+```bash
+ADM_DOWNLOAD_DIR=/home/user/downloads
+ADM_MAX_WORKERS=3
+ADM_LOG_LEVEL=INFO
+ADM_TIMEOUT=300.0
+```
+
+## Library Usage Examples
+
+### Basic Library Usage
 
 ```python
 from async_download_manager import DownloadManager
@@ -361,13 +421,14 @@ Recently completed:
 - ✅ Graceful shutdown with configurable behavior
 - ✅ Real-time speed and ETA tracking
 - ✅ Hash validation (MD5, SHA256, SHA512)
+- ✅ CLI interface with progress display
 
 Current focus:
 
 - Download resume support (HTTP Range requests)
 - Multi-segment parallel downloads
-- CLI interface
 - Custom HTTP headers and authentication
+- Enhanced CLI features (batch downloads, Rich UI progress)
 
 See `docs/ROADMAP.md` for details.
 
@@ -402,6 +463,7 @@ The library is organised into bounded contexts:
 - **Events**: Event system and typed event models (including speed and validation events)
 - **Tracking**: State tracking, statistics, real-time speed metrics, and validation state
 - **Infrastructure**: Logging, HTTP client setup
+- **CLI**: Command-line interface with Typer, event-driven display, and configuration management
 
 See `docs/ARCHITECTURE.md` for detailed design decisions.
 
@@ -419,12 +481,12 @@ Contributions are welcome! Please:
 
 MIT Licence - see LICENSE file for details.
 
-## Links
+## Documentation
 
-- Documentation: `docs/`
-- Roadmap: `docs/ROADMAP.md`
-- Ideas: `docs/IDEAS.md`
-- Architecture: `docs/ARCHITECTURE.md`
+- **[CLI Reference](docs/CLI.md)** - Complete command-line interface documentation
+- **[Architecture](docs/ARCHITECTURE.md)** - System design and component overview
+- **[Roadmap](docs/ROADMAP.md)** - Feature roadmap and development phases
+- **[Ideas](docs/IDEAS.md)** - Future ideas and brainstorming
 
 ## Questions?
 
