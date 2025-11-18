@@ -1,12 +1,12 @@
 [project]
-name = "async-downloader"
+name = "rheopy"
 version = "0.1.0"
-description = ""
+description = "Concurrent HTTP download orchestration with async I/O"
 authors = [
     {name = "plutopulp",email = "plutopulped@gmail.com"}
 ]
 [tool.poetry]
-packages = [{include = "async_download_manager", from = "src"}]
+packages = [{include = "rheo", from = "src"}]
 readme = "README.md"
 
 
@@ -32,7 +32,7 @@ pytest-cov = "^7.0.0"
 mypy = "^1.11.0"
 
 [tool.poetry.scripts]
-adm = "async_download_manager.cli.main:app"
+rheo = "rheo.cli.main:app"
 
 [tool.isort]
 profile = 'black'

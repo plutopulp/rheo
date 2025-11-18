@@ -4,13 +4,13 @@ from pathlib import Path
 
 import pytest
 
-from async_download_manager.domain.exceptions import (
+from rheo.domain.exceptions import (
     FileValidationError,
     HashMismatchError,
 )
-from async_download_manager.domain.hash_validation import HashAlgorithm, HashConfig
-from async_download_manager.downloads.null_validator import NullFileValidator
-from async_download_manager.downloads.validation import FileValidator
+from rheo.domain.hash_validation import HashAlgorithm, HashConfig
+from rheo.downloads.null_validator import NullFileValidator
+from rheo.downloads.validation import FileValidator
 
 
 def _write_file(path: Path, content: bytes) -> None:

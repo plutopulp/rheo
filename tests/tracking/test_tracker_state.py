@@ -4,8 +4,8 @@ import asyncio
 
 import pytest
 
-from async_download_manager.domain.downloads import DownloadStatus
-from async_download_manager.tracking import DownloadTracker
+from rheo.domain.downloads import DownloadStatus
+from rheo.tracking import DownloadTracker
 
 
 class TestDownloadTrackerInitialization:

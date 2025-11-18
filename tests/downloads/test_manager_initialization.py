@@ -3,8 +3,8 @@
 import pytest
 from aiohttp import ClientSession
 
-from async_download_manager.domain.exceptions import ManagerNotInitializedError
-from async_download_manager.downloads import (
+from rheo.domain.exceptions import ManagerNotInitializedError
+from rheo.downloads import (
     DownloadManager,
     DownloadWorker,
     PriorityDownloadQueue,

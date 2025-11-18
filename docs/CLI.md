@@ -1,11 +1,11 @@
-# `adm`
+# `rheo`
 
-Async Download Manager - Concurrent HTTP downloads with progress tracking
+Rheo - Concurrent HTTP download orchestration with async I/O
 
 **Usage**:
 
 ```console
-$ adm [OPTIONS] COMMAND [ARGS]...
+$ rheo [OPTIONS] COMMAND [ARGS]...
 ```
 
 **Options**:
@@ -21,20 +21,20 @@ $ adm [OPTIONS] COMMAND [ARGS]...
 
 * `download`: Download a file from a URL.
 
-## `adm download`
+## `rheo download`
 
 Download a file from a URL.
 
 Examples:
-    adm download https://example.com/file.zip
-    adm download https://example.com/file.zip -o /path/to/dir
-    adm download https://example.com/file.zip --filename custom.zip
-    adm download https://example.com/file.zip --hash sha256:abc123...
+    rheo download https://example.com/file.zip
+    rheo download https://example.com/file.zip -o /path/to/dir
+    rheo download https://example.com/file.zip --filename custom.zip
+    rheo download https://example.com/file.zip --hash sha256:abc123...
 
 **Usage**:
 
 ```console
-$ adm download [OPTIONS] URL
+$ rheo download [OPTIONS] URL
 ```
 
 **Arguments**:

@@ -3,11 +3,11 @@
 import pytest
 from typer.testing import CliRunner
 
-from async_download_manager.cli.app import create_cli_app
-from async_download_manager.cli.state import CLIState
-from async_download_manager.config.settings import LogLevel, Settings
-from async_download_manager.downloads import DownloadManager
-from async_download_manager.tracking import DownloadTracker
+from rheo.cli.app import create_cli_app
+from rheo.cli.state import CLIState
+from rheo.config.settings import LogLevel, Settings
+from rheo.downloads import DownloadManager
+from rheo.tracking import DownloadTracker
 
 
 @pytest.fixture

@@ -1,4 +1,4 @@
-"""Pytest configuration and fixtures for async-download-manager tests."""
+"""Pytest configuration and fixtures for rheo tests."""
 
 import loguru
 import pytest
@@ -6,13 +6,13 @@ import pytest_asyncio
 from aiohttp import ClientSession
 from typer.testing import CliRunner
 
-from async_download_manager.app import create_app
-from async_download_manager.cli.app import create_cli_app
-from async_download_manager.config.settings import Environment, LogLevel, Settings
-from async_download_manager.downloads import DownloadManager, PriorityDownloadQueue
-from async_download_manager.events import BaseEmitter, EventEmitter
-from async_download_manager.infrastructure.logging import reset_logging
-from async_download_manager.tracking import DownloadTracker
+from rheo.app import create_app
+from rheo.cli.app import create_cli_app
+from rheo.config.settings import Environment, LogLevel, Settings
+from rheo.downloads import DownloadManager, PriorityDownloadQueue
+from rheo.events import BaseEmitter, EventEmitter
+from rheo.infrastructure.logging import reset_logging
+from rheo.tracking import DownloadTracker
 
 
 @pytest.fixture

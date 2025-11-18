@@ -7,7 +7,7 @@ import aiohttp
 import pytest
 from aioresponses import aioresponses
 
-from async_download_manager.downloads import DownloadWorker
+from rheo.downloads import DownloadWorker
 
 
 @pytest.fixture

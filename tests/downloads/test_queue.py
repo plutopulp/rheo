@@ -4,8 +4,8 @@ import asyncio
 
 import pytest
 
-from async_download_manager.domain.file_config import FileConfig
-from async_download_manager.downloads import PriorityDownloadQueue
+from rheo.domain.file_config import FileConfig
+from rheo.downloads import PriorityDownloadQueue
 
 
 class TestPriorityDownloadQueueInitialization:

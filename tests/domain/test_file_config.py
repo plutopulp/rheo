@@ -5,8 +5,8 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from async_download_manager.domain.file_config import FileConfig
-from async_download_manager.domain.hash_validation import HashAlgorithm, HashConfig
+from rheo.domain.file_config import FileConfig
+from rheo.domain.hash_validation import HashAlgorithm, HashConfig
 
 
 class TestFileConfigURLValidation:

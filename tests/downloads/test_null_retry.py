@@ -2,7 +2,7 @@
 
 import pytest
 
-from async_download_manager.downloads import NullRetryHandler
+from rheo.downloads import NullRetryHandler
 
 
 @pytest.fixture

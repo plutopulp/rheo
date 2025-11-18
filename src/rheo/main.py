@@ -4,7 +4,7 @@ from pathlib import Path
 
 from pydantic import HttpUrl
 
-from async_download_manager.domain.file_config import FileConfig
+from rheo.domain.file_config import FileConfig
 
 from .app import App, create_app
 from .config.settings import Environment, LogLevel, Settings

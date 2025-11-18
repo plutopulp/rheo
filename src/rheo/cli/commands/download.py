@@ -122,10 +122,10 @@ def download(
     """Download a file from a URL.
 
     Examples:
-        adm download https://example.com/file.zip
-        adm download https://example.com/file.zip -o /path/to/dir
-        adm download https://example.com/file.zip --filename custom.zip
-        adm download https://example.com/file.zip --hash sha256:abc123...
+        rheo download https://example.com/file.zip
+        rheo download https://example.com/file.zip -o /path/to/dir
+        rheo download https://example.com/file.zip --filename custom.zip
+        rheo download https://example.com/file.zip --hash sha256:abc123...
     """
     state: CLIState = ctx.obj
 

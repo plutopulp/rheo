@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 from aioresponses import aioresponses
 
-from async_download_manager.events import WorkerSpeedUpdatedEvent
+from rheo.events import WorkerSpeedUpdatedEvent
 
 
 @dataclass

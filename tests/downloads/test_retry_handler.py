@@ -4,9 +4,9 @@ import asyncio
 
 import pytest
 
-from async_download_manager.domain.retry import RetryConfig, RetryPolicy
-from async_download_manager.downloads.error_categoriser import ErrorCategoriser
-from async_download_manager.downloads.retry_handler import RetryHandler
+from rheo.domain.retry import RetryConfig, RetryPolicy
+from rheo.downloads.error_categoriser import ErrorCategoriser
+from rheo.downloads.retry_handler import RetryHandler
 
 
 @pytest.fixture

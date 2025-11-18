@@ -43,7 +43,7 @@ type-check:
 
 test:
 	@echo "Running tests with coverage..."
-	poetry run pytest tests --cov=src/async_download_manager --cov-report=term-missing --cov-report=html -v
+	poetry run pytest tests --cov=src/rheo --cov-report=term-missing --cov-report=html -v
 
 test-quick:
 	@echo "Running tests without coverage..."
@@ -51,7 +51,7 @@ test-quick:
 
 test-cov:
 	@echo "Running tests with coverage and opening report..."
-	poetry run pytest tests --cov=src/async_download_manager --cov-report=html --cov-report=term-missing -v
+	poetry run pytest tests --cov=src/rheo --cov-report=html --cov-report=term-missing -v
 	@echo "Opening coverage report..."
 	open htmlcov/index.html || xdg-open htmlcov/index.html
 
@@ -65,9 +65,9 @@ ci:
 	@echo "\n=== Type Checking ==="
 	poetry run mypy src
 	@echo "\n=== Tests with Coverage ==="
-	poetry run pytest tests --cov=src/async_download_manager --cov-report=term-missing --cov-report=html -v
+	poetry run pytest tests --cov=src/rheo --cov-report=term-missing --cov-report=html -v
 
 docs-cli:
 	@echo "Generating CLI documentation..."
-	poetry run typer async_download_manager.cli.main utils docs --name adm --output docs/CLI.md
+	poetry run typer rheo.cli.main utils docs --name rheo --output docs/CLI.md
 	@echo "CLI documentation generated at docs/CLI.md"

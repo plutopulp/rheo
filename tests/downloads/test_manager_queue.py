@@ -4,7 +4,7 @@ import asyncio
 
 import pytest
 
-from async_download_manager.downloads import DownloadManager, PriorityDownloadQueue
+from rheo.downloads import DownloadManager, PriorityDownloadQueue
 
 
 class TestDownloadManagerQueueIntegration:

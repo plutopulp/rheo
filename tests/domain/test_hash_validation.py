@@ -3,7 +3,7 @@
 import pytest
 from pydantic import ValidationError
 
-from async_download_manager.domain.hash_validation import (
+from rheo.domain.hash_validation import (
     HashAlgorithm,
     HashConfig,
     ValidationState,

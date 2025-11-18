@@ -4,7 +4,7 @@ from typing import Any
 
 import pytest
 
-from async_download_manager.events import BaseEmitter, NullEmitter
+from rheo.events import BaseEmitter, NullEmitter
 
 
 @pytest.fixture

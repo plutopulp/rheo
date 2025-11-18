@@ -1,6 +1,6 @@
-# Async Download Manager
+# Rheo
 
-Concurrent HTTP download manager with priority queues, progress tracking, and event-driven architecture.
+Concurrent HTTP download orchestration with async I/O
 
 ## What It Is
 
@@ -19,8 +19,8 @@ Think of it as a smart download queue with worker pools, where you can:
 ```python
 import asyncio
 from pathlib import Path
-from async_download_manager import DownloadManager
-from async_download_manager.domain import FileConfig
+from rheo import DownloadManager
+from rheo.domain import FileConfig
 
 async def main():
     files = [
@@ -41,7 +41,7 @@ That's it. The manager handles worker pools, state tracking, and cleanup automat
 
 ## Features
 
-- **Command-line interface**: Simple `adm download` command with progress display and hash validation
+- **Command-line interface**: Simple `rheo download` command with progress display and hash validation
 - **Concurrent downloads**: Worker pool manages multiple downloads simultaneously
 - **Priority queue**: Download urgent files first
 - **Hash validation**: Verify file integrity with MD5, SHA256, or SHA512 checksums
@@ -59,54 +59,54 @@ That's it. The manager handles worker pools, state tracking, and cleanup automat
 ## Installation
 
 ```bash
-pip install async-download-manager
+pip install rheopy
 ```
 
 Or with Poetry:
 
 ```bash
-poetry add async-download-manager
+poetry add rheopy
 ```
 
 ## CLI Usage
 
-The package includes an `adm` command-line tool for quick downloads:
+The package includes a `rheo` command-line tool for quick downloads:
 
 ### Basic Download
 
 ```bash
-adm download https://example.com/file.zip
+rheo download https://example.com/file.zip
 ```
 
 ### Custom Output Directory
 
 ```bash
-adm download https://example.com/file.zip -o /path/to/dir
+rheo download https://example.com/file.zip -o /path/to/dir
 ```
 
 ### Custom Filename
 
 ```bash
-adm download https://example.com/file.zip --filename custom-name.zip
+rheo download https://example.com/file.zip --filename custom-name.zip
 ```
 
 ### Hash Verification
 
 ```bash
-adm download https://example.com/file.zip --hash sha256:abc123...
+rheo download https://example.com/file.zip --hash sha256:abc123...
 ```
 
 ### Global Options
 
 ```bash
 # Verbose logging
-adm --verbose download https://example.com/file.zip
+rheo --verbose download https://example.com/file.zip
 
 # Custom worker count
-adm --workers 5 download https://example.com/file.zip
+rheo --workers 5 download https://example.com/file.zip
 
 # Custom download directory for all commands
-adm --download-dir /tmp/downloads download https://example.com/file.zip
+rheo --download-dir /tmp/downloads download https://example.com/file.zip
 ```
 
 ### Configuration
@@ -114,17 +114,17 @@ adm --download-dir /tmp/downloads download https://example.com/file.zip
 Settings can be configured via:
 
 1. **CLI flags** (highest priority): `--workers`, `--download-dir`, `--verbose`
-2. **Environment variables**: `ADM_DOWNLOAD_DIR`, `ADM_MAX_WORKERS`, `ADM_LOG_LEVEL`
+2. **Environment variables**: `RHEO_DOWNLOAD_DIR`, `RHEO_MAX_WORKERS`, `RHEO_LOG_LEVEL`
 3. **`.env` file** in current directory
 4. **Defaults** (lowest priority)
 
 Example `.env` file:
 
 ```bash
-ADM_DOWNLOAD_DIR=/home/user/downloads
-ADM_MAX_WORKERS=3
-ADM_LOG_LEVEL=INFO
-ADM_TIMEOUT=300.0
+RHEO_DOWNLOAD_DIR=/home/user/downloads
+RHEO_MAX_WORKERS=3
+RHEO_LOG_LEVEL=INFO
+RHEO_TIMEOUT=300.0
 ```
 
 ## Library Usage Examples
@@ -132,8 +132,8 @@ ADM_TIMEOUT=300.0
 ### Basic Library Usage
 
 ```python
-from async_download_manager import DownloadManager
-from async_download_manager.domain import FileConfig
+from rheo import DownloadManager
+from rheo.domain import FileConfig
 
 async with DownloadManager(download_dir=Path("./downloads")) as manager:
     await manager.add_to_queue([
@@ -177,7 +177,7 @@ files = [
 ### Track Progress
 
 ```python
-from async_download_manager.tracking import DownloadTracker
+from rheo.tracking import DownloadTracker
 
 tracker = DownloadTracker()
 
@@ -201,7 +201,7 @@ print(f"Completed: {stats.completed}, Failed: {stats.failed}")
 Track real-time download speeds and get completion estimates:
 
 ```python
-from async_download_manager.tracking import DownloadTracker
+from rheo.tracking import DownloadTracker
 
 tracker = DownloadTracker()
 
@@ -240,7 +240,7 @@ async with DownloadManager(
 ### React to Events
 
 ```python
-from async_download_manager.events import WorkerProgressEvent, WorkerSpeedUpdatedEvent
+from rheo.events import WorkerProgressEvent, WorkerSpeedUpdatedEvent
 
 async def on_progress(event: WorkerProgressEvent):
     print(f"Downloaded {event.bytes_downloaded} bytes from {event.url}")
@@ -260,8 +260,8 @@ async with DownloadManager(download_dir=Path("./downloads")) as manager:
 Verify file integrity with cryptographic hashes to ensure downloads aren't corrupted:
 
 ```python
-from async_download_manager.domain import FileConfig, HashConfig
-from async_download_manager.domain.hash_validation import HashAlgorithm
+from rheo.domain import FileConfig, HashConfig
+from rheo.domain.hash_validation import HashAlgorithm
 
 # Single file with hash validation
 files = [
@@ -325,8 +325,8 @@ for url, info in tracker.get_all_downloads().items():
 Automatic retry with exponential backoff - just provide a config:
 
 ```python
-from async_download_manager.domain.retry import RetryConfig
-from async_download_manager.downloads import RetryHandler, DownloadWorker
+from rheo.domain.retry import RetryConfig
+from rheo.downloads import RetryHandler, DownloadWorker
 
 # Simple: just specify retry config (sensible defaults for everything else)
 config = RetryConfig(max_retries=3, base_delay=1.0, max_delay=60.0)
@@ -345,8 +345,8 @@ async with aiohttp.ClientSession() as session:
 **Advanced**: Customize retry policy for specific status codes:
 
 ```python
-from async_download_manager.domain.retry import RetryConfig, RetryPolicy
-from async_download_manager.downloads import RetryHandler, ErrorCategoriser
+from rheo.domain.retry import RetryConfig, RetryPolicy
+from rheo.downloads import RetryHandler, ErrorCategoriser
 
 # Custom policy - treat 404 as transient (normally permanent)
 policy = RetryPolicy(
@@ -451,7 +451,7 @@ poetry run pytest
 ### Run Demo
 
 ```bash
-poetry run python -m src.async_download_manager.main
+poetry run python -m src.rheo.main
 ```
 
 ## Architecture

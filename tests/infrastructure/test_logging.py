@@ -1,7 +1,7 @@
 """Tests for logging infrastructure."""
 
-from async_download_manager.config.settings import Environment, LogLevel, Settings
-from async_download_manager.infrastructure.logging import (
+from rheo.config.settings import Environment, LogLevel, Settings
+from rheo.infrastructure.logging import (
     configure_logger,
     get_logger,
     reset_logging,

@@ -2,7 +2,7 @@
 
 import pytest
 
-from async_download_manager.tracking import DownloadTracker
+from rheo.tracking import DownloadTracker
 
 
 class TestTrackerSpeedTracking:

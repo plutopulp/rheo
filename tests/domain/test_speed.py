@@ -2,7 +2,7 @@
 
 import pytest
 
-from async_download_manager.domain.speed import SpeedCalculator
+from rheo.domain.speed import SpeedCalculator
 
 
 class TestSpeedCalculator:

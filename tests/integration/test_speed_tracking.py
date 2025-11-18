@@ -8,7 +8,7 @@ import aiohttp
 import pytest
 from aioresponses import aioresponses
 
-from async_download_manager import DownloadStatus
+from rheo import DownloadStatus
 
 
 @dataclass

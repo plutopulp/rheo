@@ -33,7 +33,7 @@ class Settings(BaseSettings):
 
     Can be populated from:
     - Defaults (defined here)
-    - Environment variables (ADM_* prefix)
+    - Environment variables (RHEO_* prefix)
     - CLI flags (highest priority, applied via build_settings)
     """
 
@@ -69,7 +69,7 @@ class Settings(BaseSettings):
     )
 
     model_config = SettingsConfigDict(
-        env_prefix="ADM_",
+        env_prefix="RHEO_",
         env_file=".env",
         env_file_encoding="utf-8",
         case_sensitive=False,

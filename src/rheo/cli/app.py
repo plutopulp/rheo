@@ -23,8 +23,8 @@ def create_cli_app(
         Configured Typer application with commands registered
     """
     app = typer.Typer(
-        help="Async Download Manager - Concurrent HTTP downloads with progress tracking",
-        name="adm",
+        help="Rheo - Concurrent HTTP download orchestration with async I/O",
+        name="rheo",
         no_args_is_help=True,
     )
 
@@ -69,7 +69,7 @@ def create_cli_app(
     # Note: When we have 2+ command groups, migrate to sub-app pattern:
     #   app.add_typer(download_app, name="download")
     #   app.add_typer(config_app, name="config")
-    # See: src/async_download_manager/cli/commands/__init__.py for details
+    # See: src/rheo/cli/commands/__init__.py for details
     app.command()(download)
 
     return app

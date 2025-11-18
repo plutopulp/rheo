@@ -2,13 +2,13 @@
 
 import pytest
 
-from async_download_manager.domain.hash_validation import ValidationStatus
-from async_download_manager.events import (
+from rheo.domain.hash_validation import ValidationStatus
+from rheo.events import (
     DownloadValidationCompletedEvent,
     DownloadValidationFailedEvent,
     DownloadValidationStartedEvent,
 )
-from async_download_manager.tracking import DownloadTracker
+from rheo.tracking import DownloadTracker
 
 
 @pytest.mark.asyncio

@@ -25,10 +25,10 @@ What we're actually building, in order of priority.
 
 ### CLI Tool
 
-- [x] **Basic download command (`adm download <url>`)**
+- [x] **Basic download command (`rheo download <url>`)**
 - [x] **Hash verification option**
 - [x] **Configuration system (env vars, .env file, CLI flags)**
-- [ ] Batch downloads (`adm download batch urls.txt`)
+- [ ] Batch downloads (`rheo download batch urls.txt`)
 - [ ] Progress display with speed/ETA (Rich UI)
 - [ ] Proxy configuration
 - [ ] Test command using built-in test files
@@ -79,7 +79,7 @@ What we're actually building, in order of priority.
 
 ### Configuration
 
-- [ ] Config file support (~/.adm/config.toml)
+- [ ] Config file support (~/.rheo/config.toml)
 - [ ] Environment variable overrides
 - [ ] Per-download configuration
 - [ ] Profile system
