@@ -1,5 +1,5 @@
 # Async Downloader - Makefile
-CODE_PATHS := src tests examples
+CODE_PATHS := src tests examples scripts
 
 .PHONY: help clean format lint test test-cov test-quick type-check ci docs-cli examples
 
@@ -74,6 +74,5 @@ docs-cli:
 	@echo "CLI documentation generated at docs/CLI.md"
 
 examples:
-	@echo "Running examples..."
-	poetry run python examples/01_basic_download.py
-	@echo "All examples completed successfully!"
+	@echo "Running all examples..."
+	poetry run python scripts/run_examples.py
