@@ -7,9 +7,10 @@ with proper error handling, partial file cleanup, and logging.
 import asyncio
 import time
 import typing as t
-from io import BufferedWriter
 from pathlib import Path
 
+import aiofiles
+import aiofiles.os
 import aiohttp
 
 from ..domain.exceptions import HashMismatchError
@@ -108,17 +109,21 @@ class DownloadWorker:
         self._validator = validator if validator is not None else FileValidator()
         self._speed_window_seconds = speed_window_seconds
 
-    def _write_chunk_to_file(self, chunk: bytes, file_handle: BufferedWriter) -> None:
-        """Write a data chunk to the output file.
+    async def _write_chunk_to_file(self, chunk: bytes, file_handle: t.Any) -> None:
+        """Write a data chunk to the output file asynchronously.
 
-        This method is separate to enable easy testing and potential future
-        enhancements like progress tracking or data validation.
+        This method provides an extension point for chunk processing.
+        Future enhancements could include:
+        - Progress callbacks
+        - Chunk validation
+        - Compression
+        - Custom data transformations
 
         Args:
             chunk: Binary data chunk to write
-            file_handle: Open file handle to write to
+            file_handle: Async file handle (aiofiles) to write to
         """
-        file_handle.write(chunk)
+        await file_handle.write(chunk)
 
     def _log_and_categorize_error(
         self,
@@ -272,8 +277,8 @@ class DownloadWorker:
         bytes_downloaded = 0
 
         try:
-            # Open destination file for binary writing
-            with open(destination_path, "wb") as file_handle:
+            # Open destination file for binary writing (async to avoid blocking)
+            async with aiofiles.open(destination_path, "wb") as file_handle:
                 # Create HTTP request with timeout context
                 async with self.client.get(url) as response, asyncio.Timeout(timeout):
                     # Validate HTTP status - raises ClientResponseError for 4xx/5xx
@@ -290,7 +295,7 @@ class DownloadWorker:
 
                     # Stream download in chunks for memory efficiency
                     async for chunk in response.content.iter_chunked(chunk_size):
-                        self._write_chunk_to_file(chunk, file_handle)
+                        await self._write_chunk_to_file(chunk, file_handle)
                         bytes_downloaded += len(chunk)
 
                         # Calculate speed metrics
@@ -372,15 +377,16 @@ class DownloadWorker:
         Args:
             file_path: Path to the potentially partial file to remove
         """
-        if file_path.exists():
-            try:
-                file_path.unlink()
+        # Use async file operations to avoid blocking event loop
+        try:
+            if await aiofiles.os.path.exists(file_path):
+                await aiofiles.os.remove(file_path)
                 self.logger.debug(f"Cleaned up partial file: {file_path}")
-            except Exception as cleanup_error:
-                # Log but don't raise - we don't want to mask the original error
-                self.logger.warning(
-                    f"Failed to clean up partial file {file_path}: {cleanup_error}"
-                )
+        except Exception as cleanup_error:
+            # Log but don't raise - we don't want to mask the original error
+            self.logger.warning(
+                f"Failed to clean up partial file {file_path}: {cleanup_error}"
+            )
 
     async def _validate_download(
         self, url: str, file_path: Path, hash_config: HashConfig

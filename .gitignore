@@ -207,8 +207,11 @@ marimo/_lsp/
 __marimo__/
 
 
-downloads/
 .cursor/
 
 # Internal planning documents
 PUBLICATION_PLAN.md
+GITHUB_ISSUES.md
+
+# Downloaded files directory (root level only, not src/rheo/downloads/)
+/downloads/

@@ -9,6 +9,7 @@ import ssl
 import typing as t
 from pathlib import Path
 
+import aiofiles.os
 import aiohttp
 import certifi
 
@@ -186,8 +187,8 @@ class DownloadManager:
         Returns:
             Self for use in async with statements.
         """
-        # Ensure download directory exists
-        self.download_dir.mkdir(parents=True, exist_ok=True)
+        # Ensure download directory exists (async to avoid blocking event loop)
+        await aiofiles.os.makedirs(self.download_dir, exist_ok=True)
 
         if self._client is None:
             # Create SSL context using certifi's certificate bundle for portable

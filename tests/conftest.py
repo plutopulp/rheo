@@ -1,9 +1,12 @@
 """Pytest configuration and fixtures for rheo tests."""
 
+import typing as t
+
 import loguru
 import pytest
 import pytest_asyncio
 from aiohttp import ClientSession
+from blockbuster import BlockBuster, blockbuster_ctx
 from typer.testing import CliRunner
 
 from rheo.app import create_app
@@ -13,6 +16,24 @@ from rheo.downloads import DownloadManager, PriorityDownloadQueue
 from rheo.events import BaseEmitter, EventEmitter
 from rheo.infrastructure.logging import reset_logging
 from rheo.tracking import DownloadTracker
+
+
+@pytest.fixture(autouse=True)
+def blockbuster() -> t.Iterator[BlockBuster]:
+    """Detect blocking calls in async event loop during tests.
+
+    This fixture automatically activates Blockbuster for all tests,
+    which will raise a BlockingError if any blocking I/O operations
+    (like synchronous file.write()) are called within an async context.
+    """
+    with blockbuster_ctx(
+        scanned_modules=["rheo"],
+    ) as bb:
+        # Third party modules use these functions, so we deactivate them
+        # for now
+        bb.functions["os.path.abspath"].deactivate()
+
+        yield bb
 
 
 @pytest.fixture
