@@ -409,6 +409,32 @@ async with DownloadManager(download_dir=Path("./downloads")) as manager:
 
 **Note**: The context manager (`async with`) automatically triggers graceful shutdown on exit, so explicit `shutdown()` calls are only needed for early termination.
 
+## Security Considerations
+
+### Path Traversal Protection
+
+`FileConfig.destination_subdir` is automatically validated to prevent path traversal attacks. The following are rejected:
+
+- **Parent directory references**: `".."`, `"../etc"`, `"docs/../../etc"`
+- **Absolute paths**: `"/etc"`, `"/home/user"`
+- **Empty or current directory**: `""`, `"."`
+
+```python
+# ✅ Valid - relative subdirectories
+FileConfig(url="...", destination_subdir="videos/lectures")
+
+# ❌ Rejected - path traversal attempt
+FileConfig(url="...", destination_subdir="../../../etc")
+# Raises: ValidationError: destination_subdir cannot contain '..'
+```
+
+### Best Practices
+
+- **Validate URLs**: When accepting URLs from untrusted sources, validate them before creating `FileConfig`
+- **Restrict download directories**: Use dedicated download directories with appropriate filesystem permissions
+- **Hash validation**: Use `hash_config` parameter to verify file integrity when checksums are available
+- **Monitor events**: Subscribe to download events to detect and respond to suspicious activity
+
 ## Project Status
 
 **Alpha/Early Development**: The core library works, but we're still adding features. API might change before 1.0.
