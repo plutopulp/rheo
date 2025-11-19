@@ -100,6 +100,32 @@ python examples/02_multiple_with_priority.py
 python examples/03_hash_validation.py
 ```
 
+### 04_progress_tracking.py
+
+**Demonstrates:** Real-time download monitoring with event subscriptions
+
+**What it does:**
+
+- Downloads a large file (100MB) with live progress tracking
+- Shows real-time progress updates with percentage, speed, and ETA
+- Subscribes to tracker events for real-time notifications
+- Displays formatted output (human-readable bytes, speeds, time)
+- Shows overall statistics at completion
+
+**Key concepts:**
+
+- Event subscription with `tracker.on("event_type", handler)`
+- Accessing speed metrics with `tracker.get_speed_metrics(url)`
+- Progress events with percentage, bytes downloaded, and total size
+- Getting statistics with `tracker.get_stats()`
+- Real-time monitoring patterns for building progress bars or TUIs
+
+**Run it:**
+
+```bash
+python examples/04_progress_tracking.py
+```
+
 ## What to Expect
 
 Each example will:
