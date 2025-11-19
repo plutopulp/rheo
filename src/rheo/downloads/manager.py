@@ -282,6 +282,30 @@ class DownloadManager:
             # Cancel immediately
             await self.stop_workers()
 
+    async def _handle_shutdown_and_requeue(self, file_config: FileConfig) -> bool:
+        """Check shutdown and requeue item if shutdown is active.
+
+        This helper consolidates the shutdown check and requeue logic used at
+        multiple points in the download processing loop. When shutdown is detected,
+        the item is returned to the queue and task_done() is called to maintain
+        queue accounting balance.
+
+        Args:
+            file_config: The file configuration to requeue if shutting down.
+
+        Returns:
+            True if shutdown was detected (caller should break), False otherwise.
+        """
+        if self._shutdown_event.is_set():
+            # Put item back in queue if shutting down, then call task_done()
+            # to balance the accounting. The get() incremented the unfinished
+            # task counter, so we must decrement it even though we're re-queuing.
+            # Without task_done(), queue.join() would hang waiting for this item.
+            await self.queue.add([file_config])
+            self.queue.task_done()
+            return True
+        return False
+
     async def process_queue(self) -> None:
         """Process downloads from queue until shutdown or cancellation.
 
@@ -302,19 +326,13 @@ class DownloadManager:
                 file_config = await asyncio.wait_for(self.queue.get_next(), timeout=1.0)
                 got_item = True
 
-                # Check shutdown again before starting download
-                if self._shutdown_event.is_set():
-                    # Put item back in queue if shutting down, then call task_done()
-                    # to balance the accounting. The get() incremented the unfinished
-                    # task counter, so we must decrement it even though we're re-queuing.
-                    # Without task_done(), queue.join() would hang waiting for this item.
-                    # (asyncio.PriorityQueue._unfinished)
-                    await self.queue.add([file_config])
-                    self.queue.task_done()
-                    break
-
                 # FileConfig generates destination path and creates directories if needed
                 destination_path = file_config.get_destination_path(self.download_dir)
+
+                # Check shutdown before starting download to prevent race condition.
+                # This ensures we don't start downloads after shutdown is triggered.
+                if await self._handle_shutdown_and_requeue(file_config):
+                    break
 
                 self._logger.debug(
                     f"Downloading {file_config.url} to {destination_path}"

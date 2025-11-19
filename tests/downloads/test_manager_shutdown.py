@@ -609,17 +609,17 @@ class TestShutdownRaceCondition:
         mock_worker,
         mocker,
     ):
-        """Demonstrate race condition: shutdown triggered after check but before
-        download.
+        """Demonstrate race condition: shutdown triggered before final check.
 
         Timeline:
         1. Worker gets item from queue
-        2. Worker checks shutdown event (not set)
-        3. [RACE WINDOW] Another task triggers shutdown here
-        4. Worker calls worker.download() - should NOT happen but currently does
+        2. get_destination_path() called → shutdown triggered here
+        3. Worker checks shutdown before download
+        4. Worker calls worker.download() - should NOT happen
 
-        Expected: Download should not start if shutdown triggered in race window
-        Current: Download starts anyway, violating graceful shutdown contract
+        Expected: Download should not start if shutdown triggered before check
+        With fix: Shutdown check prevents download from starting
+        Without fix: Download would start, violating graceful shutdown contract
         """
         manager = make_shutdown_manager()
         file_config = make_file_config()
@@ -627,15 +627,25 @@ class TestShutdownRaceCondition:
         # Track if download was called
         download_called = asyncio.Event()
 
-        async def mock_download_with_race(*args, **kwargs):
-            # First call: trigger shutdown in the race window
-            # This simulates shutdown happening AFTER the check but BEFORE
-            # download starts
-            manager._shutdown_event.set()
+        async def mock_download_tracking(*args, **kwargs):
             download_called.set()
-            await asyncio.sleep(0.1)
+            await asyncio.sleep(0.01)
 
-        mock_worker.download.side_effect = mock_download_with_race
+        mock_worker.download.side_effect = mock_download_tracking
+
+        # Patch get_destination_path to trigger shutdown during path resolution
+        original_method = type(file_config).get_destination_path
+
+        def patched_get_destination_path(self, download_dir, create_dirs=True):
+            # Trigger shutdown during path resolution (before download check)
+            manager._shutdown_event.set()
+            return original_method(self, download_dir, create_dirs)
+
+        mocker.patch.object(
+            type(file_config),
+            "get_destination_path",
+            patched_get_destination_path,
+        )
 
         # Add file to queue
         await manager.add_to_queue([file_config])
