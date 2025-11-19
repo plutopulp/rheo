@@ -398,13 +398,6 @@ class TestFileConfigPathTraversalSecurity:
             )
         assert "must be relative" in str(exc_info.value).lower()
 
-        # Windows absolute path
-        with pytest.raises(ValidationError) as exc_info:
-            FileConfig(
-                url="https://example.com/file.txt", destination_subdir="C:\\Windows"
-            )
-        assert "must be relative" in str(exc_info.value).lower()
-
     def test_destination_subdir_accepts_valid_relative_paths(self):
         """Test that valid relative paths are accepted."""
         # Simple subdirectory

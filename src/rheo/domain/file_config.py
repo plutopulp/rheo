@@ -3,7 +3,7 @@
 import re
 from pathlib import Path
 
-from pydantic import BaseModel, Field, HttpUrl
+from pydantic import BaseModel, Field, HttpUrl, field_validator
 
 from .hash_validation import HashConfig
 
@@ -216,7 +216,12 @@ class FileConfig(BaseModel):
     )
     destination_subdir: str | None = Field(
         default=None,
-        description="Subdirectory within base download dir",
+        description="Subdirectory within base download dir (must be relative, no '..')",
+        examples=[
+            "docs",
+            "videos/lectures",
+            "a/b/c/d/e",
+        ],
     )
 
     # ========== Validation ==========
@@ -236,6 +241,50 @@ class FileConfig(BaseModel):
         ge=0,
         description="Maximum retry attempts for this file",
     )
+
+    @field_validator("destination_subdir")
+    @classmethod
+    def validate_destination_subdir(cls, v: str | None) -> str | None:
+        """Validate destination_subdir is safe (no path traversal).
+
+        Prevents security vulnerabilities by rejecting:
+        - Absolute paths (e.g., "/etc")
+        - Parent directory references (e.g., "..", "../../../etc")
+        - Empty strings or current directory only (".", "")
+
+        Args:
+            v: The destination_subdir value to validate
+
+        Returns:
+            The validated subdirectory string
+
+        Raises:
+            ValueError: If path contains path traversal attempts or is absolute
+        """
+        if v is None:
+            return v
+
+        # Reject empty string or whitespace-only
+        if not v.strip():
+            raise ValueError("destination_subdir cannot be empty or '..'")
+
+        subdir_path = Path(v)
+
+        # Check 1: Reject absolute paths
+        if subdir_path.is_absolute():
+            raise ValueError(
+                f"destination_subdir must be relative, not absolute: '{v}'"
+            )
+
+        # Check 2: Reject parent directory references
+        if ".." in subdir_path.parts:
+            raise ValueError(f"destination_subdir cannot contain '..': '{v}'")
+
+        # Check 3: Reject current directory only
+        if v.strip() == ".":
+            raise ValueError("destination_subdir cannot be empty or '.'")
+
+        return v
 
     def get_destination_filename(self) -> str:
         """Get the destination filename for this download.
