@@ -93,6 +93,7 @@ Key pieces:
 **DownloadWorker**:
 
 - Does the actual HTTP download
+- Uses async file I/O (`aiofiles`) to prevent blocking the event loop
 - Chunks data for progress reporting
 - Emits events for lifecycle stages (including real-time speed and validation updates)
 - Tracks download speed and ETA using injected `SpeedCalculator`
@@ -429,7 +430,7 @@ manager.worker.emitter.on("worker.chunk_downloaded", log_progress)
 
 ### Why asyncio?
 
-HTTP downloads are I/O bound. Async lets us handle many concurrent connections without threading overhead.
+HTTP downloads are I/O bound. Async lets us handle many concurrent connections without threading overhead. We use `aiofiles` for file I/O to ensure disk writes don't block the event loop—critical for maintaining concurrency on slow disks or network mounts.
 
 ### Why events instead of callbacks?
 
@@ -501,6 +502,8 @@ Each layer is tested in isolation:
 - Integration: Test full flow with real async tasks
 
 Fixtures in `conftest.py` provide common test dependencies.
+
+**Blocking Call Detection**: Tests use `blockbuster` to catch any synchronous I/O operations in async code, ensuring the event loop never blocks on disk or network operations.
 
 ## Further Reading
 
