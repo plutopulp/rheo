@@ -352,3 +352,89 @@ class TestFileConfigHashIntegration:
         )
         config = FileConfig(url="https://example.com/file.txt", hash_config=hash_config)
         assert config.hash_config is hash_config
+
+
+class TestFileConfigPathTraversalSecurity:
+    """Test that destination_subdir prevents path traversal attacks."""
+
+    def test_destination_subdir_rejects_parent_references(self):
+        """Test that parent directory references (..) are rejected.
+
+        Security: Prevents path traversal attacks that could write files
+        outside the intended download directory.
+        """
+        # Simple parent reference
+        with pytest.raises(ValidationError) as exc_info:
+            FileConfig(url="https://example.com/file.txt", destination_subdir="..")
+        assert "cannot contain '..'" in str(exc_info.value).lower()
+
+        # Parent reference in path
+        with pytest.raises(ValidationError) as exc_info:
+            FileConfig(url="https://example.com/file.txt", destination_subdir="../etc")
+        assert "cannot contain '..'" in str(exc_info.value).lower()
+
+        # Nested parent references (path traversal attempt)
+        with pytest.raises(ValidationError) as exc_info:
+            FileConfig(
+                url="https://example.com/malware.py",
+                destination_subdir="docs/../../etc",
+            )
+        assert "cannot contain '..'" in str(exc_info.value).lower()
+
+    def test_destination_subdir_rejects_absolute_paths(self):
+        """Test that absolute paths are rejected.
+
+        Security: Prevents writing to arbitrary filesystem locations.
+        """
+        # Unix absolute path
+        with pytest.raises(ValidationError) as exc_info:
+            FileConfig(url="https://example.com/file.txt", destination_subdir="/etc")
+        assert "must be relative" in str(exc_info.value).lower()
+
+        # Unix absolute path with subdirs
+        with pytest.raises(ValidationError) as exc_info:
+            FileConfig(
+                url="https://example.com/file.txt", destination_subdir="/home/user/docs"
+            )
+        assert "must be relative" in str(exc_info.value).lower()
+
+    def test_destination_subdir_accepts_valid_relative_paths(self):
+        """Test that valid relative paths are accepted."""
+        # Simple subdirectory
+        config = FileConfig(
+            url="https://example.com/file.txt", destination_subdir="docs"
+        )
+        assert config.destination_subdir == "docs"
+
+        # Nested subdirectories
+        config = FileConfig(
+            url="https://example.com/file.txt", destination_subdir="videos/lectures"
+        )
+        assert config.destination_subdir == "videos/lectures"
+
+        # Deep nesting (valid as long as no ..)
+        config = FileConfig(
+            url="https://example.com/file.txt", destination_subdir="a/b/c/d/e"
+        )
+        assert config.destination_subdir == "a/b/c/d/e"
+
+    def test_destination_subdir_rejects_empty_string(self):
+        """Test that empty string is rejected (ambiguous intent)."""
+        with pytest.raises(ValidationError) as exc_info:
+            FileConfig(url="https://example.com/file.txt", destination_subdir="")
+        assert "cannot be empty" in str(exc_info.value).lower()
+
+    def test_destination_subdir_rejects_current_directory_only(self):
+        """Test that current directory '.' is rejected (no effect)."""
+        with pytest.raises(ValidationError) as exc_info:
+            FileConfig(url="https://example.com/file.txt", destination_subdir=".")
+        assert "cannot be empty" in str(exc_info.value).lower()
+
+    def test_destination_subdir_none_is_valid(self):
+        """Test that None (default) is valid - means no subdirectory."""
+        config = FileConfig(url="https://example.com/file.txt", destination_subdir=None)
+        assert config.destination_subdir is None
+
+        # Also test omitting the field entirely
+        config = FileConfig(url="https://example.com/file.txt")
+        assert config.destination_subdir is None

@@ -63,7 +63,7 @@ Each layer has clear responsibilities and minimal coupling.
 
 Key pieces:
 
-- `FileConfig`: Download configuration (URL, destination, priority, hash validation, etc.)
+- `FileConfig`: Download configuration (URL, destination, priority, hash validation, etc.). Includes path traversal protection on `destination_subdir`
 - `DownloadInfo`: Current state of a download (includes final average speed and validation state)
 - `DownloadStatus`: Enum for states (pending, downloading, completed, failed)
 - `DownloadStats`: Aggregated statistics
