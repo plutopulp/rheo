@@ -6,6 +6,9 @@ import hmac
 import typing as t
 from pathlib import Path
 
+import aiofiles
+import aiofiles.os
+
 from ..domain.exceptions import FileAccessError, HashMismatchError
 from ..domain.hash_validation import HashConfig
 from ..infrastructure.logging import get_logger
@@ -37,9 +40,9 @@ class FileValidator(BaseFileValidator):
             HashMismatchError: If calculated hash doesn't match expected hash.
             FileAccessError: If file cannot be accessed or read.
         """
-        if not file_path.exists():
+        if not await aiofiles.os.path.exists(file_path):
             raise FileAccessError(f"File not found for validation: {file_path}")
-        if not file_path.is_file():
+        if not await aiofiles.os.path.isfile(file_path):
             raise FileAccessError(f"Path is not a file: {file_path}")
 
         try:

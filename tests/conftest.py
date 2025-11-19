@@ -26,7 +26,13 @@ def blockbuster() -> t.Iterator[BlockBuster]:
     which will raise a BlockingError if any blocking I/O operations
     (like synchronous file.write()) are called within an async context.
     """
-    with blockbuster_ctx() as bb:
+    with blockbuster_ctx(
+        scanned_modules=["rheo"],
+    ) as bb:
+        # Third party modules use these functions, so we deactivate them
+        # for now
+        bb.functions["os.path.abspath"].deactivate()
+
         yield bb
 
 
