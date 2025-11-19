@@ -261,6 +261,21 @@ jupyter = ["ipython (>=7.8.0)", "tokenize-rt (>=3.2.0)"]
 uvloop = ["uvloop (>=0.15.2)"]
 
 [[package]]
+name = "blockbuster"
+version = "1.5.25"
+description = "Utility to detect blocking calls in the async event loop"
+optional = false
+python-versions = ">=3.8"
+groups = ["dev"]
+files = [
+    {file = "blockbuster-1.5.25-py3-none-any.whl", hash = "sha256:cb06229762273e0f5f3accdaed3d2c5a3b61b055e38843de202311ede21bb0f5"},
+    {file = "blockbuster-1.5.25.tar.gz", hash = "sha256:b72f1d2aefdeecd2a820ddf1e1c8593bf00b96e9fdc4cd2199ebafd06f7cb8f0"},
+]
+
+[package.dependencies]
+forbiddenfruit = {version = ">=0.1.4", markers = "implementation_name == \"cpython\""}
+
+[[package]]
 name = "certifi"
 version = "2025.11.12"
 description = "Python package for providing Mozilla's CA Bundle."
@@ -421,6 +436,18 @@ files = [
 mccabe = ">=0.7.0,<0.8.0"
 pycodestyle = ">=2.14.0,<2.15.0"
 pyflakes = ">=3.4.0,<3.5.0"
+
+[[package]]
+name = "forbiddenfruit"
+version = "0.1.4"
+description = "Patch python built-in objects"
+optional = false
+python-versions = "*"
+groups = ["dev"]
+markers = "implementation_name == \"cpython\""
+files = [
+    {file = "forbiddenfruit-0.1.4.tar.gz", hash = "sha256:e3f7e66561a29ae129aac139a85d610dbf3dd896128187ed5454b6421f624253"},
+]
 
 [[package]]
 name = "frozenlist"
@@ -1658,4 +1685,4 @@ propcache = ">=0.2.1"
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.12"
-content-hash = "48c86db9bcab019efbce6b864da64248bdcee0abf309c75de51951872be1b6bf"
+content-hash = "d445111523f0edf5f3eb17b8df8df746318fcf97072fc6a14258fa05db7dd648"
