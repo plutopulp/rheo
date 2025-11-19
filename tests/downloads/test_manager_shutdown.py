@@ -595,3 +595,63 @@ class TestShutdownMechanismInternals:
             await asyncio.wait_for(real_priority_queue.join(), timeout=0.5)
         except asyncio.TimeoutError:
             pytest.fail("queue.join() hung even after task_done() - should not happen")
+
+
+class TestShutdownRaceCondition:
+    """Test race condition between shutdown check and download start."""
+
+    @pytest.mark.asyncio
+    async def test_shutdown_triggered_between_check_and_download_start(
+        self,
+        make_shutdown_manager,
+        make_file_config,
+        real_priority_queue,
+        mock_worker,
+        mocker,
+    ):
+        """Demonstrate race condition: shutdown triggered after check but before
+        download.
+
+        Timeline:
+        1. Worker gets item from queue
+        2. Worker checks shutdown event (not set)
+        3. [RACE WINDOW] Another task triggers shutdown here
+        4. Worker calls worker.download() - should NOT happen but currently does
+
+        Expected: Download should not start if shutdown triggered in race window
+        Current: Download starts anyway, violating graceful shutdown contract
+        """
+        manager = make_shutdown_manager()
+        file_config = make_file_config()
+
+        # Track if download was called
+        download_called = asyncio.Event()
+
+        async def mock_download_with_race(*args, **kwargs):
+            # First call: trigger shutdown in the race window
+            # This simulates shutdown happening AFTER the check but BEFORE
+            # download starts
+            manager._shutdown_event.set()
+            download_called.set()
+            await asyncio.sleep(0.1)
+
+        mock_worker.download.side_effect = mock_download_with_race
+
+        # Add file to queue
+        await manager.add_to_queue([file_config])
+
+        # Start worker
+        await manager.start_workers()
+
+        # Wait briefly for race condition to occur
+        await asyncio.sleep(0.2)
+
+        # Clean up
+        await manager.stop_workers()
+
+        # ASSERTION: Download should NOT have been called
+        # Because shutdown was triggered before download started
+        assert not download_called.is_set(), (
+            "Race condition detected: download started after shutdown was triggered "
+            "in the window between shutdown check and download start"
+        )
