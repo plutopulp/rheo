@@ -3,6 +3,7 @@
 import asyncio
 from pathlib import Path
 
+import aiofiles
 import aiohttp
 import pytest
 from aioresponses import aioresponses
@@ -309,24 +310,28 @@ class TestDownloadWorkerFileCleanup:
 class TestDownloadWorkerChunkWriting:
     """Test the chunk writing functionality."""
 
-    def test_write_chunk_to_file(self, test_worker, tmp_path):
-        """Test that _write_chunk_to_file writes data correctly."""
+    @pytest.mark.asyncio
+    async def test_write_chunk_to_file(self, test_worker, tmp_path):
+        """Test that _write_chunk_to_file writes data correctly with async I/O."""
+
         test_data = b"test chunk data"
         temp_file = tmp_path / "chunk.txt"
 
-        with open(temp_file, "wb") as f:
-            test_worker._write_chunk_to_file(test_data, f)
+        async with aiofiles.open(temp_file, "wb") as f:
+            await test_worker._write_chunk_to_file(test_data, f)
 
         assert temp_file.read_bytes() == test_data
 
-    def test_write_multiple_chunks(self, test_worker, tmp_path):
-        """Test writing multiple chunks sequentially."""
+    @pytest.mark.asyncio
+    async def test_write_multiple_chunks(self, test_worker, tmp_path):
+        """Test writing multiple chunks sequentially with async I/O."""
+
         chunks = [b"chunk1", b"chunk2", b"chunk3"]
         temp_file = tmp_path / "chunks.txt"
 
-        with open(temp_file, "wb") as f:
+        async with aiofiles.open(temp_file, "wb") as f:
             for chunk in chunks:
-                test_worker._write_chunk_to_file(chunk, f)
+                await test_worker._write_chunk_to_file(chunk, f)
 
         assert temp_file.read_bytes() == b"chunk1chunk2chunk3"
 
