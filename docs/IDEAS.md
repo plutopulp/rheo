@@ -440,14 +440,54 @@ Tracking major decisions:
 7. **Service mode moved to Ice Box**: Library-first approach, not trying to be pyload
 8. **Conservative roadmap, comprehensive ideas bank**: Roadmap has proven patterns only, ideas bank captures all possibilities
 
+## Architecture Considerations
+
+### Potential Event Emission Issues
+
+**Current Issue:** DownloadTracker is mixing multiple concerns:
+
+- State aggregation (download status, validation status, speed metrics)
+- Event emission (lifecycle, validation, speed)
+- Query interface (get_download_info, get_speed_metrics, get_stats)
+
+**Potential Architectures:**
+
+1. **Separate Emitters by Concern**
+
+   - `ValidationTracker` with own emitter for validation events
+   - `SpeedTracker` with own emitter for speed events
+   - `DownloadTracker` focused on lifecycle only
+   - Pros: Clear separation, easy to disable/replace features
+   - Cons: Multiple subscription points, complex API surface
+
+2. **Tracker as Pure State Store (No Events)**
+
+   - Worker emits all events directly
+   - Tracker just stores state and provides queries
+   - Pros: Single job, simpler mental model
+   - Cons: Users must subscribe to lower-level worker events
+
+3. **Current Hybrid Approach**
+
+   - Worker emits internal events
+   - Tracker transforms them into public API events
+   - Pros: Clean public API, abstracts internals
+   - Cons: Tracker becomes aggregator for many concerns
+
+4. **Composition Pattern**
+   - Compose specialised trackers (validation, speed, lifecycle)
+   - Each focused on one concern
+   - Main tracker coordinates them
+   - Pros: Separation + unified interface when needed
+   - Cons: More classes to manage
+
 ## Questions to Answer
 
-1. How to handle credentials securely? Keychain? Encrypted file?
-2. SQLite or JSON for history? In-memory option?
-3. Which CLI framework? Typer looks nice but adds dependency
-4. How much configuration is too much?
-5. Should we support config profiles?
-6. Which segment size algorithm? Static vs adaptive vs user-configurable?
-7. ETag validation strategy for resume? Always, optional, or automatic?
-8. Mirror selection algorithm? Random, sequential, fastest-first, or load-balanced?
-9. Clipboard monitoring: opt-in or opt-out by default?
+- How to handle credentials securely? Keychain? Encrypted file?
+- SQLite or JSON for history? In-memory option?
+- Which CLI framework? Typer looks nice but adds dependency
+- How much configuration is too much?
+- Should we support config profiles?
+- Which segment size algorithm? Static vs adaptive vs user-configurable?
+- ETag validation strategy for resume? Always, optional, or automatic?
+- Mirror selection algorithm? Random, sequential, fastest-first, or load-balanced?
