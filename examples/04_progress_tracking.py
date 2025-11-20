@@ -79,7 +79,7 @@ def format_eta(seconds: float | None) -> str:
 
 async def main() -> None:
     """Download a large file with real-time progress tracking."""
-    print("📊 Real-time Progress Tracking Example\n")
+    print("Real-time Progress Tracking\n")
 
     # Define file to download
     files = [
@@ -116,7 +116,7 @@ async def main() -> None:
             eta = format_eta(speed_metrics.eta_seconds) if speed_metrics else "?"
 
             print(
-                f"  {filename:15s} {progress_pct:5.1f}% | "
+                f"\t{filename:15s} {progress_pct:5.1f}% | "
                 f"{downloaded:>10s}/{total:<10s} | "
                 f"{speed:>10s} | ETA: {eta:>6s}"
             )
@@ -126,7 +126,7 @@ async def main() -> None:
             """Print completion message."""
             filename = event.url.split("/")[-1]
             size = format_bytes(event.total_bytes)
-            print(f"✓ {filename} completed ({size})")
+            print(f"{filename} completed ({size})")
 
         # Subscribe to events
         manager.tracker.on("tracker.progress", on_progress)
@@ -134,10 +134,9 @@ async def main() -> None:
 
         print("Downloading 100MB file with real-time progress...\n")
         print(
-            f"  {'File':<15s} {'Progress':>6s} | {'Downloaded/Total':^23s} | "
+            f"\t{'File':<15s} {'Progress':>6s} | {'Downloaded/Total':^23s} | "
             f"{'Speed':>10s} | {'ETA':>10s}"
         )
-        print("  " + "-" * 80)
 
         # Queue all downloads
         await manager.add_to_queue(files)
@@ -146,16 +145,15 @@ async def main() -> None:
         await manager.queue.join()
 
         # Show final statistics
-        print("\n" + "=" * 80)
         stats = manager.tracker.get_stats()
-        print("\n📈 Final Statistics:")
-        print(f"  Total downloads: {stats.total}")
-        print(f"  Completed: {stats.completed}")
-        print(f"  Failed: {stats.failed}")
-        print(f"  Total data: {format_bytes(stats.completed_bytes)}")
+        print("\nFinal Statistics:")
+        print(f"\tTotal downloads: {stats.total}")
+        print(f"\tCompleted: {stats.completed}")
+        print(f"\tFailed: {stats.failed}")
+        print(f"\tTotal data: {format_bytes(stats.completed_bytes)}")
 
-        print("\n✅ Download completed!")
-        print(f"   File saved to: {manager.download_dir.absolute()}")
+        print("\nDownload completed")
+        print(f"\tFile saved to: {manager.download_dir.absolute()}")
 
 
 if __name__ == "__main__":

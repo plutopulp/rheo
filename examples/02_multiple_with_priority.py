@@ -67,11 +67,7 @@ async def main() -> None:
         await manager.add_to_queue(files)
         await manager.queue.join()
 
-    print("\n✓ All downloads complete! Check ./downloads/")
-    print("\nNote: High priority files were downloaded first,")
-    print("even though they were added to the queue later.")
-    print("The small 1MB low-priority file had to wait for higher-priority files,")
-    print("demonstrating that priority matters more than file size.")
+    print("\nAll downloads complete. Files saved to ./downloads/")
 
 
 if __name__ == "__main__":

@@ -22,18 +22,7 @@ async def main() -> None:
     print("Starting hash validation example...")
     print("This demonstrates file integrity checking with SHA256\n")
 
-    # In real-world usage, you typically:
-    # 1. Download a checksums file (e.g., SHA256SUMS.txt)
-    # 2. Parse it to extract hashes
-    # 3. Download files with validation
-    #
-    # Example sources:
-    # - Python releases: https://www.python.org/downloads/ → checksums
-    # - Linux ISOs: https://ubuntu.com/download → SHA256SUMS
-    # - GitHub releases: often include checksums.txt or SHA256SUMS
-    # - PyPI packages: hashes in metadata
-    #
-    # For this demo, we've pre-calculated checksums for proof.ovh.net files:
+    # For this demo, we use pre-calculated checksums for proof.ovh.net files:
     checksums = {
         "1Mb.dat": "788d1a44b1633c8594def083d1b650e4842ea3e38d88c90228e7d581c6425c68",
         "10Mb.dat": "fb3f168caf9db959b34817a3689b8476df1852a915813936c98dd51efbdbf7db",
@@ -46,7 +35,7 @@ async def main() -> None:
 
     # Create file configs using checksums from manifest
     files = [
-        # File 1: Correct hash - will validate successfully ✓
+        # File 1: Correct hash -> will validate successfully
         FileConfig(
             url="https://proof.ovh.net/files/1Mb.dat",
             description="1MB file with correct SHA256 (will succeed)",
@@ -55,8 +44,7 @@ async def main() -> None:
                 expected_hash=checksums["1Mb.dat"],
             ),
         ),
-        # File 2: Intentionally wrong hash - will fail validation ✗
-        # (Simulates corrupted file or tampered download)
+        # File 2: Intentionally wrong hash -> will fail validation
         FileConfig(
             url="https://proof.ovh.net/files/10Mb.dat",
             description="10MB file with WRONG hash (will fail)",
@@ -70,8 +58,8 @@ async def main() -> None:
     print("Files to download and validate:")
     for i, f in enumerate(files, 1):
         hash_display = f.hash_config.expected_hash[:16] + "..."
-        print(f"  {i}. {f.description}")
-        print(f"     Expected: {hash_display}")
+        print(f"\t{i}. {f.description}")
+        print(f"\tExpected: {hash_display}")
     print()
 
     # Track results for summary
@@ -90,38 +78,27 @@ async def main() -> None:
             # Check download status from manager's tracker
             info = manager.tracker.get_download_info(str(file_config.url))
             if info and info.status == DownloadStatus.FAILED:
-                print(f"  ✗ Validation failed: {info.error}\n")
+                print(f"\tValidation failed: {info.error}\n")
                 failed.append((file_config.description, info.error or "Unknown error"))
             else:
-                print("  ✓ Downloaded and validated successfully!\n")
+                print("\tDownloaded and validated successfully\n")
                 successful.append(file_config.description)
 
     # Summary
-    print("=" * 70)
     print(f"Results: {len(successful)} validated, {len(failed)} failed")
-    print("=" * 70)
 
     if successful:
-        print("\n✓ Successfully validated:")
+        print("\nSuccessfully validated:")
         for desc in successful:
-            print(f"  - {desc}")
+            print(f"\t- {desc}")
 
     if failed:
-        print("\n✗ Failed validation:")
+        print("\nFailed validation:")
         for desc, error in failed:
-            print(f"  - {desc}")
+            print(f"\t- {desc}")
             # Show first line of error for brevity
             error_summary = error.split("\n")[0]
-            print(f"    → {error_summary}")
-
-    print("\n" + "=" * 70)
-    print("Key takeaways:")
-    print("=" * 70)
-    print("• Hash validation catches corrupted, incomplete, or tampered files")
-    print("• Always get checksums from trusted sources (project releases, etc.)")
-    print("• Use SHA256 or SHA512 for security-sensitive files")
-    print("• Handle HashMismatchError gracefully in production code")
-    print("• This is how package managers (pip, npm, cargo) ensure integrity")
+            print(f"\t{error_summary}")
 
 
 if __name__ == "__main__":
