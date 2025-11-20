@@ -1,493 +1,70 @@
-# Ideas Bank
+# Ideas
 
-Collection of ideas for future development. Not commitments, just possibilities.
+A bank of ideas that aren't in the [roadmap](ROADMAP.md) yet. These may or may not become part of the roadmap. Once something moves to the roadmap, it gets removed from here.
 
-## Inspiration Sources
+## Future Possibilities
 
-We've analysed several mature Python download managers to identify proven patterns and features:
+### CLI Expansion
 
-- **pypdl**: Modern async-capable library with multi-segment focus
-- **pySmartDL**: Battle-tested (29.9k users) with simple, blocking API
-- **pyIDM**: GUI download manager with clipboard monitoring and scheduling
-- **pyload**: Enterprise-grade (3.6k stars) with plugin system and web interface
+Beyond v0.2.0's batch downloads and resume support, we're considering:
 
-Features below are marked with their inspiration sources where applicable. This helps us learn from proven patterns while maintaining our own architectural vision.
+- Config management commands (`rheo config show/set`)
+- Download history and statistics commands
+- Package system (grouped downloads with metadata)
+- Queue management (pause/resume/cancel specific downloads whilst running)
 
-## 🔥 Hot Ideas
+### Proxy and Header Support
 
-Things we're actively considering for near-term implementation.
-
-### Multi-Segment Downloads
-
-_Inspired by: pypdl, pySmartDL, pyIDM, pyload_
-
-Split single files into parallel chunks for faster downloads:
-
-- Split file into configurable segments
-- Download segments concurrently
-- Per-segment progress tracking
-- Automatic segment merging on completion
-- Adaptive chunk sizing based on file size
-- Configurable max connections per file
-
-### Hash Validation
-
-_Inspired by: pypdl, pySmartDL_
-
-Verify file integrity after download:
-
-- Support MD5, SHA256, SHA512 algorithms
-- Pre-download hash specification in FileConfig
-- Post-download automatic verification
-- FileValidator pattern for hash operations
-- Optional hash mismatch handling (retry/fail)
-
-### Speed and ETA Tracking
-
-_Inspired by: pySmartDL_
-
-Real-time download metrics:
-
-- Current download speed (bytes/sec)
-- Average speed calculation
-- ETA estimation based on current speed
-- Timestamp tracking (start/complete times)
-- Per-download and aggregate statistics
-
-### Custom Headers and Proxy Support
-
-_Inspired by: pypdl, pyIDM, pyload_
-
-Flexible HTTP configuration:
+Adding support for HTTP client configuration. Whilst you can currently inject custom aiohttp clients, having an API for this may be more convenient:
 
 - Custom HTTP headers per download
 - Cookie support
 - HTTP/HTTPS proxy configuration
 - Proxy authentication
-- Per-download proxy override
+- Per-download configuration overrides
 
-### CLI Command Structure
+### Automation Features
 
-```bash
-# Core downloads
-rheo download <url> [--output <path>] [--workers <n>] [--priority <n>]
-rheo download <url> [--hash <algo>:<value>]  # With hash verification
-rheo download <url> [--proxy <url>]          # With proxy
-rheo download <url> [--segments <n>]         # Multi-segment
-rheo download batch <file>                   # From file
-rheo download batch -                        # From stdin
-rheo download resume <id>                    # Resume specific download
-rheo download retry --failed                 # Retry all failed
+Ideas that might be useful but aren't priorities:
 
-# Testing
-rheo test                            # Run default test suite
-rheo test --size small|medium|large  # Test by file size
-rheo test validate <url>             # Check if URL is downloadable
+- Download scheduling (start at specific time or recurring downloads, i.e. cron-jobs)
+- Skip existing files option (check if file exists before downloading)
+- Cloud storage integration (upload to S3, GCS, etc. after download)
+- Adaptive chunk sizes depending on speed
+- Memory usage optimisation for very large files
 
-# Configuration
-rheo config show                     # Show all settings
-rheo config set <key> <value>        # Set configuration
-rheo config get <key>                # Get specific setting
-```
+These are all technically feasible but need careful thought about scope and complexity.
 
-### Retry Logic
+## What We Won't Do
 
-- Exponential backoff with jitter
-- Configurable max attempts
-- Retry only on transient errors (not 404s)
-- Track retry attempts in events
+Things we've explicitly decided against:
 
-### Progress Display
+- GUI application (CLI and library only)
+- Web-based UI (wrong focus for a library-first tool)
+- Video streaming or transcoding
+- File hosting service
+- Social features or anything like that
+- Multi-user systems
+- Captcha solving (too niche, moving target, not core library responsibility)
+- Account management for file hosting services (e.g. RapidShare, Mega etc..)
+- Container/link decryption (library is for downloading given a URL, not extracting URLs)
 
-- Rich terminal UI with live tables
-- Simple progress bars with speed/ETA
-- JSON output for scripts
-- Quiet mode for cron jobs
+## Design Decisions
 
-## 💡 Consider
+What we've already decided:
 
-Ideas worth thinking about, but not urgent.
+- **Event-based architecture** - Events over callbacks for flexibility
+- **Dependency injection** - Implementations are swappable, testing is easier
+- **Priority queue** - Simple but effective for most use cases
+- **Null object pattern** - Cleaner than conditional checks everywhere
+- **Library-first** - Not trying to be a full download manager application
 
-### Clipboard Monitoring
+Check out the [architecture doc](ARCHITECTURE.md) for more details.
 
-_Inspired by: pyIDM_
+### Event Emission Concerns
 
-Automatically detect URLs copied to clipboard:
+The DownloadTracker currently handles multiple jobs: state aggregation, event emission, query interface... This works but mixes concerns and could get out of hand.
 
-- Monitor system clipboard for URL patterns
-- Configurable URL pattern matching (_.zip, _.pdf, etc.)
-- Auto-start downloads or prompt user
-- Opt-in/opt-out configuration
-- Integration with system notifications
+Consider splitting into separate trackers (ValidationTracker, SpeedTracker, etc.) and then allow users to compose their own tracker, e.g. builder pattern type of thing. Or make Tracker a pure state store with Worker handling all events. For now, the hybrid approach where Worker emits internal events -> Tracker transforms them into public API, is fine.
 
-### Download Scheduling
-
-_Inspired by: pyIDM_
-
-Time-based download control:
-
-- Schedule downloads for specific date/time
-- Recurring schedules (daily, weekly, monthly)
-- Bandwidth-aware scheduling (off-peak hours)
-- Queue activation/deactivation by schedule
-- Calendar-based download planning
-
-### Mirror URLs
-
-_Inspired by: pySmartDL, pypdl_
-
-Fallback URL support for reliability:
-
-- Multiple mirror URLs per download
-- Automatic failover on primary URL failure
-- Mirror health checking before use
-- Configurable selection strategy (random, sequential, fastest)
-- Load balancing across mirrors
-
-### Auto-Resume Incomplete Downloads
-
-_Inspired by: pyIDM, pyload_
-
-Persistent download state management:
-
-- Scan for .part files on startup
-- Save download state to disk (JSON/SQLite)
-- Auto-resume incomplete downloads
-- ETag validation before resume
-- Partial file cleanup on completion
-- Recovery from crashes/interruptions
-
-### Expired URL Handling
-
-_Inspired by: pyIDM_
-
-Handle time-limited download URLs:
-
-- Detect expired URLs (HTTP 403/410 responses)
-- URL refresh callback mechanism
-- URL time-to-live (TTL) tracking
-- Automatic re-fetch before retry
-- Support for cloud storage signed URLs
-
-### Package System
-
-_Inspired by: pyload_
-
-Group related downloads together:
-
-- Create named download packages
-- Package-level configuration and operations
-- Batch add/remove/pause/resume by package
-- Package metadata (name, description, tags)
-- Nested package support
-
-### Segment Size Control
-
-_Inspired by: pypdl, pyIDM_
-
-Fine-grained chunk configuration:
-
-- Manual segment size specification
-- Presets (auto, small, medium, large)
-- Per-file connection limits
-- Adaptive sizing based on file size and speed
-- Minimum/maximum segment size constraints
-
-### Synchronous API Wrapper
-
-_Inspired by: pySmartDL_
-
-Blocking API for simple use cases:
-
-- Simple one-liner download function
-- Synchronous DownloadManager wrapper
-- get_dest() method to retrieve final path
-- No async knowledge required
-- Ideal for scripts and quick tasks
-
-### Queue Management
-
-```bash
-rheo queue list                      # Show queued downloads
-rheo queue add <url>                 # Add to persistent queue
-rheo queue remove <id>               # Remove from queue
-rheo queue pause                     # Pause processing
-rheo queue resume                    # Resume processing
-rheo queue clear                     # Clear entire queue
-```
-
-### History Tracking
-
-```bash
-rheo history list [--failed] [--today] [--limit 20]
-rheo history show <id>               # Detailed info
-rheo history stats                   # Overall statistics
-rheo history export <file>           # Export to JSON/CSV
-rheo history clear                   # Clear history
-```
-
-### Authentication
-
-```bash
-rheo auth add <name> --token <token>
-rheo auth add github --token ghp_xxx
-rheo auth list
-rheo auth remove <name>
-rheo download <url> --auth github
-```
-
-Support for:
-
-- Bearer tokens
-- Basic auth
-- API keys
-- OAuth (maybe?)
-
-### Workspace Isolation
-
-```bash
-rheo workspace create <name>
-rheo workspace use <name>
-rheo workspace list
-```
-
-Each workspace gets its own:
-
-- Queue
-- History
-- Configuration
-- Output directory
-
-Use case: Separate work projects, personal downloads, etc.
-
-### Monitoring
-
-```bash
-rheo monitor                         # Live dashboard (Rich UI)
-rheo monitor workers                 # Worker status
-rheo monitor bandwidth               # Bandwidth usage
-rheo monitor watch <id>              # Watch specific download
-```
-
-### Bulk Operations
-
-```bash
-rheo bulk import <file>              # Import JSON/YAML config
-rheo bulk export                     # Export all downloads
-rheo bulk retry --failed             # Retry all failed
-rheo bulk pause --all                # Pause everything
-rheo bulk clean --completed          # Remove completed from queue
-```
-
-## 🧊 Ice Box
-
-Ideas we're not actively pursuing, but might revisit.
-
-### Service Mode
-
-_Inspired by: pyload_
-
-Run as a background service with remote control:
-
-- REST API with OpenAPI specification
-- Daemon/headless operation mode
-- Systemd service integration
-- Docker deployment with multi-arch support
-- Multi-user support with authentication
-- Web-based administration interface
-
-### Browser Integration
-
-_Inspired by: pyload_
-
-Direct integration with web browsers:
-
-- Click 'N' Load (CNL) protocol server
-- Browser extension support (Chrome, Firefox)
-- FlashGot integration
-- Remote download API for browser add-ons
-- Automatic link capture from browser
-
-### Link Decryption
-
-_Inspired by: pyload_
-
-Extract URLs from container files:
-
-- Container file support (.dlc, .ccf, .rsdf)
-- Online decrypter service integration
-- Recursive link extraction
-- Batch link processing
-- Plugin-based decryption system
-
-### Account Management
-
-_Inspired by: pyload_
-
-Manage premium file hosting accounts:
-
-- Secure credential storage (system keyring)
-- Per-hoster account configuration
-- Auto-authentication before downloads
-- Account status checking and validation
-- Multi-account support per hoster
-- Session management and persistence
-
-### Captcha Solving
-
-_Inspired by: pyload_
-
-Automated captcha handling:
-
-- Manual captcha prompt interface
-- OCR-based solving integration
-- Third-party solver services (anti-captcha, etc.)
-- Captcha queue management
-- Per-hoster captcha strategy
-
-### Plugin System
-
-```python
-# Custom plugins for post-download actions
-class VirusScanPlugin(DownloadPlugin):
-    async def on_download_complete(self, context):
-        await scan_file(context.file_path)
-
-class S3UploadPlugin(DownloadPlugin):
-    async def on_download_complete(self, context):
-        await upload_to_s3(context.file_path, bucket)
-```
-
-### REST API
-
-```bash
-# Run as a service
-rheo serve --host 0.0.0.0 --port 8080
-
-# Then use REST API
-POST   /downloads          # Add download
-GET    /downloads          # List downloads
-GET    /downloads/:id      # Get details
-DELETE /downloads/:id      # Cancel download
-GET    /stats              # Get statistics
-```
-
-### Web Dashboard
-
-Optional web interface for monitoring and control:
-
-- Real-time download monitoring
-- Add/remove downloads via UI
-- Configuration management
-- Download history browser
-
-### Advanced Features
-
-- **Smart bandwidth allocation**: Dynamically adjust per connection
-- **Content-aware handling**: Auto-detect file types, decompress, etc.
-- **Duplicate detection**: Check checksums before downloading
-- **Smart retry**: Learn from failures, adjust strategy
-- **Distributed downloads**: Coordinate across multiple machines
-
-### Integrations
-
-- **Cloud storage**: S3, Google Cloud Storage, Azure Blob
-- **Notification systems**: Slack, Discord, email, webhooks
-- **CI/CD pipelines**: GitHub Actions, GitLab CI
-- **Container registries**: Docker Hub, etc.
-- **Package managers**: npm, pip, cargo artifacts
-
-### Protocol Support
-
-Currently HTTP/HTTPS only. Could add:
-
-- FTP/FTPS
-- SFTP
-- rsync
-- BitTorrent (probably not)
-- IPFS (interesting?)
-
-## Anti-Patterns
-
-Things we've explicitly decided NOT to do:
-
-- No GUI application (CLI + Web only)
-- No video streaming/transcoding
-- No file hosting service
-- No social features
-- No blockchain anything
-- Multi-user systems (complexity not worth it for library)
-- Captcha solving (niche, complex, moving target)
-- Account management for premium hosters (security liability)
-- Full web UI (huge effort, low ROI for library-first project)
-
-## Community Ideas
-
-Space for community-submitted ideas (when we have a community):
-
-- TBD
-
-## Decision Log
-
-Tracking major decisions:
-
-1. **Event-based architecture**: Chose events over callbacks for flexibility
-2. **Null object pattern**: Better than conditional checks everywhere
-3. **Dependency injection**: Makes testing easier, more flexible
-4. **Priority queue**: Simple but effective for most use cases
-5. **Multi-segment downloads in Phase 1**: Proven by all 4 libraries analysed, critical for performance
-6. **SQLite for persistence deferred to Phase 3**: Keep simple first, add complexity when needed
-7. **Service mode moved to Ice Box**: Library-first approach, not trying to be pyload
-8. **Conservative roadmap, comprehensive ideas bank**: Roadmap has proven patterns only, ideas bank captures all possibilities
-
-## Architecture Considerations
-
-### Potential Event Emission Issues
-
-**Current Issue:** DownloadTracker is mixing multiple concerns:
-
-- State aggregation (download status, validation status, speed metrics)
-- Event emission (lifecycle, validation, speed)
-- Query interface (get_download_info, get_speed_metrics, get_stats)
-
-**Potential Architectures:**
-
-1. **Separate Emitters by Concern**
-
-   - `ValidationTracker` with own emitter for validation events
-   - `SpeedTracker` with own emitter for speed events
-   - `DownloadTracker` focused on lifecycle only
-   - Pros: Clear separation, easy to disable/replace features
-   - Cons: Multiple subscription points, complex API surface
-
-2. **Tracker as Pure State Store (No Events)**
-
-   - Worker emits all events directly
-   - Tracker just stores state and provides queries
-   - Pros: Single job, simpler mental model
-   - Cons: Users must subscribe to lower-level worker events
-
-3. **Current Hybrid Approach**
-
-   - Worker emits internal events
-   - Tracker transforms them into public API events
-   - Pros: Clean public API, abstracts internals
-   - Cons: Tracker becomes aggregator for many concerns
-
-4. **Composition Pattern**
-   - Compose specialised trackers (validation, speed, lifecycle)
-   - Each focused on one concern
-   - Main tracker coordinates them
-   - Pros: Separation + unified interface when needed
-   - Cons: More classes to manage
-
-## Questions to Answer
-
-- How to handle credentials securely? Keychain? Encrypted file?
-- SQLite or JSON for history? In-memory option?
-- Which CLI framework? Typer looks nice but adds dependency
-- How much configuration is too much?
-- Should we support config profiles?
-- Which segment size algorithm? Static vs adaptive vs user-configurable?
-- ETag validation strategy for resume? Always, optional, or automatic?
-- Mirror selection algorithm? Random, sequential, fastest-first, or load-balanced?
+If we add complex features like bandwidth limiting or multi-segment coordination, we'll likely split things up using a composition pattern. Not over-engineering early though.
