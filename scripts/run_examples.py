@@ -45,7 +45,7 @@ def run_example(example_path: Path) -> bool:
         )
 
         if result.returncode == 0:
-            print(f"✓ {example_path.name} passed\n")
+            print(f"{example_path.name} passed\n")
             # Print output for visibility
             if result.stdout:
                 print(result.stdout)
@@ -102,13 +102,13 @@ def main() -> int:
         else:
             # Fail-fast: stop on first failure
             print("=" * 60)
-            print(f"\n✗ FAILED after {len(passed)}/{len(examples)} examples")
-            print(f"Failed example: {example.name}")
+            print(f"\nFAILED after {len(passed)}/{len(examples)} examples")
+            print(f"Failed example: {example.name}\n")
             return 1
 
     # All passed
     print("=" * 60)
-    print(f"\n✓ All {len(examples)} example(s) passed successfully!")
+    print(f"\nAll {len(examples)} example(s) passed successfully!")
     return 0
 
 
