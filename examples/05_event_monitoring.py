@@ -67,20 +67,21 @@ class DownloadStats:
             f"Success: {self.success_rate:.0f}%"
         )
 
-    def display_summary(self) -> None:
-        """Print a summary of the stats."""
-        print("\nFinal Summary:")
-        print(f"\tTotal Downloads: {self.queued}")
-        print(f"\tCompleted: {self.completed}")
-        print(f"\tFailed: {self.failed}")
-        print(f"\tSuccess Rate: {self.success_rate:.1f}%")
-        print(f"\tTotal Data: {format_bytes(self.total_bytes)}")
-        print(
+    def display_summary(self) -> str:
+        """Return a summary of the stats as a formatted string."""
+        lines = [
+            "\nFinal Summary:",
+            f"\tTotal Downloads: {self.queued}",
+            f"\tCompleted: {self.completed}",
+            f"\tFailed: {self.failed}",
+            f"\tSuccess Rate: {self.success_rate:.1f}%",
+            f"\tTotal Data: {format_bytes(self.total_bytes)}",
             (
                 f"\tValidated: {self.validated_success} success, "
                 f"{self.validated_failed} failed"
-            )
-        )
+            ),
+        ]
+        return "\n".join(lines)
 
 
 def create_event_handlers(stats: DownloadStats) -> dict[str, t.Callable]:
@@ -180,7 +181,7 @@ async def main() -> None:
         await manager.add_to_queue(files)
         await manager.queue.join()
 
-        stats.display_summary()
+        print(stats.display_summary())
 
 
 if __name__ == "__main__":
