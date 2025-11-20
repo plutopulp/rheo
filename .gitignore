@@ -212,6 +212,7 @@ __marimo__/
 # Internal planning documents
 PUBLICATION_PLAN.md
 GITHUB_ISSUES.md
+.github/IDEAS_INTERNAL.md
 
 # Downloaded files directory (root level only, not src/rheo/downloads/)
 /downloads/
