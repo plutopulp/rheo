@@ -1,33 +1,53 @@
 # Ideas
 
-Here's what we're thinking about for future versions. None of this is promised, just possibilities to explore before commiting them to the [roadmap](ROADMAP.md).
+A bank of ideas that aren't in the [roadmap](ROADMAP.md) yet. These may or may not become part of the roadmap. Once something moves to the roadmap, it gets removed from here.
 
-## What's Next
-
-### Multi-Segment Downloads
-
-Splitting large files into parallel chunks could significantly speed up downloads. e.g. downloading a 1GB file as eight 125MB segments simultaneously rather than one long stream. We'd need to handle segment merging, adaptive chunk sizing based on file size, and tracking progress for each segment independently.
-
-### Proxy and Header Support
-
-Adding HTTP/HTTPS proxy configuration and custom headers would let you route downloads through corporate proxies or add authentication tokens. Per-download overrides would be useful for different sources needing different credentials. Although the current system does support injecting custom aiohttp clients.
+## Future Possibilities
 
 ### CLI Expansion
 
-The CLI currently handles single downloads well enough. We're considering batch downloads from files, resuming interrupted downloads, and retrying failed ones. Maybe some basic config management (`rheo config show/set`). Do wanna keep it simple enough for the time being though.
+Beyond v0.2.0's batch downloads and resume support, we're considering:
+
+- Config management commands (`rheo config show/set`)
+- Download history and statistics commands
+- Package system (grouped downloads with metadata)
+- Queue management (pause/resume/cancel specific downloads whilst running)
+
+### Proxy and Header Support
+
+Adding support for HTTP client configuration. Whilst you can currently inject custom aiohttp clients, having an API for this may be more convenient:
+
+- Custom HTTP headers per download
+- Cookie support
+- HTTP/HTTPS proxy configuration
+- Proxy authentication
+- Per-download configuration overrides
+
+### Automation Features
+
+Ideas that might be useful but aren't priorities:
+
+- Download scheduling (start at specific time or recurring downloads, i.e. cron-jobs)
+- Skip existing files option (check if file exists before downloading)
+- Cloud storage integration (upload to S3, GCS, etc. after download)
+- Adaptive chunk sizes depending on speed
+- Memory usage optimisation for very large files
+
+These are all technically feasible but need careful thought about scope and complexity.
 
 ## What We Won't Do
 
 Things we've explicitly decided against:
 
-- No GUI application (CLI and library only)
-- No Full web UI (wrong focus)
-- No video streaming or transcoding
-- No file hosting service
-- No social features or anything like that
+- GUI application (CLI and library only)
+- Web-based UI (wrong focus for a library-first tool)
+- Video streaming or transcoding
+- File hosting service
+- Social features or anything like that
 - Multi-user systems
-- Captcha solving. It's too niche, a moving target and not core library responsibility. The library is for downloading given a URL, not for getting the url in the first place.
-- Account management (credential storage) for file hosting services (e.g. RapidShare, Mega etc..)
+- Captcha solving (too niche, moving target, not core library responsibility)
+- Account management for file hosting services (e.g. RapidShare, Mega etc..)
+- Container/link decryption (library is for downloading given a URL, not extracting URLs)
 
 ## Design Decisions
 
@@ -39,7 +59,7 @@ What we've already decided:
 - **Null object pattern** - Cleaner than conditional checks everywhere
 - **Library-first** - Not trying to be a full download manager application
 
-Check out the [architecure doc](ARCHITECTURE.md) for more details.
+Check out the [architecture doc](ARCHITECTURE.md) for more details.
 
 ### Event Emission Concerns
 
