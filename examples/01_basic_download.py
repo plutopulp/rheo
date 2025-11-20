@@ -22,7 +22,7 @@ async def main() -> None:
         await manager.add_to_queue(files)
         await manager.queue.join()
 
-    print("✓ Download complete! Check ./downloads/")
+    print("Download complete. Files saved to ./downloads/")
 
 
 if __name__ == "__main__":
