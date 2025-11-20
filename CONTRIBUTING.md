@@ -94,7 +94,7 @@ Good commit messages are appreciated but not a blocker at all. If you want to fo
 
 Good enough:
 
-```
+```text
 Add bandwidth throttling support
 Fix timeout handling in retry logic
 Update README examples
