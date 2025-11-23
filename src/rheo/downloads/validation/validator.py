@@ -9,10 +9,10 @@ from pathlib import Path
 import aiofiles
 import aiofiles.os
 
-from ..domain.exceptions import FileAccessError, HashMismatchError
-from ..domain.hash_validation import HashConfig
-from ..infrastructure.logging import get_logger
-from .base_validator import BaseFileValidator
+from ...domain.exceptions import FileAccessError, HashMismatchError
+from ...domain.hash_validation import HashConfig
+from ...infrastructure.logging import get_logger
+from .base import BaseFileValidator
 
 if t.TYPE_CHECKING:
     from loguru import Logger

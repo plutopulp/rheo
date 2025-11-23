@@ -6,7 +6,7 @@ import aiohttp
 import pytest
 
 from rheo.domain.retry import ErrorCategory, RetryPolicy
-from rheo.downloads.error_categoriser import ErrorCategoriser
+from rheo.downloads import ErrorCategoriser
 
 
 @pytest.fixture

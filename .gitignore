@@ -216,3 +216,5 @@ GITHUB_ISSUES.md
 
 # Downloaded files directory (root level only, not src/rheo/downloads/)
 /downloads/
+.tmp/
+tmp/

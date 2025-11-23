@@ -5,8 +5,7 @@ import asyncio
 import pytest
 
 from rheo.domain.retry import RetryConfig, RetryPolicy
-from rheo.downloads.error_categoriser import ErrorCategoriser
-from rheo.downloads.retry_handler import RetryHandler
+from rheo.downloads import ErrorCategoriser, RetryHandler
 
 
 @pytest.fixture

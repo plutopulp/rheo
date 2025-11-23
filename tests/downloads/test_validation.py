@@ -9,8 +9,7 @@ from rheo.domain.exceptions import (
     HashMismatchError,
 )
 from rheo.domain.hash_validation import HashAlgorithm, HashConfig
-from rheo.downloads.null_validator import NullFileValidator
-from rheo.downloads.validation import FileValidator
+from rheo.downloads import FileValidator, NullFileValidator
 
 
 def _write_file(path: Path, content: bytes) -> None:
