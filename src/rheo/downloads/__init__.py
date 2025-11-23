@@ -5,13 +5,16 @@ from .manager import DownloadManager
 from .queue import PriorityDownloadQueue
 from .retry import BaseRetryHandler, ErrorCategoriser, NullRetryHandler, RetryHandler
 from .validation import BaseFileValidator, FileValidator, NullFileValidator
-from .worker import DownloadWorker
+from .worker import BaseWorker, DownloadWorker, WorkerFactory
 
 __all__ = [
     # Core downloads
     "DownloadManager",
     "DownloadWorker",
     "PriorityDownloadQueue",
+    # Worker
+    "BaseWorker",
+    "WorkerFactory",
     # Retry
     "BaseRetryHandler",
     "RetryHandler",
