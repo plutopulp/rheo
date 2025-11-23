@@ -33,6 +33,7 @@ from ..retry.base import BaseRetryHandler
 from ..retry.null import NullRetryHandler
 from ..validation.base import BaseFileValidator
 from ..validation.validator import FileValidator
+from .base import BaseWorker
 
 if t.TYPE_CHECKING:
     import loguru
@@ -53,7 +54,7 @@ DownloadException = (
 )
 
 
-class DownloadWorker:
+class DownloadWorker(BaseWorker):
     """Handles HTTP streaming downloads with comprehensive error handling.
 
     This class provides file downloading with the following features:
@@ -107,10 +108,15 @@ class DownloadWorker:
         # When implementing manager facade, evaluate: NullEmitter() vs
         # EventEmitter(logger). NullEmitter avoids dict lookups/iteration, EventEmitter
         # enables direct worker usage with events.
-        self.emitter = emitter or EventEmitter(logger)
+        self._emitter = emitter or EventEmitter(logger)
         self.retry_handler = retry_handler or NullRetryHandler()
         self._validator = validator or FileValidator()
         self._speed_window_seconds = speed_window_seconds
+
+    @property
+    def emitter(self) -> BaseEmitter:
+        """Event emitter for broadcasting worker events."""
+        return self._emitter
 
     async def _write_chunk_to_file(self, chunk: bytes, file_handle: t.Any) -> None:
         """Write a data chunk to the output file asynchronously.

@@ -1,8 +1,10 @@
 """Base interface for download workers."""
 
 from abc import ABC, abstractmethod
+from pathlib import Path
 
-from ...domain.file_config import FileConfig
+from ...domain.hash_validation import HashConfig
+from ...domain.speed import SpeedCalculator
 from ...events import BaseEmitter
 
 
@@ -25,12 +27,24 @@ class BaseWorker(ABC):
         pass
 
     @abstractmethod
-    async def download(self, file_config: FileConfig) -> None:
-        """Download a file according to the configuration.
+    async def download(
+        self,
+        url: str,
+        destination_path: Path,
+        chunk_size: int = 1024,
+        timeout: float | None = None,
+        speed_calculator: SpeedCalculator | None = None,
+        hash_config: HashConfig | None = None,
+    ) -> None:
+        """Download a file from URL to local path.
 
         Args:
-            file_config: Configuration specifying URL, destination,
-                        hash validation, priority, etc.
+            url: HTTP/HTTPS URL to download from
+            destination_path: Full path where file should be saved
+            chunk_size: Size of chunks to read/write (bytes)
+            timeout: HTTP request timeout in seconds
+            speed_calculator: Optional speed calculator for this download
+            hash_config: Optional hash validation configuration
 
         Raises:
             Various exceptions depending on download failures.
