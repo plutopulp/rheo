@@ -3,12 +3,12 @@
 import asyncio
 import typing as t
 
-from ..domain.exceptions import RetryError
-from ..domain.retry import ErrorCategory, RetryConfig
-from ..events import EventEmitter, WorkerRetryEvent
-from ..infrastructure.logging import get_logger
-from .base_retry import BaseRetryHandler
-from .error_categoriser import ErrorCategoriser
+from ...domain.exceptions import RetryError
+from ...domain.retry import ErrorCategory, RetryConfig
+from ...events import EventEmitter, WorkerRetryEvent
+from ...infrastructure.logging import get_logger
+from .base import BaseRetryHandler
+from .categoriser import ErrorCategoriser
 
 if t.TYPE_CHECKING:
     import loguru

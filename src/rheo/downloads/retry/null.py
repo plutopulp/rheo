@@ -2,7 +2,7 @@
 
 import typing as t
 
-from .base_retry import BaseRetryHandler
+from .base import BaseRetryHandler
 
 T = t.TypeVar("T")
 

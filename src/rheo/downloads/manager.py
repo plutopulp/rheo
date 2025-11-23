@@ -22,7 +22,7 @@ from ..infrastructure.logging import get_logger
 from ..tracking.base import BaseTracker
 from ..tracking.tracker import DownloadTracker
 from .queue import PriorityDownloadQueue
-from .worker import DownloadWorker
+from .worker.worker import DownloadWorker
 
 if t.TYPE_CHECKING:
     import loguru

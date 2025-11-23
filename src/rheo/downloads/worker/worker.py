@@ -13,10 +13,10 @@ import aiofiles
 import aiofiles.os
 import aiohttp
 
-from ..domain.exceptions import HashMismatchError
-from ..domain.hash_validation import HashConfig
-from ..domain.speed import SpeedCalculator
-from ..events import (
+from ...domain.exceptions import HashMismatchError
+from ...domain.hash_validation import HashConfig
+from ...domain.speed import SpeedCalculator
+from ...events import (
     EventEmitter,
     WorkerCompletedEvent,
     WorkerFailedEvent,
@@ -27,11 +27,11 @@ from ..events import (
     WorkerValidationFailedEvent,
     WorkerValidationStartedEvent,
 )
-from ..infrastructure.logging import get_logger
-from .base_retry import BaseRetryHandler
-from .base_validator import BaseFileValidator
-from .null_retry import NullRetryHandler
-from .validation import FileValidator
+from ...infrastructure.logging import get_logger
+from ..retry.base import BaseRetryHandler
+from ..retry.null import NullRetryHandler
+from ..validation.base import BaseFileValidator
+from ..validation.validator import FileValidator
 
 if t.TYPE_CHECKING:
     import loguru

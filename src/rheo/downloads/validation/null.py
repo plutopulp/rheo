@@ -2,8 +2,8 @@
 
 from pathlib import Path
 
-from ..domain.hash_validation import HashConfig
-from .base_validator import BaseFileValidator
+from ...domain.hash_validation import HashConfig
+from .base import BaseFileValidator
 
 
 class NullFileValidator(BaseFileValidator):

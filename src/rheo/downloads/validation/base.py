@@ -3,7 +3,7 @@
 from abc import ABC, abstractmethod
 from pathlib import Path
 
-from ..domain.hash_validation import HashConfig
+from ...domain.hash_validation import HashConfig
 
 
 class BaseFileValidator(ABC):

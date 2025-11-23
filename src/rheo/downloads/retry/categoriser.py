@@ -4,7 +4,7 @@ import asyncio
 
 import aiohttp
 
-from ..domain.retry import ErrorCategory, RetryPolicy
+from ...domain.retry import ErrorCategory, RetryPolicy
 
 
 class ErrorCategoriser:
