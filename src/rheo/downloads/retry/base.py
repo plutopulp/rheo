@@ -34,4 +34,3 @@ class BaseRetryHandler(ABC):
         Raises:
             Exception: The last exception if all retries fail or on a permanent error.
         """
-        pass

@@ -24,7 +24,6 @@ class BaseWorker(ABC):
         The manager wires events from this emitter to trackers.
         All workers must expose their emitter for event wiring.
         """
-        pass
 
     @abstractmethod
     async def download(
@@ -49,4 +48,3 @@ class BaseWorker(ABC):
         Raises:
             Various exceptions depending on download failures.
         """
-        pass
