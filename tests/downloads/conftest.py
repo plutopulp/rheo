@@ -56,6 +56,41 @@ def mock_worker(mocker):
 
 
 @pytest.fixture
+def mock_worker_factory(mock_worker):
+    """Factory that returns the same mock worker instance.
+
+    Useful for tests that want to verify the worker was called.
+    Note: All tasks will share the same mock, so call counts accumulate.
+    """
+
+    def _factory(client, logger, emitter):
+        mock_worker.emitter = emitter  # Use manager's emitter
+        return mock_worker
+
+    return _factory
+
+
+@pytest.fixture
+def isolated_mock_worker_factory(mocker):
+    """Factory that creates a new mock worker for each call.
+
+    Provides true isolation where each task gets its own mock.
+    Useful for testing that workers are truly isolated.
+    """
+    created_mocks = []
+
+    def _factory(client, logger, emitter):
+        worker = mocker.Mock(spec=DownloadWorker)
+        worker.download = mocker.AsyncMock()
+        worker.emitter = emitter  # Use emitter created by manager for this worker
+        created_mocks.append(worker)
+        return worker
+
+    _factory.created_mocks = created_mocks  # For inspection in tests
+    return _factory
+
+
+@pytest.fixture
 def test_worker(aio_client, mock_logger):
     """Provide a real DownloadWorker with real client and mocked logger."""
     return DownloadWorker(aio_client, mock_logger)
@@ -135,11 +170,11 @@ def real_priority_queue(mock_logger):
 
 
 @pytest.fixture
-def mock_manager_dependencies(mock_aio_client, mock_worker, mock_queue):
+def mock_manager_dependencies(mock_aio_client, mock_worker_factory, mock_queue):
     """Provide all mocked dependencies for DownloadManager tests."""
     return {
         "client": mock_aio_client,
-        "worker": mock_worker,
+        "worker_factory": mock_worker_factory,
         "queue": mock_queue,
     }
 
@@ -178,7 +213,7 @@ def make_file_configs(make_file_config):
 
 @pytest.fixture
 def make_shutdown_manager(
-    mock_aio_client, mock_worker, real_priority_queue, mock_logger, tmp_path
+    mock_aio_client, mock_worker_factory, real_priority_queue, mock_logger, tmp_path
 ):
     """Factory fixture to create DownloadManager for shutdown tests.
 
@@ -186,10 +221,10 @@ def make_shutdown_manager(
     All managers share the same mocked dependencies from the test.
     """
 
-    def _create_manager(max_workers: int = 1):
+    def _create_manager(max_workers: int = 1, worker_factory=None):
         return DownloadManager(
             client=mock_aio_client,
-            worker=mock_worker,
+            worker_factory=worker_factory or mock_worker_factory,
             queue=real_priority_queue,
             max_workers=max_workers,
             download_dir=tmp_path,

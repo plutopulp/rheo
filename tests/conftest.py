@@ -115,12 +115,13 @@ def tracker(mock_logger):
 
 
 @pytest.fixture
-def manager_with_tracker(aio_client, tracker, mock_logger):
+def manager_with_tracker(aio_client, tracker, mock_logger, tmp_path):
     """Provide a DownloadManager with tracker wired for integration testing."""
     return DownloadManager(
         client=aio_client,
         tracker=tracker,
         logger=mock_logger,
+        download_dir=tmp_path,
     )
 
 

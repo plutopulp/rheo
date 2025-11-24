@@ -1,12 +1,16 @@
 """Test that worker tasks get isolated worker instances."""
 
+import asyncio
+
 import pytest
 
 from rheo.downloads import DownloadManager, DownloadWorker
 
 
 @pytest.mark.asyncio
-async def test_manager_creates_separate_worker_per_task(mock_client):
+async def test_manager_creates_separate_worker_per_task(
+    mock_aio_client, mock_logger, mock_emitter
+):
     """Each worker task should have its own DownloadWorker instance.
 
     This prevents race conditions if mutable state is added to workers
@@ -24,12 +28,13 @@ async def test_manager_creates_separate_worker_per_task(mock_client):
         return worker
 
     async with DownloadManager(
-        client=mock_client,
+        client=mock_aio_client,
         max_workers=3,
         worker_factory=track_worker_factory,
+        logger=mock_logger,
     ) as _:
-        # Manager starts 3 worker tasks
-        pass
+        # Manager starts 3 worker tasks - give them a moment to initialize
+        await asyncio.sleep(0.01)
 
     # Should have created 3 distinct worker instances
     assert len(created_workers) == 3
