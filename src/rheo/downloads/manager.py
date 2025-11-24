@@ -303,6 +303,7 @@ class DownloadManager:
                 "Manager must be initialized before creating workers"
             )
         # Create a new emitter for this worker (isolation)
+        # Consider using a factory instead to support Dependency Injection
         emitter = EventEmitter(self._logger)
         return self._worker_factory(self._client, self._logger, emitter)
 
