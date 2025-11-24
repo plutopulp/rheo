@@ -604,6 +604,39 @@ class TestShutdownMechanismInternals:
         except asyncio.TimeoutError:
             pytest.fail("queue.join() hung even after task_done() - should not happen")
 
+    @pytest.mark.asyncio
+    async def test_wait_for_workers_and_clear_handles_exceptions(
+        self, make_shutdown_manager
+    ):
+        """Verify _wait_for_workers_and_clear waits for tasks and handles exceptions.
+
+        This helper should:
+        1. Wait for all tasks to complete
+        2. Handle task exceptions gracefully (return_exceptions=True)
+        3. Clear the task list
+        """
+        manager = make_shutdown_manager(max_workers=2)
+
+        # Manually create tasks that will raise exceptions
+        async def failing_task() -> None:
+            await asyncio.sleep(0.01)
+            raise ValueError("Task failed!")
+
+        async def successful_task() -> None:
+            await asyncio.sleep(0.01)
+
+        manager._worker_tasks = [
+            asyncio.create_task(failing_task()),
+            asyncio.create_task(successful_task()),
+        ]
+        assert len(manager._worker_tasks) == 2
+
+        # Should complete without raising despite task exception
+        await manager._wait_for_workers_and_clear()
+
+        # Tasks should be cleared
+        assert len(manager._worker_tasks) == 0
+
 
 class TestShutdownRaceCondition:
     """Test race condition between shutdown check and download start."""

@@ -57,6 +57,26 @@ class TestDownloadManagerInitialization:
 
         assert manager._worker_factory is custom_factory
 
+    @pytest.mark.asyncio
+    async def test_worker_factory_exception_propagates(
+        self, mock_aio_client, mock_logger
+    ):
+        """Test that exceptions from worker factory are propagated."""
+
+        def broken_factory(client, logger, emitter):
+            raise ValueError("Factory initialization failed!")
+
+        manager = DownloadManager(
+            client=mock_aio_client,
+            worker_factory=broken_factory,
+            logger=mock_logger,
+        )
+
+        # Exception should propagate during context entry (start_workers)
+        with pytest.raises(ValueError, match="Factory initialization failed"):
+            async with manager:
+                pass
+
 
 class TestDownloadManagerContextManager:
     """Test DownloadManager context manager behavior."""
