@@ -17,6 +17,7 @@ from ...domain.exceptions import HashMismatchError
 from ...domain.hash_validation import HashConfig
 from ...domain.speed import SpeedCalculator
 from ...events import (
+    BaseEmitter,
     EventEmitter,
     WorkerCompletedEvent,
     WorkerFailedEvent,
@@ -32,6 +33,7 @@ from ..retry.base import BaseRetryHandler
 from ..retry.null import NullRetryHandler
 from ..validation.base import BaseFileValidator
 from ..validation.validator import FileValidator
+from .base import BaseWorker
 
 if t.TYPE_CHECKING:
     import loguru
@@ -52,7 +54,7 @@ DownloadException = (
 )
 
 
-class DownloadWorker:
+class DownloadWorker(BaseWorker):
     """Handles HTTP streaming downloads with comprehensive error handling.
 
     This class provides file downloading with the following features:
@@ -80,7 +82,7 @@ class DownloadWorker:
         self,
         client: aiohttp.ClientSession,
         logger: "loguru.Logger" = get_logger(__name__),
-        emitter: EventEmitter | None = None,
+        emitter: BaseEmitter | None = None,
         retry_handler: BaseRetryHandler | None = None,
         validator: BaseFileValidator | None = None,
         speed_window_seconds: float = 5.0,
@@ -102,12 +104,19 @@ class DownloadWorker:
         """
         self.client = client
         self.logger = logger
-        self.emitter = emitter if emitter is not None else EventEmitter(logger)
-        self.retry_handler = (
-            retry_handler if retry_handler is not None else NullRetryHandler()
-        )
-        self._validator = validator if validator is not None else FileValidator()
+        # TODO: Consider NullEmitter as default for less overhead in standalone use.
+        # When implementing manager facade, evaluate: NullEmitter() vs
+        # EventEmitter(logger). NullEmitter avoids dict lookups/iteration, EventEmitter
+        # enables direct worker usage with events.
+        self._emitter = emitter or EventEmitter(logger)
+        self.retry_handler = retry_handler or NullRetryHandler()
+        self._validator = validator or FileValidator()
         self._speed_window_seconds = speed_window_seconds
+
+    @property
+    def emitter(self) -> BaseEmitter:
+        """Event emitter for broadcasting worker events."""
+        return self._emitter
 
     async def _write_chunk_to_file(self, chunk: bytes, file_handle: t.Any) -> None:
         """Write a data chunk to the output file asynchronously.

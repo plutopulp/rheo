@@ -15,13 +15,13 @@ import certifi
 
 from ..domain.exceptions import ManagerNotInitializedError
 from ..domain.file_config import FileConfig
-from ..events import (
-    WorkerEvent,
-)
+from ..events import EventEmitter, WorkerEvent
 from ..infrastructure.logging import get_logger
 from ..tracking.base import BaseTracker
 from ..tracking.tracker import DownloadTracker
 from .queue import PriorityDownloadQueue
+from .worker.base import BaseWorker
+from .worker.factory import WorkerFactory
 from .worker.worker import DownloadWorker
 
 if t.TYPE_CHECKING:
@@ -81,8 +81,8 @@ class DownloadManager:
 
     Usage:
         async with DownloadManager() as manager:
-            # manager.client and manager.worker are now available
-            await manager.worker.download(url, path)
+            await manager.add_to_queue([file_config])
+            await manager.queue.join()
 
     Or with custom dependencies:
         async with DownloadManager(client=custom_session) as manager:
@@ -92,7 +92,7 @@ class DownloadManager:
     def __init__(
         self,
         client: aiohttp.ClientSession | None = None,
-        worker: DownloadWorker | None = None,
+        worker_factory: WorkerFactory | None = None,
         queue: PriorityDownloadQueue | None = None,
         tracker: BaseTracker | None = None,
         timeout: float | None = None,
@@ -104,7 +104,8 @@ class DownloadManager:
 
         Args:
             client: HTTP session for downloads. If None, one will be created.
-            worker: Download worker instance. If None, one will be created.
+            worker_factory: Factory function for creating workers. If None, defaults
+                           to DownloadWorker constructor.
             queue: Priority download queue for tasks. If None, one will be created.
             tracker: Download tracker for observability. If None, a DownloadTracker
                     will be created automatically. Pass NullTracker() to
@@ -116,7 +117,7 @@ class DownloadManager:
         """
         self._client = client
         self._owns_client = False  # Track if we created the client
-        self._worker = worker
+        self._worker_factory = worker_factory or DownloadWorker
         self._logger = logger
         # Auto-create tracker if not provided (always available for observability)
         # Users can pass NullTracker() if tracking is unwanted
@@ -126,7 +127,7 @@ class DownloadManager:
         self.queue = queue or PriorityDownloadQueue(logger=logger)
         self.timeout = timeout
         self.max_workers = max_workers
-        self._tasks: list[asyncio.Task[None]] = []
+        self._worker_tasks: list[asyncio.Task[None]] = []
         self._shutdown_event = asyncio.Event()
         self.download_dir = download_dir
 
@@ -155,33 +156,32 @@ class DownloadManager:
         """
         return self._tracker
 
-    def _wire_worker_events(
+    def _wire_worker_to_tracker(
         self,
+        worker: "BaseWorker",
         event_wiring: (
             dict[str, t.Callable[[WorkerEvent], t.Awaitable[None]]] | None
         ) = None,
     ) -> None:
-        """Wire worker events to tracker using provided or default mapping.
+        """Wire a single worker's events to the tracker.
 
         Args:
+            worker: The worker whose events should be wired to the tracker.
             event_wiring: Custom event wiring dict. If None, uses default wiring.
 
         Note: Future improvement - store handler references for cleanup in __aexit__().
         """
-        if self._worker is None:
-            return
-
         wiring = event_wiring or _create_event_wiring(self._tracker)
 
         for event_type, handler in wiring.items():
-            # Register async handler with worker emitter
-            self._worker.emitter.on(event_type, handler)
+            # Register async handler with this worker's emitter
+            worker.emitter.on(event_type, handler)
 
     async def __aenter__(self) -> "DownloadManager":
         """Enter the async context manager.
 
-        Initializes HTTP client and worker if not provided during construction.
-        Wires worker events to tracker if both are available.
+        Initializes HTTP client and starts worker tasks.
+        Each worker gets its own emitter for isolation.
         Ensures download directory exists.
 
         Returns:
@@ -198,11 +198,6 @@ class DownloadManager:
             connector = aiohttp.TCPConnector(ssl=ssl_context)
             self._client = await aiohttp.ClientSession(connector=connector).__aenter__()
             self._owns_client = True
-        if self._worker is None:
-            self._worker = DownloadWorker(self._client, self._logger)
-
-        # Wire worker events to tracker
-        self._wire_worker_events()
 
         await self.start_workers()
         return self
@@ -236,26 +231,6 @@ class DownloadManager:
             )
         return self._client
 
-    @property
-    def worker(self) -> DownloadWorker:
-        """Get the download worker instance.
-
-        Returns:
-            The DownloadWorker instance for performing downloads.
-
-        Raises:
-            ManagerNotInitializedError: If accessed before entering context manager
-                or without providing a worker during initialization.
-        """
-        if self._worker is None:
-            raise ManagerNotInitializedError(
-                (
-                    "DownloadManager must be used as a context manager or "
-                    "initialized with a worker"
-                )
-            )
-        return self._worker
-
     async def add_to_queue(self, file_configs: t.Sequence[FileConfig]) -> None:
         """Add download tasks to the priority queue.
 
@@ -276,8 +251,7 @@ class DownloadManager:
 
         if wait_for_current:
             # Wait for workers to finish current downloads
-            await asyncio.gather(*self._tasks, return_exceptions=True)
-            self._tasks.clear()
+            await self._wait_for_workers_and_clear()
         else:
             # Cancel immediately
             await self.stop_workers()
@@ -306,13 +280,44 @@ class DownloadManager:
             return True
         return False
 
-    async def process_queue(self) -> None:
+    def _create_worker(self) -> "BaseWorker":
+        """Create a worker instance using the factory.
+
+        Each worker gets its own EventEmitter for true isolation.
+
+        Returns:
+            A new worker instance configured with manager's client, logger,
+            and a new emitter.
+
+        Raises:
+            ManagerNotInitializedError: If called before manager initialization.
+
+        Note:
+            Future optimization: When tracker is NullTracker, could use NullEmitter
+            instead of EventEmitter to avoid event dispatch overhead. However,
+            using isinstance() check feels like a design smell. Consider using
+            composition pattern or factory configuration instead.
+        """
+        if self._client is None:
+            raise ManagerNotInitializedError(
+                "Manager must be initialized before creating workers"
+            )
+        # Create a new emitter for this worker (isolation)
+        # Consider using a factory instead to support Dependency Injection
+        emitter = EventEmitter(self._logger)
+        return self._worker_factory(self._client, self._logger, emitter)
+
+    async def process_queue(self, worker: "BaseWorker") -> None:
         """Process downloads from queue until shutdown or cancellation.
 
         Uses event-based shutdown mechanism to allow graceful termination.
         Workers periodically check the shutdown event and can complete current
         downloads before exiting.
+
+        Args:
+            worker: The worker instance to use for downloads in this task.
         """
+
         while not self._shutdown_event.is_set():
             file_config = None
             got_item = False
@@ -337,7 +342,7 @@ class DownloadManager:
                 self._logger.debug(
                     f"Downloading {file_config.url} to {destination_path}"
                 )
-                await self.worker.download(
+                await worker.download(
                     str(file_config.url),
                     destination_path,
                     hash_config=file_config.hash_config,
@@ -369,10 +374,25 @@ class DownloadManager:
 
         self._logger.debug("Worker shutting down gracefully")
 
+    async def _wait_for_workers_and_clear(self) -> None:
+        """Wait for all worker tasks to complete and clear the task list.
+
+        Handles exceptions gracefully via return_exceptions=True.
+        """
+        await asyncio.gather(*self._worker_tasks, return_exceptions=True)
+        self._worker_tasks.clear()
+
     async def start_workers(self) -> None:
+        """Start worker tasks that process the download queue.
+
+        Creates one worker instance per task for isolation.
+        Each worker has its own emitter wired to the tracker.
+        """
         for _ in range(self.max_workers):
-            task = asyncio.create_task(self.process_queue())
-            self._tasks.append(task)
+            worker = self._create_worker()
+            self._wire_worker_to_tracker(worker)
+            task = asyncio.create_task(self.process_queue(worker))
+            self._worker_tasks.append(task)
 
     async def stop_workers(self) -> None:
         """Stop all worker tasks and wait for them to complete.
@@ -380,11 +400,7 @@ class DownloadManager:
         Requests cancellation of all worker tasks and waits for them to finish
         before returning. This ensures proper cleanup before closing resources.
         """
-        for task in self._tasks:
+        for task in self._worker_tasks:
             task.cancel()
 
-        # Wait for all tasks to complete (including handling CancelledError)
-        await asyncio.gather(*self._tasks, return_exceptions=True)
-
-        # Clear the tasks list
-        self._tasks.clear()
+        await self._wait_for_workers_and_clear()

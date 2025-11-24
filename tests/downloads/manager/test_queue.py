@@ -52,9 +52,12 @@ class TestDownloadManagerQueueIntegration:
             logger=mock_logger,
         )
 
+        # Create a worker using the factory (manager does this in start_workers)
+        worker = manager._create_worker()
+
         # Process queue (will stop after one iteration due to CancelledError)
         try:
-            await manager.process_queue()
+            await manager.process_queue(worker)
         except asyncio.CancelledError:
             pass
 
@@ -62,8 +65,9 @@ class TestDownloadManagerQueueIntegration:
         assert mock_manager_dependencies["queue"].get_next.call_count >= 1
 
         # Verify worker.download was called with correct URL
-        mock_manager_dependencies["worker"].download.assert_called_once()
-        call_args = mock_manager_dependencies["worker"].download.call_args[0]
+        # The worker returned by factory is the mock_worker from the fixture
+        worker.download.assert_called_once()
+        call_args = worker.download.call_args[0]
         assert call_args[0] == "https://example.com/test.txt"
 
         # Verify task_done was called
@@ -86,8 +90,10 @@ class TestDownloadManagerQueueIntegration:
             logger=mock_logger,
         )
 
+        worker = manager._create_worker()
+
         try:
-            await manager.process_queue()
+            await manager.process_queue(worker)
         except asyncio.CancelledError:
             pass
 
@@ -98,7 +104,7 @@ class TestDownloadManagerQueueIntegration:
     async def test_multiple_workers_process_concurrent_downloads(
         self,
         mock_aio_client,
-        mock_worker,
+        mock_worker_factory,
         real_priority_queue,
         make_file_configs,
         mock_logger,
@@ -112,11 +118,17 @@ class TestDownloadManagerQueueIntegration:
             download_count += 1
             await asyncio.sleep(0.05)  # Simulate slow download
 
-        mock_worker.download.side_effect = slow_download
+        # Create custom factory that sets up side effect
+        original_factory = mock_worker_factory
+
+        def custom_factory(client, logger, emitter):
+            worker = original_factory(client, logger, emitter)
+            worker.download.side_effect = slow_download
+            return worker
 
         manager = DownloadManager(
             client=mock_aio_client,
-            worker=mock_worker,
+            worker_factory=custom_factory,
             queue=real_priority_queue,
             max_workers=3,
             download_dir=tmp_path,
@@ -143,7 +155,7 @@ class TestDownloadManagerQueueIntegration:
     async def test_stop_workers_waits_for_completion(
         self,
         mock_aio_client,
-        mock_worker,
+        mock_worker_factory,
         real_priority_queue,
         make_file_config,
         mock_logger,
@@ -172,11 +184,17 @@ class TestDownloadManagerQueueIntegration:
                 cleanup_completed.set()
                 raise
 
-        mock_worker.download.side_effect = blocking_download
+        # Create custom factory that sets up side effect
+        original_factory = mock_worker_factory
+
+        def custom_factory(client, logger, emitter):
+            worker = original_factory(client, logger, emitter)
+            worker.download.side_effect = blocking_download
+            return worker
 
         manager = DownloadManager(
             client=mock_aio_client,
-            worker=mock_worker,
+            worker_factory=custom_factory,
             queue=real_priority_queue,
             max_workers=1,
             download_dir=tmp_path,
@@ -198,4 +216,4 @@ class TestDownloadManagerQueueIntegration:
         assert cleanup_completed.is_set()
 
         # Verify tasks list was cleared
-        assert len(manager._tasks) == 0
+        assert len(manager._worker_tasks) == 0

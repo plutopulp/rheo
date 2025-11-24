@@ -23,7 +23,9 @@ class TestDownloadManagerInitialization:
         assert manager.max_workers == 3
         assert isinstance(manager.queue, PriorityDownloadQueue)
         assert manager._client is None
-        assert manager._worker is None
+        assert (
+            manager._worker_factory is DownloadWorker
+        )  # Factory defaults to DownloadWorker
         assert not manager._owns_client
 
     def test_init_with_custom_params(self, mock_logger):
@@ -45,12 +47,35 @@ class TestDownloadManagerInitialization:
         assert manager._client is aio_client
         assert not manager._owns_client  # We didn't create it
 
-    def test_init_with_provided_worker(self, aio_client, mock_logger):
-        """Test manager initialization with provided worker."""
-        worker = DownloadWorker(aio_client, mock_logger)
-        manager = DownloadManager(worker=worker, logger=mock_logger)
+    def test_init_with_provided_worker_factory(self, aio_client, mock_logger):
+        """Test manager initialization with provided worker factory."""
 
-        assert manager._worker is worker
+        def custom_factory(client, logger, emitter):
+            return DownloadWorker(client, logger, emitter)
+
+        manager = DownloadManager(worker_factory=custom_factory, logger=mock_logger)
+
+        assert manager._worker_factory is custom_factory
+
+    @pytest.mark.asyncio
+    async def test_worker_factory_exception_propagates(
+        self, mock_aio_client, mock_logger
+    ):
+        """Test that exceptions from worker factory are propagated."""
+
+        def broken_factory(client, logger, emitter):
+            raise ValueError("Factory initialization failed!")
+
+        manager = DownloadManager(
+            client=mock_aio_client,
+            worker_factory=broken_factory,
+            logger=mock_logger,
+        )
+
+        # Exception should propagate during context entry (start_workers)
+        with pytest.raises(ValueError, match="Factory initialization failed"):
+            async with manager:
+                pass
 
 
 class TestDownloadManagerContextManager:
@@ -65,10 +90,8 @@ class TestDownloadManagerContextManager:
             assert isinstance(ctx._client, ClientSession)
             assert ctx._owns_client
 
-            # Should have created a worker with the client
-            assert ctx._worker is not None
-            assert isinstance(ctx._worker, DownloadWorker)
-            assert ctx._worker.client is ctx._client
+            # Workers are created per-task, not during context entry
+            assert ctx._worker_factory is DownloadWorker
 
     @pytest.mark.asyncio
     async def test_context_manager_uses_provided_client(self, aio_client, mock_logger):
@@ -79,20 +102,20 @@ class TestDownloadManagerContextManager:
             assert ctx._client is aio_client
             assert not ctx._owns_client
 
-            # Should still create worker with provided client
-            assert ctx._worker is not None
-            assert ctx._worker.client is aio_client
-
     @pytest.mark.asyncio
-    async def test_context_manager_uses_provided_worker(self, aio_client, mock_logger):
-        """Test that context manager uses provided worker."""
-        worker = DownloadWorker(aio_client, mock_logger)
+    async def test_context_manager_uses_provided_worker_factory(
+        self, aio_client, mock_logger
+    ):
+        """Test that context manager uses provided worker factory."""
+
+        def custom_factory(client, logger, emitter):
+            return DownloadWorker(client, logger, emitter)
 
         async with DownloadManager(
-            client=aio_client, worker=worker, logger=mock_logger
+            client=aio_client, worker_factory=custom_factory, logger=mock_logger
         ) as ctx:
-            # Should use provided worker
-            assert ctx._worker is worker
+            # Should use provided factory
+            assert ctx._worker_factory is custom_factory
             assert ctx._client is aio_client
 
     @pytest.mark.asyncio
@@ -162,13 +185,6 @@ class TestDownloadManagerProperties:
         with pytest.raises(ManagerNotInitializedError):
             _ = manager.client
 
-    def test_worker_property_before_context(self, mock_logger):
-        """Test accessing worker property before entering context manager."""
-        manager = DownloadManager(logger=mock_logger)
-
-        with pytest.raises(ManagerNotInitializedError):
-            _ = manager.worker
-
     def test_client_property_with_provided_client(self, aio_client, mock_logger):
         """Test accessing client property when client was provided."""
         manager = DownloadManager(client=aio_client, logger=mock_logger)
@@ -176,23 +192,12 @@ class TestDownloadManagerProperties:
         # Should work even before context manager
         assert manager.client is aio_client
 
-    def test_worker_property_with_provided_worker(self, aio_client, mock_logger):
-        """Test accessing worker property when worker was provided."""
-        worker = DownloadWorker(aio_client, mock_logger)
-        manager = DownloadManager(worker=worker, logger=mock_logger)
-
-        # Should work even before context manager
-        assert manager.worker is worker
-
     @pytest.mark.asyncio
-    async def test_properties_after_context_entry(self, mock_logger):
-        """Test that properties work correctly after entering context."""
+    async def test_client_property_after_context_entry(self, mock_logger):
+        """Test that client property works correctly after entering context."""
 
         async with DownloadManager(logger=mock_logger) as manager:
-            # Both properties should work
+            # Client property should work
             client = manager.client
-            worker = manager.worker
 
             assert isinstance(client, ClientSession)
-            assert isinstance(worker, DownloadWorker)
-            assert worker.client is client

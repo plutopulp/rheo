@@ -62,7 +62,7 @@ class TestBasicShutdownBehavior:
         mock_worker.download.assert_called_once()
 
         # Verify tasks are cleared
-        assert len(manager._tasks) == 0
+        assert len(manager._worker_tasks) == 0
 
 
 class TestProcessQueueShutdown:
@@ -119,7 +119,7 @@ class TestProcessQueueShutdown:
         await manager.shutdown(wait_for_current=True)
 
         # Verify tasks are cleared
-        assert len(manager._tasks) == 0
+        assert len(manager._worker_tasks) == 0
 
         # Verify no downloads were attempted
         mock_worker.download.assert_not_called()
@@ -181,7 +181,7 @@ class TestImmediateCancellation:
         assert not mock_download.completed.is_set()
 
         # Verify tasks are cleared
-        assert len(manager._tasks) == 0
+        assert len(manager._worker_tasks) == 0
 
     @pytest.mark.asyncio
     async def test_shutdown_without_wait_does_not_complete_download(
@@ -237,7 +237,7 @@ class TestMultipleWorkersShutdown:
         await manager.start_workers()
 
         # Verify we have 3 workers
-        assert len(manager._tasks) == 3
+        assert len(manager._worker_tasks) == 3
 
         # Let some downloads happen
         await asyncio.sleep(0.1)
@@ -246,7 +246,7 @@ class TestMultipleWorkersShutdown:
         await manager.shutdown(wait_for_current=True)
 
         # All tasks should be cleared
-        assert len(manager._tasks) == 0
+        assert len(manager._worker_tasks) == 0
 
         # Some downloads should have happened
         assert mock_download.count["value"] > 0
@@ -285,7 +285,7 @@ class TestMultipleWorkersShutdown:
         assert mock_download.count["value"] > 0
 
         # All tasks cleared
-        assert len(manager._tasks) == 0
+        assert len(manager._worker_tasks) == 0
 
 
 class TestEdgeCases:
@@ -303,7 +303,7 @@ class TestEdgeCases:
         await manager.shutdown(wait_for_current=True)
 
         # Should complete cleanly
-        assert len(manager._tasks) == 0
+        assert len(manager._worker_tasks) == 0
         assert manager._shutdown_event.is_set()
 
     @pytest.mark.asyncio
@@ -344,7 +344,7 @@ class TestEdgeCases:
 
         # Should complete without errors
         assert manager._shutdown_event.is_set()
-        assert len(manager._tasks) == 0
+        assert len(manager._worker_tasks) == 0
 
 
 class TestShutdownMechanismInternals:
@@ -366,9 +366,10 @@ class TestShutdownMechanismInternals:
             self._manager = manager
             # Expose necessary attributes
             self._shutdown_event = manager._shutdown_event
-            self._tasks = manager._tasks
+            self._worker_tasks = manager._worker_tasks
             self.queue = manager.queue
-            self.worker = manager.worker
+            self._client = manager._client
+            self._worker_factory = manager._worker_factory
             self.download_dir = manager.download_dir
             self._logger = manager._logger
 
@@ -384,7 +385,7 @@ class TestShutdownMechanismInternals:
             """Shutdown using manager's implementation."""
             await self._manager.shutdown(wait_for_current=wait_for_current)
 
-        async def process_queue(self) -> None:
+        async def process_queue(self, worker) -> None:
             """Process queue WITHOUT timeout to demonstrate the problem."""
             while not self._shutdown_event.is_set():
                 file_config = None
@@ -405,7 +406,7 @@ class TestShutdownMechanismInternals:
                     self._logger.debug(
                         f"Downloading {file_config.url} to {destination_path}"
                     )
-                    await self.worker.download(file_config.url, destination_path)
+                    await worker.download(file_config.url, destination_path)
                     self._logger.debug(
                         f"Downloaded {file_config.url} to {destination_path}"
                     )
@@ -432,9 +433,10 @@ class TestShutdownMechanismInternals:
             self._manager = manager
             # Expose necessary attributes
             self._shutdown_event = manager._shutdown_event
-            self._tasks = manager._tasks
+            self._worker_tasks = manager._worker_tasks
             self.queue = manager.queue
-            self.worker = manager.worker
+            self._client = manager._client
+            self._worker_factory = manager._worker_factory
             self.download_dir = manager.download_dir
             self._logger = manager._logger
 
@@ -450,7 +452,7 @@ class TestShutdownMechanismInternals:
             """Shutdown using manager's implementation."""
             await self._manager.shutdown(wait_for_current=wait_for_current)
 
-        async def process_queue(self) -> None:
+        async def process_queue(self, worker) -> None:
             """Process queue WITHOUT task_done in re-queue to demonstrate the problem."""
             while not self._shutdown_event.is_set():
                 file_config = None
@@ -475,7 +477,7 @@ class TestShutdownMechanismInternals:
                     self._logger.debug(
                         f"Downloading {file_config.url} to {destination_path}"
                     )
-                    await self.worker.download(file_config.url, destination_path)
+                    await worker.download(file_config.url, destination_path)
                     self._logger.debug(
                         f"Downloaded {file_config.url} to {destination_path}"
                     )
@@ -493,7 +495,7 @@ class TestShutdownMechanismInternals:
             self._logger.debug("Worker shutting down gracefully")
 
     @pytest.mark.asyncio
-    async def test_without_timeout_shutdown_fails_on_empty_queue(
+    async def test_without_timeout_shutdown_hangs_on_empty_queue(
         self, make_shutdown_manager
     ):
         """Demonstrate that without timeout, workers block indefinitely on empty queue.
@@ -502,15 +504,18 @@ class TestShutdownMechanismInternals:
         Without it, a worker waiting on an empty queue cannot respond to
         the shutdown event.
         """
-        # Create a real manager
+        # Create a real manager (already has mocked client from fixture)
         real_manager = make_shutdown_manager()
 
         # Wrap it with our custom implementation that has no timeout
         manager = self.ManagerWithoutTimeout(real_manager)
 
+        # Create a worker for the test (normally done by start_workers)
+        worker = real_manager._create_worker()
+
         # Manually create a task with the buggy process_queue
-        # Don't add to manager._tasks to avoid shutdown cancelling it
-        task = asyncio.create_task(manager.process_queue())
+        # Don't add to manager._worker_tasks to avoid shutdown cancelling it
+        task = asyncio.create_task(manager.process_queue(worker))
 
         # Give the worker time to enter the blocking get_next() call
         await asyncio.sleep(0.1)
@@ -552,7 +557,7 @@ class TestShutdownMechanismInternals:
         counter is incremented. If we re-queue without calling task_done(),
         the counter stays unbalanced and queue.join() waits forever.
         """
-        # Create a real manager
+        # Create a real manager (already has mocked client from fixture)
         real_manager = make_shutdown_manager()
 
         # Wrap it with our custom implementation that skips task_done
@@ -562,9 +567,12 @@ class TestShutdownMechanismInternals:
         file_config = make_file_config()
         await manager.queue.add([file_config])
 
+        # Create a worker for the test (normally done by start_workers)
+        worker = real_manager._create_worker()
+
         # Manually create a task with the buggy process_queue
-        task = asyncio.create_task(manager.process_queue())
-        manager._tasks.append(task)
+        task = asyncio.create_task(manager.process_queue(worker))
+        manager._worker_tasks.append(task)
 
         # Immediately trigger shutdown (before download can start)
         # This will cause the re-queue branch to execute
@@ -595,6 +603,39 @@ class TestShutdownMechanismInternals:
             await asyncio.wait_for(real_priority_queue.join(), timeout=0.5)
         except asyncio.TimeoutError:
             pytest.fail("queue.join() hung even after task_done() - should not happen")
+
+    @pytest.mark.asyncio
+    async def test_wait_for_workers_and_clear_handles_exceptions(
+        self, make_shutdown_manager
+    ):
+        """Verify _wait_for_workers_and_clear waits for tasks and handles exceptions.
+
+        This helper should:
+        1. Wait for all tasks to complete
+        2. Handle task exceptions gracefully (return_exceptions=True)
+        3. Clear the task list
+        """
+        manager = make_shutdown_manager(max_workers=2)
+
+        # Manually create tasks that will raise exceptions
+        async def failing_task() -> None:
+            await asyncio.sleep(0.01)
+            raise ValueError("Task failed!")
+
+        async def successful_task() -> None:
+            await asyncio.sleep(0.01)
+
+        manager._worker_tasks = [
+            asyncio.create_task(failing_task()),
+            asyncio.create_task(successful_task()),
+        ]
+        assert len(manager._worker_tasks) == 2
+
+        # Should complete without raising despite task exception
+        await manager._wait_for_workers_and_clear()
+
+        # Tasks should be cleared
+        assert len(manager._worker_tasks) == 0
 
 
 class TestShutdownRaceCondition:
