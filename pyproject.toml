@@ -1,6 +1,6 @@
 [project]
 name = "rheopy"
-version = "0.1.0"
+version = "0.2.0"
 description = "Concurrent HTTP download orchestration with async I/O"
 authors = [
     {name = "plutopulp", email = "plutopulped@gmail.com"}
