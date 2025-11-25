@@ -97,6 +97,8 @@ def isolated_mock_worker_factory(
         client: ClientSession, logger: "Logger", emitter: BaseEmitter
     ) -> DownloadWorker:
         worker = mocker.Mock(spec=DownloadWorker)
+        worker.emitter = emitter  # Required for event wiring in WorkerPool
+        worker.download = mocker.AsyncMock()
         created_mocks.append(worker)
         return worker
 

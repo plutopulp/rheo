@@ -1,12 +1,10 @@
 """Abstract worker pool contract for download workers."""
 
-import typing as t
 from abc import ABC, abstractmethod
 
-from ..worker.base import BaseWorker
+import aiohttp
 
-if t.TYPE_CHECKING:
-    import aiohttp
+from ..worker.base import BaseWorker
 
 
 class BaseWorkerPool(ABC):
@@ -18,7 +16,7 @@ class BaseWorkerPool(ABC):
     """
 
     @abstractmethod
-    async def start(self, client: "aiohttp.ClientSession") -> None:
+    async def start(self, client: aiohttp.ClientSession) -> None:
         """Start worker tasks bound to the provided HTTP client.
 
         Implementations should spin up one asyncio Task per configured worker,
