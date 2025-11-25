@@ -16,10 +16,10 @@ class TestDownloadCommandBasics:
         )
 
         assert result.exit_code == 0
-        mock_download_manager.add_to_queue.assert_called_once()
+        mock_download_manager.add.assert_called_once()
 
         # Inspect the FileConfig that was created
-        call_args = mock_download_manager.add_to_queue.call_args[0][0]
+        call_args = mock_download_manager.add.call_args[0][0]
         assert len(call_args) == 1
         assert str(call_args[0].url) == "http://example.com/file.zip"
         assert call_args[0].filename is None
@@ -35,7 +35,7 @@ class TestDownloadCommandBasics:
         )
 
         assert result.exit_code == 0
-        call_args = mock_download_manager.add_to_queue.call_args[0][0]
+        call_args = mock_download_manager.add.call_args[0][0]
         assert call_args[0].filename == "custom.zip"
 
 
@@ -76,7 +76,7 @@ class TestDownloadCommandHashValidation:
         )
 
         assert result.exit_code == 0
-        call_args = mock_download_manager.add_to_queue.call_args[0][0]
+        call_args = mock_download_manager.add.call_args[0][0]
         hash_config = call_args[0].hash_config
 
         assert hash_config is not None

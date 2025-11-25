@@ -21,29 +21,34 @@ async def main() -> None:
     # Higher priority numbers download first
     files = [
         FileConfig(
-            url="https://proof.ovh.net/files/100Mb.dat",
+            url="https://proof.ovh.net/files/10Mb.dat",
             priority=1,
-            description="Low priority - 100MB file",
+            filename="02-priority-10Mb-low.dat",
+            description="Low priority - 10MB file",
         ),
         FileConfig(
             url="https://proof.ovh.net/files/1Mb.dat",
             priority=3,
+            filename="02-priority-1Mb-high.dat",
             description="High priority - 1MB file",
         ),
         FileConfig(
             url="https://proof.ovh.net/files/10Mb.dat",
             priority=2,
+            filename="02-priority-10Mb-medium.dat",
             description="Medium priority - 10MB file",
-        ),
-        FileConfig(
-            url="https://proof.ovh.net/files/100Mb.dat",
-            priority=1,
-            description="Low priority - 100MB file (second)",
         ),
         FileConfig(
             url="https://proof.ovh.net/files/1Mb.dat",
             priority=1,
-            description="Low priority - 1MB file (waits despite being small)",
+            filename="02-priority-1Mb-low.dat",
+            description="Low priority - 1MB file",
+        ),
+        FileConfig(
+            url="https://proof.ovh.net/files/10Mb.dat",
+            priority=4,
+            filename="02-priority-10Mb-highest.dat",
+            description="High priority - 10MB file",
         ),
     ]
 
@@ -57,15 +62,15 @@ async def main() -> None:
     for i, f in enumerate(sorted_files, 1):
         print(f"  {i}. {f.description}")
 
-    max_workers = 3
-    print(f"\nStarting downloads with {max_workers} concurrent workers...\n")
+    max_concurrent = 3
+    print(f"\nStarting downloads with {max_concurrent} concurrent workers...\n")
 
     async with DownloadManager(
         download_dir=Path("./downloads"),
-        max_workers=max_workers,
+        max_concurrent=max_concurrent,
     ) as manager:
-        await manager.add_to_queue(files)
-        await manager.queue.join()
+        await manager.add(files)
+        await manager.wait_until_complete()
 
     print("\nAll downloads complete. Files saved to ./downloads/")
 

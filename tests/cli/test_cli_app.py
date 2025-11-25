@@ -52,7 +52,7 @@ class TestContextInjection:
         result = cli_runner.invoke(test_app, ["test-cmd"])
 
         assert result.exit_code == 0
-        assert captured_state.settings.max_workers == test_settings.max_workers
+        assert captured_state.settings.max_concurrent == test_settings.max_concurrent
         assert captured_state.settings.log_level == test_settings.log_level
 
 
@@ -74,7 +74,7 @@ class TestGlobalOptions:
         assert captured_state.settings.log_level == LogLevel.DEBUG
 
     def test_workers_flag_overrides_default(self, cli_runner, default_app):
-        """--workers flag overrides max_workers setting."""
+        """--workers flag overrides max_concurrent setting."""
         captured_state = None
 
         @default_app.command()
@@ -85,7 +85,7 @@ class TestGlobalOptions:
         result = cli_runner.invoke(default_app, ["--workers", "10", "test-cmd"])
 
         assert result.exit_code == 0
-        assert captured_state.settings.max_workers == 10
+        assert captured_state.settings.max_concurrent == 10
 
     def test_download_dir_flag_overrides_default(self, cli_runner, default_app):
         """--download-dir flag overrides download directory."""
@@ -117,4 +117,4 @@ class TestGlobalOptions:
         result = cli_runner.invoke(test_app, ["--workers", "99", "test-cmd"])
 
         assert result.exit_code == 0
-        assert captured_state.settings.max_workers == test_settings.max_workers
+        assert captured_state.settings.max_concurrent == test_settings.max_concurrent

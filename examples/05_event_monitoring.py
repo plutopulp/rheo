@@ -141,6 +141,7 @@ async def main() -> None:
     files = [
         FileConfig(
             url="https://proof.ovh.net/files/10Mb.dat",
+            filename="05-events-10Mb-valid.dat",
             priority=3,
             hash_config=HashConfig(
                 algorithm="sha256",
@@ -149,6 +150,7 @@ async def main() -> None:
         ),
         FileConfig(
             url="https://proof.ovh.net/files/1Mb.dat",
+            filename="05-events-1Mb-invalid.dat",
             priority=2,
             hash_config=HashConfig(
                 algorithm="sha256",
@@ -157,6 +159,7 @@ async def main() -> None:
         ),
         FileConfig(
             url="https://proof.ovh.net/files/10Mb.dat",
+            filename="05-events-10Mb-no-hash.dat",
             priority=1,
         ),
     ]
@@ -164,7 +167,7 @@ async def main() -> None:
     stats = DownloadStats()
 
     async with DownloadManager(
-        max_workers=2,
+        max_concurrent=2,
         download_dir=Path("./downloads"),
     ) as manager:
         handlers = create_event_handlers(stats)
@@ -178,8 +181,8 @@ async def main() -> None:
                 str(file_config.url), file_config.priority
             )
 
-        await manager.add_to_queue(files)
-        await manager.queue.join()
+        await manager.add(files)
+        await manager.wait_until_complete()
 
         print(stats.display_summary())
 

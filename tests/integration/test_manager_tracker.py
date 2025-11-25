@@ -27,7 +27,7 @@ class TestManagerTrackerWiring:
 
         # Create file config and add to queue
         file_config = FileConfig(url=test_url, priority=1)
-        await manager_with_tracker.add_to_queue([file_config])
+        await manager_with_tracker.add([file_config])
 
         with aioresponses() as mock:
             mock.get(test_url, status=200, body=b"test")
@@ -52,7 +52,7 @@ class TestManagerTrackerWiring:
 
         # Create file config
         file_config = FileConfig(url=test_url, priority=1)
-        await manager_with_tracker.add_to_queue([file_config])
+        await manager_with_tracker.add([file_config])
 
         with aioresponses() as mock:
             mock.get(test_url, status=200, body=test_content)
@@ -72,7 +72,7 @@ class TestManagerTrackerWiring:
         test_content = b"test content"
 
         file_config = FileConfig(url=test_url, priority=1)
-        await manager_with_tracker.add_to_queue([file_config])
+        await manager_with_tracker.add([file_config])
 
         with aioresponses() as mock:
             mock.get(test_url, status=200, body=test_content)
@@ -90,7 +90,7 @@ class TestManagerTrackerWiring:
         test_url = "https://example.com/file.txt"
 
         file_config = FileConfig(url=test_url, priority=1)
-        await manager_with_tracker.add_to_queue([file_config])
+        await manager_with_tracker.add([file_config])
 
         with aioresponses() as mock:
             mock.get(test_url, status=404, body="Not Found")

@@ -52,10 +52,10 @@ class Settings(BaseSettings):
     )
 
     # Download behavior
-    max_workers: int = Field(
+    max_concurrent: int = Field(
         default=3,
         ge=1,
-        description="Number of concurrent download workers",
+        description="Maximum number of concurrent downloads",
     )
     chunk_size: int = Field(
         default=8192,
@@ -90,7 +90,7 @@ def build_settings(**overrides: t.Any) -> Settings:
         Settings instance
 
     Example:
-        settings = build_settings(max_workers=5, log_level=LogLevel.DEBUG)
+        settings = build_settings(max_concurrent=5, log_level=LogLevel.DEBUG)
     """
     base_settings = Settings()
 

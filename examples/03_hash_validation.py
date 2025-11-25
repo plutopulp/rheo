@@ -38,6 +38,7 @@ async def main() -> None:
         # File 1: Correct hash -> will validate successfully
         FileConfig(
             url="https://proof.ovh.net/files/1Mb.dat",
+            filename="03-hash-valid-1Mb.dat",
             description="1MB file with correct SHA256 (will succeed)",
             hash_config=HashConfig(
                 algorithm="sha256",
@@ -47,6 +48,7 @@ async def main() -> None:
         # File 2: Intentionally wrong hash -> will fail validation
         FileConfig(
             url="https://proof.ovh.net/files/10Mb.dat",
+            filename="03-hash-invalid-10Mb.dat",
             description="10MB file with WRONG hash (will fail)",
             hash_config=HashConfig(
                 algorithm="sha256",
@@ -72,8 +74,8 @@ async def main() -> None:
         for file_config in files:
             print(f"Downloading: {file_config.description}")
 
-            await manager.add_to_queue([file_config])
-            await manager.queue.join()
+            await manager.add([file_config])
+            await manager.wait_until_complete()
 
             # Check download status from manager's tracker
             info = manager.tracker.get_download_info(str(file_config.url))

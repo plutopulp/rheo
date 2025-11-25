@@ -30,9 +30,9 @@ async def main():
         FileConfig(url="https://example.com/file2.pdf", priority=2),
     ]
 
-    async with DownloadManager(download_dir=Path("./downloads"), max_workers=3) as manager:
-        await manager.add_to_queue(files)
-        await manager.queue.join()
+    async with DownloadManager(download_dir=Path("./downloads"), max_concurrent=3) as manager:
+        await manager.add(files)
+        await manager.wait_until_complete()
 
     print("All downloads complete!")
 
@@ -138,10 +138,10 @@ from rheo import DownloadManager
 from rheo.domain import FileConfig
 
 async with DownloadManager(download_dir=Path("./downloads")) as manager:
-    await manager.add_to_queue([
+    await manager.add([
         FileConfig(url="https://example.com/file.zip")
     ])
-    await manager.queue.join()
+    await manager.wait_until_complete()
 ```
 
 ### Priority Downloads
@@ -153,9 +153,9 @@ files = [
     FileConfig(url="https://example.com/low.txt", priority=10),
 ]
 
-async with DownloadManager(download_dir=Path("./downloads"), max_workers=3) as manager:
-    await manager.add_to_queue(files)
-    await manager.queue.join()
+async with DownloadManager(download_dir=Path("./downloads"), max_concurrent=3) as manager:
+    await manager.add(files)
+    await manager.wait_until_complete()
 ```
 
 Higher priority number = downloaded first.
@@ -187,8 +187,8 @@ async with DownloadManager(
     download_dir=Path("./downloads"),
     tracker=tracker,
 ) as manager:
-    await manager.add_to_queue(files)
-    await manager.queue.join()
+    await manager.add(files)
+    await manager.wait_until_complete()
 
 # Check results
 for url, info in tracker.get_all_downloads().items():
@@ -211,7 +211,7 @@ async with DownloadManager(
     download_dir=Path("./downloads"),
     tracker=tracker,
 ) as manager:
-    await manager.add_to_queue(files)
+    await manager.add(files)
 
     # Query speed metrics while download is active
     await asyncio.sleep(2)  # Let downloads start
@@ -224,7 +224,7 @@ async with DownloadManager(
             print(f"  Average: {metrics.average_speed_bps / 1024:.2f} KB/s")
             print(f"  ETA: {metrics.eta_seconds:.1f}s" if metrics.eta_seconds else "  ETA: Unknown")
 
-    await manager.queue.join()
+    await manager.wait_until_complete()
 
     # After completion, average speed is persisted in DownloadInfo
     for url, info in tracker.get_all_downloads().items():
@@ -253,8 +253,8 @@ async def on_speed_update(event: WorkerSpeedUpdatedEvent):
 async with DownloadManager(download_dir=Path("./downloads")) as manager:
     manager.worker.emitter.on("worker.progress", on_progress)
     manager.worker.emitter.on("worker.speed_updated", on_speed_update)
-    await manager.add_to_queue(files)
-    await manager.queue.join()
+    await manager.add(files)
+    await manager.wait_until_complete()
 ```
 
 ### Hash Validation
@@ -277,8 +277,8 @@ files = [
 ]
 
 async with DownloadManager(download_dir=Path("./downloads")) as manager:
-    await manager.add_to_queue(files)
-    await manager.queue.join()
+    await manager.add(files)
+    await manager.wait_until_complete()
 # Download succeeds only if hash matches, otherwise raises HashMismatchError
 ```
 
@@ -309,8 +309,8 @@ file_config = FileConfig(
 tracker = DownloadTracker()
 
 async with DownloadManager(download_dir=Path("./downloads"), tracker=tracker) as manager:
-    await manager.add_to_queue(files)
-    await manager.queue.join()
+    await manager.add(files)
+    await manager.wait_until_complete()
 
 # Check validation results
 for url, info in tracker.get_all_downloads().items():
@@ -370,8 +370,8 @@ files = [
 ]
 
 async with DownloadManager(download_dir=Path("./downloads"), tracker=tracker) as manager:
-    await manager.add_to_queue(files)
-    await manager.queue.join()
+    await manager.add(files)
+    await manager.wait_until_complete()
 
 # Check which failed
 for url, info in tracker.get_all_downloads().items():
@@ -385,8 +385,8 @@ Control when and how downloads stop:
 
 ```python
 # Graceful shutdown - complete current downloads before stopping
-async with DownloadManager(download_dir=Path("./downloads"), max_workers=3) as manager:
-    await manager.add_to_queue(files)
+async with DownloadManager(download_dir=Path("./downloads"), max_concurrent=3) as manager:
+    await manager.add(files)
 
     # Start processing...
     await asyncio.sleep(5)
@@ -400,7 +400,7 @@ async with DownloadManager(download_dir=Path("./downloads"), max_workers=3) as m
 ```python
 # Immediate shutdown - cancel all downloads immediately
 async with DownloadManager(download_dir=Path("./downloads")) as manager:
-    await manager.add_to_queue(large_file_list)
+    await manager.add(large_file_list)
 
     # Start processing...
     await asyncio.sleep(2)

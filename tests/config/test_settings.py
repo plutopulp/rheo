@@ -17,21 +17,21 @@ class TestBuildSettings:
     def test_filters_none_values(self, default_settings):
         """build_settings ignores None overrides."""
         settings = build_settings(
-            max_workers=None,
+            max_concurrent=None,
             log_level=LogLevel.DEBUG,
         )
 
-        assert settings.max_workers == default_settings.max_workers
+        assert settings.max_concurrent == default_settings.max_concurrent
         assert settings.log_level == LogLevel.DEBUG
 
     def test_applies_all_overrides(self):
         """build_settings applies all non-None overrides."""
         settings = build_settings(
-            max_workers=10,
+            max_concurrent=10,
             log_level=LogLevel.ERROR,
             timeout=600.0,
         )
 
-        assert settings.max_workers == 10
+        assert settings.max_concurrent == 10
         assert settings.log_level == LogLevel.ERROR
         assert settings.timeout == 600.0

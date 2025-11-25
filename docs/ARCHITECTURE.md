@@ -227,7 +227,7 @@ Key pieces:
 
 ```text
 1. User creates FileConfig(url="...", priority=1)
-2. User calls manager.add_to_queue([config])
+2. User calls manager.add([config])
 3. Manager adds to PriorityDownloadQueue
 4. Queue sorts by priority
 ```
@@ -359,7 +359,7 @@ Everything takes its dependencies as constructor args:
 ```python
 DownloadManager(
     download_dir=Path(...),
-    max_workers=3,
+    max_concurrent=3,
     queue=custom_queue,           # Optional
     tracker=custom_tracker,       # Optional
     logger=custom_logger,         # Optional
@@ -390,8 +390,8 @@ Manager implements `__aenter__` and `__aexit__`:
 
 ```python
 async with DownloadManager(...) as manager:
-    await manager.add_to_queue(files)
-    await manager.queue.join()
+    await manager.add(files)
+    await manager.wait_until_complete()
 # Workers stopped, HTTP client closed automatically
 ```
 

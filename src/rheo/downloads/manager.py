@@ -4,6 +4,7 @@ This module provides the DownloadManager class which orchestrates multiple
 download workers, manages HTTP sessions, and handles priority queues.
 """
 
+import asyncio
 import ssl
 import typing as t
 from pathlib import Path
@@ -40,14 +41,36 @@ class DownloadManager:
     - Priority queue management
     - Automatic cleanup on exit
 
-    Usage:
+    Basic Usage:
         async with DownloadManager() as manager:
-            await manager.add_to_queue([file_config])
-            await manager.queue.join()
+            await manager.add([file_config])
+            await manager.wait_until_complete()
 
-    Or with custom dependencies:
-        async with DownloadManager(client=custom_session) as manager:
-            # Uses provided session instead of creating one
+    With Configuration:
+        async with DownloadManager(
+            max_concurrent=5,
+            download_dir=Path("./downloads")
+        ) as manager:
+            await manager.add(files)
+            await manager.wait_until_complete()
+
+    Manual Lifecycle (without context manager):
+        manager = DownloadManager()
+        await manager.open()
+        try:
+            await manager.add(files)
+            await manager.wait_until_complete()
+        finally:
+            await manager.close()
+
+    Cancelling Downloads:
+        async with DownloadManager() as manager:
+            await manager.add(files)
+            # Cancel all pending downloads immediately
+            await manager.cancel_all()
+
+            # Or wait for current downloads to finish first
+            await manager.cancel_all(wait_for_current=True)
     """
 
     def __init__(
@@ -57,12 +80,12 @@ class DownloadManager:
         queue: PriorityDownloadQueue | None = None,
         tracker: BaseTracker | None = None,
         timeout: float | None = None,
-        max_workers: int = 3,
+        max_concurrent: int = 3,
         logger: "loguru.Logger" = get_logger(__name__),
         download_dir: Path = Path("."),
         worker_pool_factory: WorkerPoolFactory | None = None,
     ) -> None:
-        """Initialize the download manager.
+        """Initialise the download manager.
 
         Args:
             client: HTTP session for downloads. If None, one will be created.
@@ -73,7 +96,7 @@ class DownloadManager:
                     will be created automatically. Pass NullTracker() to
                     disable tracking.
             timeout: Default timeout for downloads in seconds.
-            max_workers: Maximum number of concurrent workers.
+            max_concurrent: Maximum number of concurrent downloads. Defaults to 3.
             logger: Logger instance for recording manager events.
             download_dir: Directory where downloaded files will be saved.
             worker_pool_factory: Factory for creating the worker pool. If None,
@@ -90,7 +113,7 @@ class DownloadManager:
         )
         self.queue = queue or PriorityDownloadQueue(logger=logger)
         self.timeout = timeout
-        self.max_workers = max_workers
+        self.max_concurrent = max_concurrent
         self.download_dir = download_dir
 
         pool_factory = worker_pool_factory or WorkerPool
@@ -100,7 +123,7 @@ class DownloadManager:
             tracker=self._tracker,
             logger=logger,
             download_dir=download_dir,
-            max_workers=max_workers,
+            max_workers=self.max_concurrent,
         )
 
     @property
@@ -117,8 +140,8 @@ class DownloadManager:
         Example:
             ```python
             async with DownloadManager(download_dir=Path("./downloads")) as manager:
-                await manager.add_to_queue([file_config])
-                await manager.queue.join()
+                await manager.add([file_config])
+                await manager.wait_until_complete()
 
                 # Query download status
                 info = manager.tracker.get_download_info(str(url))
@@ -150,7 +173,7 @@ class DownloadManager:
             self._client = await aiohttp.ClientSession(connector=connector).__aenter__()
             self._owns_client = True
 
-        await self.start_workers()
+        await self._worker_pool.start(self.client)
         return self
 
     async def __aexit__(self, *args: t.Any, **kwargs: t.Any) -> None:
@@ -158,7 +181,7 @@ class DownloadManager:
 
         Cleans up resources, particularly the HTTP client if we created it.
         """
-        await self.stop_workers()
+        await self._worker_pool.stop()
         if self._owns_client and self._client is not None:
             await self._client.__aexit__(*args, **kwargs)
 
@@ -182,42 +205,160 @@ class DownloadManager:
             )
         return self._client
 
-    async def add_to_queue(self, file_configs: t.Sequence[FileConfig]) -> None:
-        """Add download tasks to the priority queue.
+    @property
+    def is_active(self) -> bool:
+        """Check if the manager is active and ready to process downloads.
+
+        Returns True when the manager has been initialised (via open() or
+        context manager entry) and workers are running. Returns False before
+        initialisation or after closing.
+
+        Note: This indicates readiness to accept downloads, not necessarily
+        that downloads are currently in progress.
+
+        Returns:
+            True if manager is active and can process downloads, False otherwise.
+
+        Example:
+            manager = DownloadManager(...)
+            assert not manager.is_active  # Not yet opened
+
+            await manager.open()
+            assert manager.is_active      # Ready to process
+
+            await manager.close()
+            assert not manager.is_active  # Closed
+        """
+        return self._worker_pool.is_running
+
+    async def add(self, files: t.Sequence[FileConfig]) -> None:
+        """Add files to download queue.
+
+        Files will be downloaded concurrently according to their priority.
+        Lower priority numbers are downloaded first.
+
+        Note: You can call this method multiple times. Workers continue
+        processing new files as they're added, even after wait_until_complete()
+        returns.
 
         Args:
-            file_configs: The file configurations to add to the queue.
-        """
-        await self.queue.add(file_configs)
+            files: File configurations to download
 
-    async def shutdown(self, wait_for_current: bool = True) -> None:
-        """Initiate graceful shutdown of all workers.
+        Example:
+            await manager.add([file1, file2])
+            await manager.wait_until_complete()  # Wait for batch 1
+            await manager.add([file3, file4])    # Add more - workers still running
+            await manager.wait_until_complete()  # Wait for batch 2
+        """
+        await self.queue.add(files)
+
+    async def wait_until_complete(self, timeout: float | None = None) -> None:
+        """Wait for all currently queued downloads to complete.
+
+        Blocks until the download queue is empty. Workers remain active after
+        this returns, so you can add more files and call this again.
 
         Args:
-            wait_for_current: If True, wait for current downloads to complete.
-                            If False, cancel immediately via stop_workers().
+            timeout: Optional timeout in seconds. If None, waits indefinitely.
+
+        Raises:
+            asyncio.TimeoutError: If timeout is exceeded
+
+        Example:
+            # Single batch
+            await manager.add([file1, file2, file3])
+            await manager.wait_until_complete()
+
+            # Multiple batches
+            await manager.add([file1, file2])
+            await manager.wait_until_complete(timeout=60)
+            await manager.add([file3])
+            await manager.wait_until_complete()
         """
-        self._logger.debug(f"Initiating shutdown (wait_for_current={wait_for_current})")
+        if timeout:
+            await asyncio.wait_for(self.queue.join(), timeout=timeout)
+        else:
+            await self.queue.join()
+
+    async def cancel_all(self, wait_for_current: bool = False) -> None:
+        """Cancel all pending downloads and stop workers.
+
+        Stops accepting new downloads and cancels pending items in the queue.
+        After calling this, you cannot add more files without restarting the
+        manager (exit and re-enter context manager, or call close() then open()).
+
+        Args:
+            wait_for_current: If True, waits for currently downloading files
+                            to finish before cancelling pending items.
+                            If False, cancels everything immediately including
+                            in-progress downloads.
+
+        Example:
+            # Graceful cancellation
+            await manager.cancel_all(wait_for_current=True)
+
+            # Immediate cancellation
+            await manager.cancel_all(wait_for_current=False)
+        """
         await self._worker_pool.shutdown(wait_for_current=wait_for_current)
 
-    def request_shutdown(self) -> None:
-        """Signal workers to stop accepting new work.
+    async def open(self) -> None:
+        """Manually initialize the manager.
 
-        This is the non-blocking equivalent of initiating shutdown.
-        Workers will finish current tasks (if running) and then exit.
+        Use this if you need manual control over the manager lifecycle
+        instead of using it as a context manager. You must call close()
+        when done to clean up resources.
+
+        This method:
+        - Creates the download directory if it doesn't exist
+        - Creates an HTTP client session (if not provided)
+        - Starts worker tasks to process downloads
+
+        Example:
+            manager = DownloadManager(...)
+            await manager.open()
+            try:
+                await manager.add([file1, file2])
+                await manager.wait_until_complete()
+            finally:
+                await manager.close()
         """
-        self._worker_pool.request_shutdown()
+        # Ensure download directory exists
+        await aiofiles.os.makedirs(self.download_dir, exist_ok=True)
 
-    async def start_workers(self) -> None:
-        """Start worker tasks that process the download queue.
+        if self._client is None:
+            # Create SSL context using certifi's certificate bundle
+            ssl_context = ssl.create_default_context(cafile=certifi.where())
+            connector = aiohttp.TCPConnector(ssl=ssl_context)
+            self._client = await aiohttp.ClientSession(connector=connector).__aenter__()
+            self._owns_client = True
 
-        Delegates to the worker pool to create and manage worker tasks.
-        """
         await self._worker_pool.start(self.client)
 
-    async def stop_workers(self) -> None:
-        """Stop all worker tasks and wait for them to complete.
+    async def close(self, wait_for_current: bool = False) -> None:
+        """Manually clean up manager resources.
 
-        Delegates to the worker pool to stop all workers immediately.
+        Use this to close a manager that was opened with open().
+        This method is idempotent - calling it multiple times is safe.
+
+        Args:
+            wait_for_current: If True, waits for currently downloading files
+                            to finish before stopping. If False, stops
+                            immediately.
+
+        Example:
+            manager = DownloadManager(...)
+            await manager.open()
+            try:
+                await manager.add([file1, file2])
+                await manager.wait_until_complete()
+            finally:
+                await manager.close(wait_for_current=True)
         """
-        await self._worker_pool.stop()
+        if wait_for_current:
+            await self._worker_pool.shutdown(wait_for_current=True)
+        else:
+            await self._worker_pool.stop()
+
+        if self._owns_client and self._client is not None:
+            await self._client.close()

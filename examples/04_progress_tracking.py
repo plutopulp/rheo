@@ -85,12 +85,13 @@ async def main() -> None:
     files = [
         FileConfig(
             url="https://proof.ovh.net/files/100Mb.dat",
+            filename="04-progress-100Mb.dat",
             description="100MB file",
         ),
     ]
 
     async with DownloadManager(
-        max_workers=3,
+        max_concurrent=3,
         download_dir=Path("./downloads"),
     ) as manager:
 
@@ -118,7 +119,8 @@ async def main() -> None:
             print(
                 f"\t{filename:15s} {progress_pct:5.1f}% | "
                 f"{downloaded:>10s}/{total:<10s} | "
-                f"{speed:>10s} | ETA: {eta:>6s}"
+                f"{speed:>10s} | ETA: {eta:>6s}",
+                flush=True,
             )
 
         # Completion handler
@@ -138,11 +140,11 @@ async def main() -> None:
             f"{'Speed':>10s} | {'ETA':>10s}"
         )
 
-        # Queue all downloads
-        await manager.add_to_queue(files)
+        # Add all downloads
+        await manager.add(files)
 
         # Wait for completion
-        await manager.queue.join()
+        await manager.wait_until_complete()
 
         # Show final statistics
         stats = manager.tracker.get_stats()

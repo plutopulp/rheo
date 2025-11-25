@@ -3,6 +3,7 @@
 import asyncio
 import hashlib
 import typing as t
+from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
@@ -26,6 +27,9 @@ from rheo.events import BaseEmitter, EventEmitter
 
 # Type alias for factory-maker function returned by make_mock_worker_factory
 WorkerFactoryMaker = t.Callable[..., WorkerFactory]
+
+# Type alias for manager factory functions
+ManagerFactory = t.Callable[..., DownloadManager]
 
 if t.TYPE_CHECKING:
     from loguru import Logger
@@ -224,7 +228,9 @@ def worker_with_real_events(
 @pytest.fixture
 def real_priority_queue(mock_logger: "Logger") -> PriorityDownloadQueue:
     """Provide a real PriorityDownloadQueue with injected asyncio.PriorityQueue."""
-    async_queue = asyncio.PriorityQueue()
+    async_queue: asyncio.PriorityQueue[t.Tuple[int, int, FileConfig]] = (
+        asyncio.PriorityQueue()
+    )
     return PriorityDownloadQueue(queue=async_queue, logger=mock_logger)
 
 
@@ -278,9 +284,44 @@ def make_file_configs(
 
 @pytest.fixture
 def mock_worker_pool(mocker: MockerFixture) -> Mock:
-    """Create a mock WorkerPool."""
+    """Create a mock WorkerPool with is_running state tracking.
+
+    The pool tracks its running state:
+    - Initially False
+    - True after start() is called
+    - False after shutdown() is called
+    """
     pool = mocker.Mock(spec=BaseWorkerPool)
-    pool.is_running = False
+
+    # Track running state
+    running_state = {"is_running": False}
+
+    # Configure property to return current state
+    type(pool).is_running = mocker.PropertyMock(
+        side_effect=lambda: running_state["is_running"]
+    )
+
+    # Configure start() to set running to True
+    async def mock_start(client: ClientSession) -> None:
+        running_state["is_running"] = True
+
+    pool.start = mocker.AsyncMock(side_effect=mock_start)
+
+    # Configure shutdown() to set running to False
+    async def mock_shutdown(wait_for_current: bool = False) -> None:
+        running_state["is_running"] = False
+
+    pool.shutdown = mocker.AsyncMock(side_effect=mock_shutdown)
+
+    # Configure stop() to set running to False
+    async def mock_stop() -> None:
+        running_state["is_running"] = False
+
+    pool.stop = mocker.AsyncMock(side_effect=mock_stop)
+
+    # Configure request_shutdown() (non-blocking)
+    pool.request_shutdown = mocker.Mock()
+
     return pool
 
 
@@ -292,15 +333,15 @@ def mock_pool_factory(mock_worker_pool: Mock) -> WorkerPoolFactory:
 
 @pytest.fixture
 def make_shutdown_manager(
-    mock_aio_client,
-    mock_worker_factory,
-    real_priority_queue,
-    mock_logger,
-    tmp_path,
-):
+    mock_aio_client: ClientSession,
+    mock_worker_factory: WorkerFactory,
+    real_priority_queue: PriorityDownloadQueue,
+    mock_logger: "Logger",
+    tmp_path: Path,
+) -> ManagerFactory:
     """Factory fixture to create DownloadManager for shutdown tests.
 
-    Returns a factory function that creates managers with customizable max_workers.
+    Returns a factory function that creates managers with customizable max_concurrent.
     All managers share the same mocked dependencies from the test.
 
     Note: Does NOT use mock_pool_factory by default - creates real WorkerPool instances
@@ -308,14 +349,55 @@ def make_shutdown_manager(
     test_pool_integration.py.
     """
 
-    def _create_manager(max_workers: int = 1, worker_factory=None):
+    def _create_manager(
+        max_concurrent: int = 1, worker_factory: WorkerFactory | None = None
+    ) -> DownloadManager:
         return DownloadManager(
             client=mock_aio_client,
             worker_factory=worker_factory or mock_worker_factory,
             queue=real_priority_queue,
-            max_workers=max_workers,
+            max_concurrent=max_concurrent,
             download_dir=tmp_path,
             logger=mock_logger,
+        )
+
+    return _create_manager
+
+
+@pytest.fixture
+def make_manager(
+    mock_aio_client: ClientSession,
+    make_mock_worker_factory: WorkerFactoryMaker,
+    real_priority_queue: PriorityDownloadQueue,
+    mock_logger: "Logger",
+    tmp_path: Path,
+) -> ManagerFactory:
+    """Factory fixture to create DownloadManager for new API tests.
+
+    Returns a factory function that creates managers with customizable
+    download behavior via side effects.
+
+    Usage:
+        manager_factory = make_manager
+        manager = manager_factory(max_concurrent=2, download_side_effect=my_mock)
+    """
+
+    def _create_manager(
+        max_concurrent: int = 1,
+        download_side_effect: t.Callable[..., t.Awaitable[None]] | None = None,
+        **kwargs: t.Any,
+    ) -> DownloadManager:
+        worker_factory = make_mock_worker_factory(
+            download_side_effect=download_side_effect
+        )
+
+        return DownloadManager(
+            client=kwargs.get("client", mock_aio_client),
+            worker_factory=kwargs.get("worker_factory", worker_factory),
+            queue=kwargs.get("queue", real_priority_queue),
+            max_concurrent=max_concurrent,
+            download_dir=kwargs.get("download_dir", tmp_path),
+            logger=kwargs.get("logger", mock_logger),
         )
 
     return _create_manager

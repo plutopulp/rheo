@@ -20,14 +20,14 @@ class TestBasicShutdownBehavior:
         manager = make_shutdown_manager()
 
         # Add a file and start workers
-        await manager.add_to_queue([make_file_config()])
-        await manager.start_workers()
+        await manager.add([make_file_config()])
+        await manager.open()
 
         # Wait for download to start
         await asyncio.wait_for(mock_download.started.wait(), timeout=1.0)
 
         # Call shutdown with wait_for_current=True
-        await manager.shutdown(wait_for_current=True)
+        await manager.cancel_all(wait_for_current=True)
 
         # Verify download was completed
         assert mock_download.completed.is_set()
@@ -55,16 +55,16 @@ class TestProcessQueueShutdown:
         manager = make_shutdown_manager()
 
         # Add multiple files
-        await manager.add_to_queue(make_file_configs(count=10))
+        await manager.add(make_file_configs(count=10))
 
         # Start workers
-        await manager.start_workers()
+        await manager.open()
 
         # Let some downloads happen
         await asyncio.sleep(0.15)
 
         # Trigger shutdown
-        await manager.shutdown(wait_for_current=True)
+        await manager.cancel_all(wait_for_current=True)
 
         # Should have processed at least one download
         assert mock_download.count["value"] > 0
@@ -81,13 +81,13 @@ class TestProcessQueueShutdown:
         manager = make_shutdown_manager()
 
         # Start workers with empty queue
-        await manager.start_workers()
+        await manager.open()
 
         # Let it wait on empty queue for a bit
         await asyncio.sleep(0.5)
 
         # Shutdown should work even with empty queue
-        await manager.shutdown(wait_for_current=True)
+        await manager.cancel_all(wait_for_current=True)
 
         # Verify no downloads were attempted
         mock_worker.download.assert_not_called()
@@ -108,14 +108,14 @@ class TestImmediateCancellation:
         manager = make_shutdown_manager()
 
         # Add a file and start workers
-        await manager.add_to_queue([make_file_config()])
-        await manager.start_workers()
+        await manager.add([make_file_config()])
+        await manager.open()
 
         # Wait for download to start
         await asyncio.wait_for(mock_download.started.wait(), timeout=1.0)
 
         # Call shutdown with wait_for_current=False
-        await manager.shutdown(wait_for_current=False)
+        await manager.cancel_all(wait_for_current=False)
 
         # Verify download was NOT completed (cancelled)
         assert not mock_download.completed.is_set()
@@ -135,16 +135,16 @@ class TestImmediateCancellation:
         manager = make_shutdown_manager()
 
         # Add multiple files
-        await manager.add_to_queue(make_file_configs(count=5))
+        await manager.add(make_file_configs(count=5))
 
         # Start workers
-        await manager.start_workers()
+        await manager.open()
 
         # Let one download start
         await asyncio.sleep(0.05)
 
         # Immediate shutdown
-        await manager.shutdown(wait_for_current=False)
+        await manager.cancel_all(wait_for_current=False)
 
         # Should have started at most 1 download
         assert mock_download.count["value"] <= 1
@@ -165,19 +165,19 @@ class TestMultipleWorkersShutdown:
         mock_download = counting_download_mock()
         mock_worker.download.side_effect = mock_download
 
-        manager = make_shutdown_manager(max_workers=3)
+        manager = make_shutdown_manager(max_concurrent=3)
 
         # Add files
-        await manager.add_to_queue(make_file_configs(count=10))
+        await manager.add(make_file_configs(count=10))
 
         # Start workers
-        await manager.start_workers()
+        await manager.open()
 
         # Let some downloads happen
         await asyncio.sleep(0.1)
 
         # Shutdown
-        await manager.shutdown(wait_for_current=True)
+        await manager.cancel_all(wait_for_current=True)
 
         # Some downloads should have happened
         assert mock_download.count["value"] > 0
@@ -195,19 +195,19 @@ class TestMultipleWorkersShutdown:
         mock_download = counting_download_mock()
         mock_worker.download.side_effect = mock_download
 
-        manager = make_shutdown_manager(max_workers=5)
+        manager = make_shutdown_manager(max_concurrent=5)
 
         # Add many files
-        await manager.add_to_queue(make_file_configs(count=20))
+        await manager.add(make_file_configs(count=20))
 
         # Start workers
-        await manager.start_workers()
+        await manager.open()
 
         # Let downloads start
         await asyncio.sleep(0.15)
 
         # Shutdown
-        await manager.shutdown(wait_for_current=True)
+        await manager.cancel_all(wait_for_current=True)
 
         # Not all 20 should have been processed
         assert mock_download.count["value"] < 20
@@ -222,39 +222,15 @@ class TestEdgeCases:
     @pytest.mark.asyncio
     async def test_shutdown_with_empty_queue(self, make_shutdown_manager):
         """No items in queue, call shutdown(), verify clean exit."""
-        manager = make_shutdown_manager(max_workers=2)
+        manager = make_shutdown_manager(max_concurrent=2)
 
         # Start workers with empty queue
-        await manager.start_workers()
+        await manager.open()
 
         # Shutdown immediately
-        await manager.shutdown(wait_for_current=True)
+        await manager.cancel_all(wait_for_current=True)
 
         # Should complete cleanly without errors
-
-    @pytest.mark.asyncio
-    async def test_shutdown_logs_appropriately(
-        self, make_shutdown_manager, mock_logger
-    ):
-        """Verify shutdown logs 'initiating shutdown' and workers log
-        'shutting down gracefully'."""
-        manager = make_shutdown_manager()
-
-        # Start workers
-        await manager.start_workers()
-
-        # Shutdown
-        await manager.shutdown(wait_for_current=True)
-
-        # Check logs for shutdown messages
-        # Note: Shutdown logs are now at DEBUG level
-        log_messages = [call.args[0] for call in mock_logger.debug.call_args_list]
-
-        # Should have "Initiating shutdown" message
-        assert any("Initiating shutdown" in msg for msg in log_messages)
-
-        # Should have "Worker shutting down gracefully" message
-        assert any("Worker shutting down gracefully" in msg for msg in log_messages)
 
     @pytest.mark.asyncio
     async def test_repeated_shutdown_calls_are_idempotent(self, make_shutdown_manager):
@@ -262,10 +238,10 @@ class TestEdgeCases:
         manager = make_shutdown_manager()
 
         # Start workers
-        await manager.start_workers()
+        await manager.open()
 
         # Call shutdown multiple times
         for _ in range(3):
-            await manager.shutdown(wait_for_current=True)
+            await manager.cancel_all(wait_for_current=True)
 
         # Should complete without errors

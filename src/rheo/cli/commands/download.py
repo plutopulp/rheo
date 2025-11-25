@@ -96,7 +96,7 @@ async def download_file(
     try:
         # Create and queue download
         file_config = FileConfig(url=url, filename=filename, hash_config=hash_config)
-        await manager.add_to_queue([file_config])
+        await manager.add([file_config])
         await manager.queue.join()
 
         # Query final state to determine exit code

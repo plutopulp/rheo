@@ -42,17 +42,23 @@ class TestDownloadManagerPoolIntegration:
         mock_worker_pool: Mock,
         mock_pool_factory: WorkerPoolFactory,
         mock_aio_client: aiohttp.ClientSession,
+        tmp_path,
     ):
-        """start_workers should call pool.start()."""
+        """open() should create client and call pool.start() with correct client."""
         manager = DownloadManager(
             logger=mock_logger,
             worker_pool_factory=mock_pool_factory,
             client=mock_aio_client,
+            download_dir=tmp_path,
         )
 
-        await manager.start_workers()
+        await manager.open()
 
+        # Should have started workers with the client
         mock_worker_pool.start.assert_called_once_with(mock_aio_client)
+
+        # Cleanup
+        await manager.close()
 
     @pytest.mark.asyncio
     async def test_stop_workers_delegates_to_pool(
@@ -60,49 +66,77 @@ class TestDownloadManagerPoolIntegration:
         mock_logger: "Logger",
         mock_worker_pool: Mock,
         mock_pool_factory: WorkerPoolFactory,
-        mock_aio_client: aiohttp.ClientSession,
+        tmp_path,
     ):
-        """stop_workers should call pool.stop()."""
+        """close() should call pool.stop() and clean up client."""
         manager = DownloadManager(
             logger=mock_logger,
             worker_pool_factory=mock_pool_factory,
-            client=mock_aio_client,
+            download_dir=tmp_path,
         )
 
-        await manager.stop_workers()
+        await manager.open()
+        client = manager._client
 
+        await manager.close()
+
+        # Should have stopped workers
         mock_worker_pool.stop.assert_called_once()
 
+        # Should have closed client (if we owned it)
+        assert client.closed
+
     @pytest.mark.asyncio
-    async def test_shutdown_delegates_to_pool(
-        self,
-        mock_logger: "Logger",
-        mock_worker_pool: Mock,
-        mock_pool_factory: WorkerPoolFactory,
-        mock_aio_client: aiohttp.ClientSession,
-    ):
-        """shutdown should call pool.shutdown()."""
-        manager = DownloadManager(
-            logger=mock_logger,
-            worker_pool_factory=mock_pool_factory,
-            client=mock_aio_client,
-        )
-
-        await manager.shutdown(wait_for_current=False)
-
-        mock_worker_pool.shutdown.assert_called_once_with(wait_for_current=False)
-
-    def test_request_shutdown_delegates_to_pool(
+    async def test_cancel_all_delegates_to_pool_shutdown(
         self,
         mock_logger: "Logger",
         mock_worker_pool: Mock,
         mock_pool_factory: WorkerPoolFactory,
     ):
-        """request_shutdown should call pool.request_shutdown()."""
+        """cancel_all() should delegate to pool.shutdown() with correct parameters."""
         manager = DownloadManager(
             logger=mock_logger, worker_pool_factory=mock_pool_factory
         )
 
-        manager.request_shutdown()
+        await manager.cancel_all()
 
-        mock_worker_pool.request_shutdown.assert_called_once()
+        # Verify delegation with default parameter
+        mock_worker_pool.shutdown.assert_called_once_with(wait_for_current=False)
+
+    @pytest.mark.asyncio
+    async def test_cancel_all_with_wait_for_current(
+        self,
+        mock_logger: "Logger",
+        mock_worker_pool: Mock,
+        mock_pool_factory: WorkerPoolFactory,
+    ):
+        """cancel_all() should respect wait_for_current parameter."""
+        manager = DownloadManager(
+            logger=mock_logger, worker_pool_factory=mock_pool_factory
+        )
+
+        await manager.cancel_all(wait_for_current=True)
+
+        # Verify delegation with wait_for_current=True
+        mock_worker_pool.shutdown.assert_called_once_with(wait_for_current=True)
+
+    @pytest.mark.asyncio
+    async def test_close_with_wait_for_current(
+        self,
+        mock_logger: "Logger",
+        mock_worker_pool: Mock,
+        mock_pool_factory: WorkerPoolFactory,
+        tmp_path,
+    ):
+        """close() should call shutdown when wait_for_current=True."""
+        manager = DownloadManager(
+            logger=mock_logger,
+            worker_pool_factory=mock_pool_factory,
+            download_dir=tmp_path,
+        )
+
+        await manager.open()
+        await manager.close(wait_for_current=True)
+
+        # Should call shutdown instead of stop when wait_for_current=True
+        mock_worker_pool.shutdown.assert_called_once_with(wait_for_current=True)

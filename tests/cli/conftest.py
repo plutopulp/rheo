@@ -20,7 +20,7 @@ def cli_runner():
 def test_settings():
     """Provide test Settings with known values."""
     return Settings(
-        max_workers=5,
+        max_concurrent=5,
         log_level=LogLevel.DEBUG,
         chunk_size=16384,
         timeout=600.0,

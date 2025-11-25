@@ -32,9 +32,9 @@ async def main():
         FileConfig(url="https://example.com/file2.pdf", priority=2),
     ]
 
-    async with DownloadManager(download_dir=Path("./downloads"), max_workers=3) as manager:
-        await manager.add_to_queue(files)
-        await manager.queue.join()
+    async with DownloadManager(download_dir=Path("./downloads"), max_concurrent=3) as manager:
+        await manager.add(files)
+        await manager.wait_until_complete()
 
     print("All downloads complete!")
 
