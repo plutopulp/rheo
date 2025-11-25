@@ -2,9 +2,11 @@
 
 import asyncio
 import hashlib
+import typing as t
 
 import pytest
 from aiohttp import ClientSession
+from pytest_mock import MockerFixture
 
 from rheo.domain.file_config import FileConfig
 from rheo.domain.hash_validation import HashAlgorithm
@@ -16,7 +18,11 @@ from rheo.downloads import (
     PriorityDownloadQueue,
     RetryHandler,
 )
+from rheo.downloads.worker.factory import WorkerFactory
 from rheo.events import EventEmitter
+
+# Type alias for factory-maker function returned by make_mock_worker_factory
+WorkerFactoryMaker = t.Callable[..., WorkerFactory]
 
 
 @pytest.fixture
@@ -81,13 +87,48 @@ def isolated_mock_worker_factory(mocker):
 
     def _factory(client, logger, emitter):
         worker = mocker.Mock(spec=DownloadWorker)
-        worker.download = mocker.AsyncMock()
-        worker.emitter = emitter  # Use emitter created by manager for this worker
         created_mocks.append(worker)
         return worker
 
     _factory.created_mocks = created_mocks  # For inspection in tests
     return _factory
+
+
+@pytest.fixture
+def make_mock_worker_factory(mocker: MockerFixture) -> WorkerFactoryMaker:
+    """Factory fixture that creates customizable mock worker factories.
+
+    Returns a function that accepts optional download side effect and returns
+    a WorkerFactory suitable for dependency injection.
+
+    Usage:
+        worker_factory = make_mock_worker_factory(download_side_effect=my_mock)
+        pool = WorkerPool(..., worker_factory=worker_factory)
+    """
+
+    def _make_factory(
+        download_side_effect: t.Callable[..., t.Awaitable[None]] | None = None,
+    ) -> WorkerFactory:
+        """Create a worker factory with custom download behavior.
+
+        Args:
+            download_side_effect: Optional async callable to use as download mock.
+                                 Can be a coroutine, AsyncMock, or slow_download_mock().
+
+        Returns:
+            WorkerFactory that creates mocked workers with specified behavior.
+        """
+
+        def _factory(client, logger, emitter):
+            worker = mocker.Mock(spec=DownloadWorker)
+            worker.emitter = emitter
+            if download_side_effect is not None:
+                worker.download = mocker.AsyncMock(side_effect=download_side_effect)
+            return worker
+
+        return _factory
+
+    return _make_factory
 
 
 @pytest.fixture
