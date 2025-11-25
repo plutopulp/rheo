@@ -41,14 +41,36 @@ class DownloadManager:
     - Priority queue management
     - Automatic cleanup on exit
 
-    Usage:
+    Basic Usage:
         async with DownloadManager() as manager:
-            await manager.add_to_queue([file_config])
-            await manager.queue.join()
+            await manager.add([file_config])
+            await manager.wait_until_complete()
 
-    Or with custom dependencies:
-        async with DownloadManager(client=custom_session) as manager:
-            # Uses provided session instead of creating one
+    With Configuration:
+        async with DownloadManager(
+            max_concurrent=5,
+            download_dir=Path("./downloads")
+        ) as manager:
+            await manager.add(files)
+            await manager.wait_until_complete()
+
+    Manual Lifecycle (without context manager):
+        manager = DownloadManager()
+        await manager.open()
+        try:
+            await manager.add(files)
+            await manager.wait_until_complete()
+        finally:
+            await manager.close()
+
+    Cancelling Downloads:
+        async with DownloadManager() as manager:
+            await manager.add(files)
+            # Cancel all pending downloads immediately
+            await manager.cancel_all()
+
+            # Or wait for current downloads to finish first
+            await manager.cancel_all(wait_for_current=True)
     """
 
     def __init__(
@@ -118,8 +140,8 @@ class DownloadManager:
         Example:
             ```python
             async with DownloadManager(download_dir=Path("./downloads")) as manager:
-                await manager.add_to_queue([file_config])
-                await manager.queue.join()
+                await manager.add([file_config])
+                await manager.wait_until_complete()
 
                 # Query download status
                 info = manager.tracker.get_download_info(str(url))
