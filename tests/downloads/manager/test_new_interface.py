@@ -79,7 +79,7 @@ class TestNewDownloadAPI:
         download_mock = counting_download_mock(download_time=0.01)
 
         async with make_manager(
-            max_workers=2, download_side_effect=download_mock
+            max_concurrent=2, download_side_effect=download_mock
         ) as manager:
             # First batch
             batch1 = make_file_configs(count=2)
@@ -220,7 +220,7 @@ class TestManualLifecycle:
     ):
         """Test using manager with manual open/close instead of context manager."""
         download_mock = counting_download_mock(download_time=0.01)
-        manager = make_manager(max_workers=2, download_side_effect=download_mock)
+        manager = make_manager(max_concurrent=2, download_side_effect=download_mock)
 
         # Use manual lifecycle
         await manager.open()
@@ -291,7 +291,7 @@ class TestIsActiveProperty:
     ):
         """Test is_active property throughout context manager lifecycle."""
         download_mock = counting_download_mock(download_time=0.01)
-        manager = make_manager(max_workers=1, download_side_effect=download_mock)
+        manager = make_manager(max_concurrent=1, download_side_effect=download_mock)
 
         # Before entering context
         assert manager.is_active is False

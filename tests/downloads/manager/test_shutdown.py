@@ -165,7 +165,7 @@ class TestMultipleWorkersShutdown:
         mock_download = counting_download_mock()
         mock_worker.download.side_effect = mock_download
 
-        manager = make_shutdown_manager(max_workers=3)
+        manager = make_shutdown_manager(max_concurrent=3)
 
         # Add files
         await manager.add_to_queue(make_file_configs(count=10))
@@ -195,7 +195,7 @@ class TestMultipleWorkersShutdown:
         mock_download = counting_download_mock()
         mock_worker.download.side_effect = mock_download
 
-        manager = make_shutdown_manager(max_workers=5)
+        manager = make_shutdown_manager(max_concurrent=5)
 
         # Add many files
         await manager.add_to_queue(make_file_configs(count=20))
@@ -222,7 +222,7 @@ class TestEdgeCases:
     @pytest.mark.asyncio
     async def test_shutdown_with_empty_queue(self, make_shutdown_manager):
         """No items in queue, call shutdown(), verify clean exit."""
-        manager = make_shutdown_manager(max_workers=2)
+        manager = make_shutdown_manager(max_concurrent=2)
 
         # Start workers with empty queue
         await manager.start_workers()

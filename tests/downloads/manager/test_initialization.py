@@ -20,7 +20,7 @@ class TestDownloadManagerInitialization:
 
         # Should have defaults set
         assert manager.timeout is None
-        assert manager.max_workers == 3
+        assert manager.max_concurrent == 3
         assert isinstance(manager.queue, PriorityDownloadQueue)
         assert manager._client is None
         assert (
@@ -33,11 +33,11 @@ class TestDownloadManagerInitialization:
         custom_queue = PriorityDownloadQueue(logger=mock_logger)
 
         manager = DownloadManager(
-            timeout=30.0, max_workers=5, queue=custom_queue, logger=mock_logger
+            timeout=30.0, max_concurrent=5, queue=custom_queue, logger=mock_logger
         )
 
         assert manager.timeout == 30.0
-        assert manager.max_workers == 5
+        assert manager.max_concurrent == 5
         assert manager.queue is custom_queue
 
     def test_init_with_provided_client(self, aio_client, mock_logger):

@@ -341,7 +341,7 @@ def make_shutdown_manager(
 ) -> ManagerFactory:
     """Factory fixture to create DownloadManager for shutdown tests.
 
-    Returns a factory function that creates managers with customizable max_workers.
+    Returns a factory function that creates managers with customizable max_concurrent.
     All managers share the same mocked dependencies from the test.
 
     Note: Does NOT use mock_pool_factory by default - creates real WorkerPool instances
@@ -350,13 +350,13 @@ def make_shutdown_manager(
     """
 
     def _create_manager(
-        max_workers: int = 1, worker_factory: WorkerFactory | None = None
+        max_concurrent: int = 1, worker_factory: WorkerFactory | None = None
     ) -> DownloadManager:
         return DownloadManager(
             client=mock_aio_client,
             worker_factory=worker_factory or mock_worker_factory,
             queue=real_priority_queue,
-            max_workers=max_workers,
+            max_concurrent=max_concurrent,
             download_dir=tmp_path,
             logger=mock_logger,
         )
@@ -379,11 +379,11 @@ def make_manager(
 
     Usage:
         manager_factory = make_manager
-        manager = manager_factory(max_workers=2, download_side_effect=my_mock)
+        manager = manager_factory(max_concurrent=2, download_side_effect=my_mock)
     """
 
     def _create_manager(
-        max_workers: int = 1,
+        max_concurrent: int = 1,
         download_side_effect: t.Callable[..., t.Awaitable[None]] | None = None,
         **kwargs: t.Any,
     ) -> DownloadManager:
@@ -395,7 +395,7 @@ def make_manager(
             client=kwargs.get("client", mock_aio_client),
             worker_factory=kwargs.get("worker_factory", worker_factory),
             queue=kwargs.get("queue", real_priority_queue),
-            max_workers=max_workers,
+            max_concurrent=max_concurrent,
             download_dir=kwargs.get("download_dir", tmp_path),
             logger=kwargs.get("logger", mock_logger),
         )

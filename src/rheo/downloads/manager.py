@@ -58,12 +58,12 @@ class DownloadManager:
         queue: PriorityDownloadQueue | None = None,
         tracker: BaseTracker | None = None,
         timeout: float | None = None,
-        max_workers: int = 3,
+        max_concurrent: int = 3,
         logger: "loguru.Logger" = get_logger(__name__),
         download_dir: Path = Path("."),
         worker_pool_factory: WorkerPoolFactory | None = None,
     ) -> None:
-        """Initialize the download manager.
+        """Initialise the download manager.
 
         Args:
             client: HTTP session for downloads. If None, one will be created.
@@ -74,7 +74,7 @@ class DownloadManager:
                     will be created automatically. Pass NullTracker() to
                     disable tracking.
             timeout: Default timeout for downloads in seconds.
-            max_workers: Maximum number of concurrent workers.
+            max_concurrent: Maximum number of concurrent downloads. Defaults to 3.
             logger: Logger instance for recording manager events.
             download_dir: Directory where downloaded files will be saved.
             worker_pool_factory: Factory for creating the worker pool. If None,
@@ -91,7 +91,7 @@ class DownloadManager:
         )
         self.queue = queue or PriorityDownloadQueue(logger=logger)
         self.timeout = timeout
-        self.max_workers = max_workers
+        self.max_concurrent = max_concurrent
         self.download_dir = download_dir
 
         pool_factory = worker_pool_factory or WorkerPool
@@ -101,7 +101,7 @@ class DownloadManager:
             tracker=self._tracker,
             logger=logger,
             download_dir=download_dir,
-            max_workers=max_workers,
+            max_workers=self.max_concurrent,
         )
 
     @property

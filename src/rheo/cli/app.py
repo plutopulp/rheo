@@ -60,7 +60,7 @@ def create_cli_app(
         else:
             resolved_settings = build_settings(
                 download_dir=download_dir,
-                max_workers=workers,
+                max_concurrent=workers,
                 log_level=LogLevel.DEBUG if verbose else None,
             )
             ctx.obj = CLIState(resolved_settings)

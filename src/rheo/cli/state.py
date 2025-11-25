@@ -23,7 +23,7 @@ class ManagerOverrides(t.TypedDict, total=False):
     worker: DownloadWorker | None
     queue: PriorityDownloadQueue | None
     timeout: float | None
-    max_workers: int
+    max_concurrent: int
     logger: "loguru.Logger"
 
 
@@ -69,7 +69,7 @@ class CLIState:
         params: dict[str, t.Any] = {
             "download_dir": download_dir or self.settings.download_dir,
             "tracker": tracker,
-            "max_workers": self.settings.max_workers,
+            "max_concurrent": self.settings.max_concurrent,
             "timeout": self.settings.timeout,
         }
         # Overrides take precedence over defaults

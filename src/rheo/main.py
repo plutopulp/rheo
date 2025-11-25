@@ -88,7 +88,7 @@ async def main() -> App:
 
     async with DownloadManager(
         download_dir=Path(app.settings.download_dir),
-        max_workers=3,
+        max_concurrent=3,
         logger=logger,
     ) as manager:
         # Add files to priority queue
