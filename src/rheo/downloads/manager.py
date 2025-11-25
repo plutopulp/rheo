@@ -4,6 +4,7 @@ This module provides the DownloadManager class which orchestrates multiple
 download workers, manages HTTP sessions, and handles priority queues.
 """
 
+import asyncio
 import ssl
 import typing as t
 from pathlib import Path
@@ -181,6 +182,77 @@ class DownloadManager:
                 )
             )
         return self._client
+
+    async def add(self, files: t.Sequence[FileConfig]) -> None:
+        """Add files to download queue.
+
+        Files will be downloaded concurrently according to their priority.
+        Lower priority numbers are downloaded first.
+
+        Note: You can call this method multiple times. Workers continue
+        processing new files as they're added, even after wait_until_complete()
+        returns.
+
+        Args:
+            files: File configurations to download
+
+        Example:
+            await manager.add([file1, file2])
+            await manager.wait_until_complete()  # Wait for batch 1
+            await manager.add([file3, file4])    # Add more - workers still running
+            await manager.wait_until_complete()  # Wait for batch 2
+        """
+        await self.queue.add(files)
+
+    async def wait_until_complete(self, timeout: float | None = None) -> None:
+        """Wait for all currently queued downloads to complete.
+
+        Blocks until the download queue is empty. Workers remain active after
+        this returns, so you can add more files and call this again.
+
+        Args:
+            timeout: Optional timeout in seconds. If None, waits indefinitely.
+
+        Raises:
+            asyncio.TimeoutError: If timeout is exceeded
+
+        Example:
+            # Single batch
+            await manager.add([file1, file2, file3])
+            await manager.wait_until_complete()
+
+            # Multiple batches
+            await manager.add([file1, file2])
+            await manager.wait_until_complete(timeout=60)
+            await manager.add([file3])
+            await manager.wait_until_complete()
+        """
+        if timeout:
+            await asyncio.wait_for(self.queue.join(), timeout=timeout)
+        else:
+            await self.queue.join()
+
+    async def cancel_all(self, wait_for_current: bool = False) -> None:
+        """Cancel all pending downloads and stop workers.
+
+        Stops accepting new downloads and cancels pending items in the queue.
+        After calling this, you cannot add more files without restarting the
+        manager (exit and re-enter context manager, or call close() then open()).
+
+        Args:
+            wait_for_current: If True, waits for currently downloading files
+                            to finish before cancelling pending items.
+                            If False, cancels everything immediately including
+                            in-progress downloads.
+
+        Example:
+            # Graceful cancellation
+            await manager.cancel_all(wait_for_current=True)
+
+            # Immediate cancellation
+            await manager.cancel_all(wait_for_current=False)
+        """
+        await self._worker_pool.shutdown(wait_for_current=wait_for_current)
 
     async def add_to_queue(self, file_configs: t.Sequence[FileConfig]) -> None:
         """Add download tasks to the priority queue.

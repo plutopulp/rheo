@@ -3,6 +3,7 @@
 import asyncio
 import hashlib
 import typing as t
+from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
@@ -26,6 +27,9 @@ from rheo.events import BaseEmitter, EventEmitter
 
 # Type alias for factory-maker function returned by make_mock_worker_factory
 WorkerFactoryMaker = t.Callable[..., WorkerFactory]
+
+# Type alias for manager factory functions
+ManagerFactory = t.Callable[..., DownloadManager]
 
 if t.TYPE_CHECKING:
     from loguru import Logger
@@ -224,7 +228,9 @@ def worker_with_real_events(
 @pytest.fixture
 def real_priority_queue(mock_logger: "Logger") -> PriorityDownloadQueue:
     """Provide a real PriorityDownloadQueue with injected asyncio.PriorityQueue."""
-    async_queue = asyncio.PriorityQueue()
+    async_queue: asyncio.PriorityQueue[t.Tuple[int, int, FileConfig]] = (
+        asyncio.PriorityQueue()
+    )
     return PriorityDownloadQueue(queue=async_queue, logger=mock_logger)
 
 
@@ -292,12 +298,12 @@ def mock_pool_factory(mock_worker_pool: Mock) -> WorkerPoolFactory:
 
 @pytest.fixture
 def make_shutdown_manager(
-    mock_aio_client,
-    mock_worker_factory,
-    real_priority_queue,
-    mock_logger,
-    tmp_path,
-):
+    mock_aio_client: ClientSession,
+    mock_worker_factory: WorkerFactory,
+    real_priority_queue: PriorityDownloadQueue,
+    mock_logger: "Logger",
+    tmp_path: Path,
+) -> ManagerFactory:
     """Factory fixture to create DownloadManager for shutdown tests.
 
     Returns a factory function that creates managers with customizable max_workers.
@@ -308,7 +314,9 @@ def make_shutdown_manager(
     test_pool_integration.py.
     """
 
-    def _create_manager(max_workers: int = 1, worker_factory=None):
+    def _create_manager(
+        max_workers: int = 1, worker_factory: WorkerFactory | None = None
+    ) -> DownloadManager:
         return DownloadManager(
             client=mock_aio_client,
             worker_factory=worker_factory or mock_worker_factory,
@@ -316,6 +324,45 @@ def make_shutdown_manager(
             max_workers=max_workers,
             download_dir=tmp_path,
             logger=mock_logger,
+        )
+
+    return _create_manager
+
+
+@pytest.fixture
+def make_manager(
+    mock_aio_client: ClientSession,
+    make_mock_worker_factory: WorkerFactoryMaker,
+    real_priority_queue: PriorityDownloadQueue,
+    mock_logger: "Logger",
+    tmp_path: Path,
+) -> ManagerFactory:
+    """Factory fixture to create DownloadManager for new API tests.
+
+    Returns a factory function that creates managers with customizable
+    download behavior via side effects.
+
+    Usage:
+        manager_factory = make_manager
+        manager = manager_factory(max_workers=2, download_side_effect=my_mock)
+    """
+
+    def _create_manager(
+        max_workers: int = 1,
+        download_side_effect: t.Callable[..., t.Awaitable[None]] | None = None,
+        **kwargs: t.Any,
+    ) -> DownloadManager:
+        worker_factory = make_mock_worker_factory(
+            download_side_effect=download_side_effect
+        )
+
+        return DownloadManager(
+            client=kwargs.get("client", mock_aio_client),
+            worker_factory=kwargs.get("worker_factory", worker_factory),
+            queue=kwargs.get("queue", real_priority_queue),
+            max_workers=max_workers,
+            download_dir=kwargs.get("download_dir", tmp_path),
+            logger=kwargs.get("logger", mock_logger),
         )
 
     return _create_manager
