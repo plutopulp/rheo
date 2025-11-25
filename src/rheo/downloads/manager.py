@@ -254,6 +254,67 @@ class DownloadManager:
         """
         await self._worker_pool.shutdown(wait_for_current=wait_for_current)
 
+    async def open(self) -> None:
+        """Manually initialize the manager.
+
+        Use this if you need manual control over the manager lifecycle
+        instead of using it as a context manager. You must call close()
+        when done to clean up resources.
+
+        This method:
+        - Creates the download directory if it doesn't exist
+        - Creates an HTTP client session (if not provided)
+        - Starts worker tasks to process downloads
+
+        Example:
+            manager = DownloadManager(...)
+            await manager.open()
+            try:
+                await manager.add([file1, file2])
+                await manager.wait_until_complete()
+            finally:
+                await manager.close()
+        """
+        # Ensure download directory exists
+        await aiofiles.os.makedirs(self.download_dir, exist_ok=True)
+
+        if self._client is None:
+            # Create SSL context using certifi's certificate bundle
+            ssl_context = ssl.create_default_context(cafile=certifi.where())
+            connector = aiohttp.TCPConnector(ssl=ssl_context)
+            self._client = await aiohttp.ClientSession(connector=connector).__aenter__()
+            self._owns_client = True
+
+        await self.start_workers()
+
+    async def close(self, wait_for_current: bool = False) -> None:
+        """Manually clean up manager resources.
+
+        Use this to close a manager that was opened with open().
+        This method is idempotent - calling it multiple times is safe.
+
+        Args:
+            wait_for_current: If True, waits for currently downloading files
+                            to finish before stopping. If False, stops
+                            immediately.
+
+        Example:
+            manager = DownloadManager(...)
+            await manager.open()
+            try:
+                await manager.add([file1, file2])
+                await manager.wait_until_complete()
+            finally:
+                await manager.close(wait_for_current=True)
+        """
+        if wait_for_current:
+            await self._worker_pool.shutdown(wait_for_current=True)
+        else:
+            await self.stop_workers()
+
+        if self._owns_client and self._client is not None:
+            await self._client.close()
+
     async def add_to_queue(self, file_configs: t.Sequence[FileConfig]) -> None:
         """Add download tasks to the priority queue.
 

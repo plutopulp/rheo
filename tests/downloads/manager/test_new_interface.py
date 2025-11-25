@@ -132,3 +132,110 @@ class TestNewDownloadAPI:
 
         # Verify delegation with wait_for_current=True
         mock_worker_pool.shutdown.assert_called_once_with(wait_for_current=True)
+
+
+class TestManualLifecycle:
+    """Test manual lifecycle management with open() and close()."""
+
+    @pytest.mark.asyncio
+    async def test_open_initialises_manager(
+        self,
+        mock_logger: "Logger",
+        mock_worker_pool,
+        mock_pool_factory,
+        tmp_path,
+    ):
+        """Test that open() creates client and starts workers."""
+        manager = DownloadManager(
+            logger=mock_logger,
+            worker_pool_factory=mock_pool_factory,
+            download_dir=tmp_path,
+        )
+
+        await manager.open()
+
+        # Should have created client
+        assert manager._client is not None
+        assert manager._owns_client is True
+
+        # Should have started workers
+        mock_worker_pool.start.assert_called_once()
+
+        # Cleanup
+        await manager.close()
+
+    @pytest.mark.asyncio
+    async def test_close_cleans_up(
+        self,
+        mock_logger: "Logger",
+        mock_worker_pool,
+        mock_pool_factory,
+        tmp_path,
+    ):
+        """Test that close() stops workers and closes client."""
+        manager = DownloadManager(
+            logger=mock_logger,
+            worker_pool_factory=mock_pool_factory,
+            download_dir=tmp_path,
+        )
+
+        await manager.open()
+        client = manager._client
+
+        await manager.close()
+
+        # Should have stopped workers
+        mock_worker_pool.stop.assert_called_once()
+
+        # Should have closed client (if we owned it)
+        assert client.closed
+
+    @pytest.mark.asyncio
+    async def test_close_with_wait_for_current(
+        self,
+        mock_logger: "Logger",
+        mock_worker_pool,
+        mock_pool_factory,
+        tmp_path,
+    ):
+        """Test that close() respects wait_for_current parameter."""
+        manager = DownloadManager(
+            logger=mock_logger,
+            worker_pool_factory=mock_pool_factory,
+            download_dir=tmp_path,
+        )
+
+        await manager.open()
+        await manager.close(wait_for_current=True)
+
+        # Should call shutdown instead of stop when wait_for_current=True
+        mock_worker_pool.shutdown.assert_called_once_with(wait_for_current=True)
+
+    @pytest.mark.asyncio
+    async def test_manual_lifecycle_without_context_manager(
+        self,
+        make_manager,
+        make_file_configs,
+        counting_download_mock,
+    ):
+        """Test using manager with manual open/close instead of context manager."""
+        download_mock = counting_download_mock(download_time=0.01)
+        manager = make_manager(max_workers=2, download_side_effect=download_mock)
+
+        # Use manual lifecycle
+        await manager.open()
+
+        try:
+            # Add and wait for downloads
+            batch1 = make_file_configs(count=2)
+            await manager.add(batch1)
+            await manager.wait_until_complete()
+            assert download_mock.count["value"] == 2
+
+            # Can add more
+            batch2 = make_file_configs(count=1)
+            await manager.add(batch2)
+            await manager.wait_until_complete()
+            assert download_mock.count["value"] == 3
+        finally:
+            await manager.close()
