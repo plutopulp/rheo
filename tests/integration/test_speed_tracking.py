@@ -42,7 +42,7 @@ class TestSpeedTrackingIntegration:
     ):
         """Test that speed metrics are tracked through queue flow."""
         file_config = FileConfig(url=test_data.url, priority=1)
-        await manager_with_tracker.add_to_queue([file_config])
+        await manager_with_tracker.add([file_config])
 
         with aioresponses() as mock:
             mock.get(
@@ -65,7 +65,7 @@ class TestSpeedTrackingIntegration:
     ):
         """Test that average speed is persisted in DownloadInfo after completion."""
         file_config = FileConfig(url=test_data.url, priority=1)
-        await manager_with_tracker.add_to_queue([file_config])
+        await manager_with_tracker.add([file_config])
 
         with aioresponses() as mock:
             mock.get(
@@ -93,7 +93,7 @@ class TestSpeedTrackingIntegration:
     ):
         """Test that average speed is persisted even when download fails."""
         file_config = FileConfig(url=test_data.url, priority=1)
-        await manager_with_tracker.add_to_queue([file_config])
+        await manager_with_tracker.add([file_config])
 
         with aioresponses() as mock:
             # Simulate server error
@@ -132,7 +132,7 @@ class TestSpeedTrackingIntegration:
             FileConfig(url=url2, priority=1),
             FileConfig(url=url3, priority=1),
         ]
-        await manager_with_tracker.add_to_queue(file_configs)
+        await manager_with_tracker.add(file_configs)
 
         with aioresponses() as mock:
             mock.get(
@@ -189,7 +189,7 @@ class TestSpeedTrackingIntegration:
         speed_metrics_seen = []
 
         file_config = FileConfig(url=test_data.url, priority=1)
-        await manager_with_tracker.add_to_queue([file_config])
+        await manager_with_tracker.add([file_config])
 
         async def check_speed_metrics(manager):
             """Periodically check if speed metrics are available."""
@@ -224,7 +224,7 @@ class TestSpeedTrackingIntegration:
     ):
         """Test speed tracking when Content-Length is not provided."""
         file_config = FileConfig(url=test_data.url, priority=1)
-        await manager_with_tracker.add_to_queue([file_config])
+        await manager_with_tracker.add([file_config])
 
         with aioresponses() as mock:
             # No Content-Length header

@@ -92,7 +92,7 @@ async def main() -> App:
         logger=logger,
     ) as manager:
         # Add files to priority queue
-        await manager.add_to_queue(file_configs)
+        await manager.add(file_configs)
 
         # Wait for queue to complete
         # Note: In production, you'd want better error handling per-file

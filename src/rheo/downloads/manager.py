@@ -151,7 +151,7 @@ class DownloadManager:
             self._client = await aiohttp.ClientSession(connector=connector).__aenter__()
             self._owns_client = True
 
-        await self.start_workers()
+        await self._worker_pool.start(self.client)
         return self
 
     async def __aexit__(self, *args: t.Any, **kwargs: t.Any) -> None:
@@ -159,7 +159,7 @@ class DownloadManager:
 
         Cleans up resources, particularly the HTTP client if we created it.
         """
-        await self.stop_workers()
+        await self._worker_pool.stop()
         if self._owns_client and self._client is not None:
             await self._client.__aexit__(*args, **kwargs)
 
@@ -311,7 +311,7 @@ class DownloadManager:
             self._client = await aiohttp.ClientSession(connector=connector).__aenter__()
             self._owns_client = True
 
-        await self.start_workers()
+        await self._worker_pool.start(self.client)
 
     async def close(self, wait_for_current: bool = False) -> None:
         """Manually clean up manager resources.
@@ -336,47 +336,7 @@ class DownloadManager:
         if wait_for_current:
             await self._worker_pool.shutdown(wait_for_current=True)
         else:
-            await self.stop_workers()
+            await self._worker_pool.stop()
 
         if self._owns_client and self._client is not None:
             await self._client.close()
-
-    async def add_to_queue(self, file_configs: t.Sequence[FileConfig]) -> None:
-        """Add download tasks to the priority queue.
-
-        Args:
-            file_configs: The file configurations to add to the queue.
-        """
-        await self.queue.add(file_configs)
-
-    async def shutdown(self, wait_for_current: bool = True) -> None:
-        """Initiate graceful shutdown of all workers.
-
-        Args:
-            wait_for_current: If True, wait for current downloads to complete.
-                            If False, cancel immediately via stop_workers().
-        """
-        self._logger.debug(f"Initiating shutdown (wait_for_current={wait_for_current})")
-        await self._worker_pool.shutdown(wait_for_current=wait_for_current)
-
-    def request_shutdown(self) -> None:
-        """Signal workers to stop accepting new work.
-
-        This is the non-blocking equivalent of initiating shutdown.
-        Workers will finish current tasks (if running) and then exit.
-        """
-        self._worker_pool.request_shutdown()
-
-    async def start_workers(self) -> None:
-        """Start worker tasks that process the download queue.
-
-        Delegates to the worker pool to create and manage worker tasks.
-        """
-        await self._worker_pool.start(self.client)
-
-    async def stop_workers(self) -> None:
-        """Stop all worker tasks and wait for them to complete.
-
-        Delegates to the worker pool to stop all workers immediately.
-        """
-        await self._worker_pool.stop()

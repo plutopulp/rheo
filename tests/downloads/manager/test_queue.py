@@ -28,7 +28,7 @@ class TestDownloadManagerQueueIntegration:
         manager = DownloadManager(queue=mock_queue, logger=mock_logger)
 
         file_configs = [make_file_config()]
-        await manager.add_to_queue(file_configs)
+        await manager.add(file_configs)
 
         # Verify delegation
         mock_queue.add.assert_called_once_with(file_configs)

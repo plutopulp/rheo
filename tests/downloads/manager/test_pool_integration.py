@@ -50,7 +50,7 @@ class TestDownloadManagerPoolIntegration:
             client=mock_aio_client,
         )
 
-        await manager.start_workers()
+        await manager.open()
 
         mock_worker_pool.start.assert_called_once_with(mock_aio_client)
 
@@ -69,40 +69,6 @@ class TestDownloadManagerPoolIntegration:
             client=mock_aio_client,
         )
 
-        await manager.stop_workers()
+        await manager.close()
 
         mock_worker_pool.stop.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_shutdown_delegates_to_pool(
-        self,
-        mock_logger: "Logger",
-        mock_worker_pool: Mock,
-        mock_pool_factory: WorkerPoolFactory,
-        mock_aio_client: aiohttp.ClientSession,
-    ):
-        """shutdown should call pool.shutdown()."""
-        manager = DownloadManager(
-            logger=mock_logger,
-            worker_pool_factory=mock_pool_factory,
-            client=mock_aio_client,
-        )
-
-        await manager.shutdown(wait_for_current=False)
-
-        mock_worker_pool.shutdown.assert_called_once_with(wait_for_current=False)
-
-    def test_request_shutdown_delegates_to_pool(
-        self,
-        mock_logger: "Logger",
-        mock_worker_pool: Mock,
-        mock_pool_factory: WorkerPoolFactory,
-    ):
-        """request_shutdown should call pool.request_shutdown()."""
-        manager = DownloadManager(
-            logger=mock_logger, worker_pool_factory=mock_pool_factory
-        )
-
-        manager.request_shutdown()
-
-        mock_worker_pool.request_shutdown.assert_called_once()
