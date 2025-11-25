@@ -201,3 +201,68 @@ class TestDownloadManagerProperties:
             client = manager.client
 
             assert isinstance(client, ClientSession)
+
+    @pytest.mark.asyncio
+    async def test_is_active_false_before_open(self, mock_logger, tmp_path):
+        """Test that is_active is False before open() is called."""
+        manager = DownloadManager(logger=mock_logger, download_dir=tmp_path)
+
+        assert manager.is_active is False
+
+    @pytest.mark.asyncio
+    async def test_is_active_true_after_open(
+        self, mock_logger, mock_worker_pool, mock_pool_factory, tmp_path
+    ):
+        """Test that is_active is True after open() is called."""
+        manager = DownloadManager(
+            logger=mock_logger,
+            worker_pool_factory=mock_pool_factory,
+            download_dir=tmp_path,
+        )
+
+        await manager.open()
+
+        assert manager.is_active is True
+
+        await manager.close()
+
+    @pytest.mark.asyncio
+    async def test_is_active_false_after_close(
+        self, mock_logger, mock_worker_pool, mock_pool_factory, tmp_path
+    ):
+        """Test that is_active is False after close() is called."""
+        manager = DownloadManager(
+            logger=mock_logger,
+            worker_pool_factory=mock_pool_factory,
+            download_dir=tmp_path,
+        )
+
+        await manager.open()
+        assert manager.is_active is True
+
+        await manager.close()
+        assert manager.is_active is False
+
+    @pytest.mark.asyncio
+    async def test_is_active_lifecycle_with_context_manager(
+        self, make_manager, make_file_configs, counting_download_mock
+    ):
+        """Test is_active property throughout context manager lifecycle."""
+        download_mock = counting_download_mock(download_time=0.01)
+        manager = make_manager(max_concurrent=1, download_side_effect=download_mock)
+
+        # Before entering context
+        assert manager.is_active is False
+
+        async with manager:
+            # Inside context - should be active
+            assert manager.is_active is True
+
+            # Still active while processing
+            await manager.add(make_file_configs(count=1))
+            assert manager.is_active is True
+
+            await manager.wait_until_complete()
+            assert manager.is_active is True
+
+        assert manager.is_active is False

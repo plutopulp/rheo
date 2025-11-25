@@ -40,3 +40,37 @@ class TestDownloadManagerQueueIntegration:
         manager = DownloadManager(queue=custom_queue, logger=mock_logger)
 
         assert manager.queue is custom_queue
+
+    @pytest.mark.asyncio
+    async def test_wait_until_complete_delegates_to_queue_join(
+        self,
+        mock_queue: PriorityDownloadQueue,
+        mock_logger: "Logger",
+    ):
+        """Test that wait_until_complete() delegates to queue.join()."""
+        manager = DownloadManager(queue=mock_queue, logger=mock_logger)
+
+        await manager.wait_until_complete()
+
+        # Verify delegation
+        mock_queue.join.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_wait_until_complete_with_timeout(
+        self,
+        mock_queue: PriorityDownloadQueue,
+        mock_logger: "Logger",
+        mocker,
+    ):
+        """Test that wait_until_complete() respects timeout parameter."""
+        manager = DownloadManager(queue=mock_queue, logger=mock_logger)
+
+        # Mock asyncio.wait_for to verify it's called with timeout
+        mock_wait_for = mocker.patch("asyncio.wait_for", return_value=None)
+
+        await manager.wait_until_complete(timeout=60.0)
+
+        # Verify wait_for was called with queue.join() and timeout
+        mock_wait_for.assert_called_once()
+        call_args = mock_wait_for.call_args
+        assert call_args[1]["timeout"] == 60.0
