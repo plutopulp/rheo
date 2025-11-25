@@ -6,6 +6,7 @@ from pathlib import Path
 
 import aiohttp
 import pytest
+from pytest_mock import MockerFixture
 
 from rheo.domain.exceptions import WorkerPoolAlreadyStartedError
 from rheo.domain.file_config import FileConfig
@@ -507,3 +508,157 @@ class TestWorkerPoolQueueProcessing:
         # Verify error was logged
         log_messages = [call.args[0] for call in mock_logger.error.call_args_list]
         assert any("Download failed" in msg for msg in log_messages)
+
+
+class TestWorkerPoolImplementationRationale:
+    """Tests demonstrating why specific implementation details are necessary.
+
+    These tests serve as living documentation showing what breaks if we
+    remove seemingly redundant code. They prove that certain implementation
+    decisions are not arbitrary but solve real problems.
+    """
+
+    @pytest.mark.asyncio
+    async def test_without_timeout_workers_cannot_respond_to_shutdown(
+        self,
+        mock_aio_client: aiohttp.ClientSession,
+        make_worker_pool: t.Callable[..., WorkerPool],
+        real_priority_queue: PriorityDownloadQueue,
+        make_mock_worker_factory: WorkerFactoryMaker,
+        mocker: MockerFixture,
+    ) -> None:
+        """Demonstrate that without timeout, workers block indefinitely on empty queue.
+
+        This test shows why asyncio.wait_for(queue.get_next(), timeout=1.0) is
+        necessary in the worker loop. Without the timeout, workers waiting on an
+        empty queue cannot check the shutdown event and will hang forever.
+
+        The test patches WorkerPool._process_queue to remove the timeout, then
+        verifies that shutdown cannot complete within a reasonable time.
+        """
+        # Create a pool with a mock worker
+        worker_factory = make_mock_worker_factory()
+        pool = make_worker_pool(worker_factory=worker_factory)
+
+        # Patch _process_queue to remove timeout (simulating the bug)
+
+        async def process_queue_without_timeout(worker: t.Any) -> None:
+            """Process queue WITHOUT timeout - demonstrates the problem."""
+            while not pool._shutdown_event.is_set():
+                try:
+                    # THIS IS THE PROBLEM: No timeout means we block forever
+                    file_config = await pool.queue.get_next()
+
+                    # Check shutdown before download
+                    if pool._shutdown_event.is_set():
+                        await pool.queue.add([file_config])
+                        pool.queue.task_done()
+                        break
+
+                    destination_path = file_config.get_destination_path(
+                        pool._download_dir
+                    )
+                    await worker.download(file_config.url, destination_path)
+
+                except asyncio.CancelledError:
+                    pool._logger.debug("Worker cancelled, stopping immediately")
+                    raise
+                except Exception as exc:
+                    pool._logger.error(f"Error processing queue: {exc}")
+                finally:
+                    if "file_config" in locals():
+                        pool.queue.task_done()
+
+            pool._logger.debug("Worker shutting down gracefully")
+
+        mocker.patch.object(pool, "_process_queue", process_queue_without_timeout)
+
+        # Start the pool with empty queue
+        await pool.start(mock_aio_client)
+
+        # Give workers time to enter the blocking get_next() call
+        await asyncio.sleep(0.1)
+
+        # Request shutdown
+        pool.request_shutdown()
+
+        # Try to shutdown with timeout - should NOT complete because workers
+        # are stuck in get_next() and can't check the shutdown event
+        with pytest.raises(asyncio.TimeoutError):
+            await asyncio.wait_for(pool.shutdown(wait_for_current=True), timeout=0.5)
+
+        # Verify shutdown event was set (but workers couldn't see it)
+        assert pool._shutdown_event.is_set()
+
+        # Force cleanup by stopping (which cancels tasks)
+        await pool.stop()
+
+    @pytest.mark.asyncio
+    async def test_without_task_done_on_requeue_queue_join_hangs(
+        self,
+        mock_aio_client: aiohttp.ClientSession,
+        make_worker_pool: t.Callable[..., WorkerPool],
+        make_file_config: t.Callable[..., FileConfig],
+        real_priority_queue: PriorityDownloadQueue,
+        make_mock_worker_factory: WorkerFactoryMaker,
+        mocker: MockerFixture,
+    ) -> None:
+        """Demonstrate that without task_done() on re-queue, queue.join() hangs.
+
+        This test shows why we must call task_done() even when re-queuing items
+        during shutdown. The queue's internal _unfinished_tasks counter is
+        incremented by get_next(), and if we don't call task_done() when
+        re-queuing, the counter stays unbalanced and queue.join() waits forever.
+
+        The test patches _handle_shutdown_and_requeue to skip task_done(), then
+        verifies that queue.join() cannot complete.
+        """
+        # Add a file to the queue
+        file_config = make_file_config()
+        await real_priority_queue.add([file_config])
+
+        # Create pool with mock worker
+        worker_factory = make_mock_worker_factory()
+        pool = make_worker_pool(worker_factory=worker_factory)
+
+        # Patch _handle_shutdown_and_requeue to skip task_done (simulating bug)
+        async def handle_shutdown_without_task_done(
+            file_config: FileConfig,
+        ) -> bool:
+            """Handle shutdown WITHOUT calling task_done - demonstrates problem."""
+            if pool._shutdown_event.is_set():
+                # Re-queue but DON'T call task_done (this is the bug)
+                await pool.queue.add([file_config])
+                pool._logger.debug(f"Shutdown requested, re-queuing {file_config.url}")
+                return True
+            return False
+
+        mocker.patch.object(
+            pool, "_handle_shutdown_and_requeue", handle_shutdown_without_task_done
+        )
+
+        # Start pool
+        await pool.start(mock_aio_client)
+
+        # Immediately trigger shutdown (before download can start)
+        # This will cause re-queue branch to execute
+        pool.request_shutdown()
+
+        # Wait for re-queue to happen
+        await asyncio.sleep(0.2)
+
+        # Stop the pool
+        await pool.stop()
+
+        # The item should be back in the queue
+        assert not real_priority_queue.is_empty()
+
+        # But queue.join() will HANG because task_done was never called
+        with pytest.raises(asyncio.TimeoutError):
+            await asyncio.wait_for(real_priority_queue.join(), timeout=0.5)
+
+        # Control case: manually calling task_done fixes the queue state
+        real_priority_queue.task_done()
+
+        # Now join should complete immediately
+        await asyncio.wait_for(real_priority_queue.join(), timeout=0.5)

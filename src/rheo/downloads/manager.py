@@ -4,7 +4,6 @@ This module provides the DownloadManager class which orchestrates multiple
 download workers, manages HTTP sessions, and handles priority queues.
 """
 
-import asyncio
 import ssl
 import typing as t
 from pathlib import Path
@@ -15,55 +14,17 @@ import certifi
 
 from ..domain.exceptions import ManagerNotInitializedError
 from ..domain.file_config import FileConfig
-from ..events import EventEmitter, WorkerEvent
 from ..infrastructure.logging import get_logger
 from ..tracking.base import BaseTracker
 from ..tracking.tracker import DownloadTracker
 from .queue import PriorityDownloadQueue
-from .worker.base import BaseWorker
 from .worker.factory import WorkerFactory
 from .worker.worker import DownloadWorker
+from .worker_pool.factory import WorkerPoolFactory
+from .worker_pool.pool import WorkerPool
 
 if t.TYPE_CHECKING:
     import loguru
-
-
-def _create_event_wiring(
-    tracker: BaseTracker,
-    # TODO: type this properly
-) -> dict[str, t.Any]:
-    """Create event wiring mapping from worker events to tracker methods.
-
-    Returns dict mapping event types to async handler functions.
-    """
-    return {
-        "worker.started": lambda e: tracker.track_started(e.url, e.total_bytes),
-        "worker.progress": lambda e: tracker.track_progress(
-            e.url, e.bytes_downloaded, e.total_bytes
-        ),
-        "worker.speed_updated": lambda e: tracker.track_speed_update(
-            e.url,
-            e.current_speed_bps,
-            e.average_speed_bps,
-            e.eta_seconds,
-            e.elapsed_seconds,
-        ),
-        "worker.validation_started": lambda e: tracker.track_validation_started(
-            e.url, e.algorithm
-        ),
-        "worker.validation_completed": lambda e: tracker.track_validation_completed(
-            e.url, e.algorithm, e.calculated_hash
-        ),
-        "worker.validation_failed": lambda e: tracker.track_validation_failed(
-            e.url, e.algorithm, e.expected_hash, e.actual_hash, e.error_message
-        ),
-        "worker.completed": lambda e: tracker.track_completed(
-            e.url, e.total_bytes, e.destination_path
-        ),
-        "worker.failed": lambda e: tracker.track_failed(
-            e.url, Exception(f"{e.error_type}: {e.error_message}")
-        ),
-    }
 
 
 class DownloadManager:
@@ -99,6 +60,7 @@ class DownloadManager:
         max_workers: int = 3,
         logger: "loguru.Logger" = get_logger(__name__),
         download_dir: Path = Path("."),
+        worker_pool_factory: WorkerPoolFactory | None = None,
     ) -> None:
         """Initialize the download manager.
 
@@ -114,6 +76,8 @@ class DownloadManager:
             max_workers: Maximum number of concurrent workers.
             logger: Logger instance for recording manager events.
             download_dir: Directory where downloaded files will be saved.
+            worker_pool_factory: Factory for creating the worker pool. If None,
+                    defaults to WorkerPool constructor.
         """
         self._client = client
         self._owns_client = False  # Track if we created the client
@@ -127,9 +91,17 @@ class DownloadManager:
         self.queue = queue or PriorityDownloadQueue(logger=logger)
         self.timeout = timeout
         self.max_workers = max_workers
-        self._worker_tasks: list[asyncio.Task[None]] = []
-        self._shutdown_event = asyncio.Event()
         self.download_dir = download_dir
+
+        pool_factory = worker_pool_factory or WorkerPool
+        self._worker_pool = pool_factory(
+            queue=self.queue,
+            worker_factory=self._worker_factory,
+            tracker=self._tracker,
+            logger=logger,
+            download_dir=download_dir,
+            max_workers=max_workers,
+        )
 
     @property
     def tracker(self) -> BaseTracker:
@@ -155,27 +127,6 @@ class DownloadManager:
             ```
         """
         return self._tracker
-
-    def _wire_worker_to_tracker(
-        self,
-        worker: "BaseWorker",
-        event_wiring: (
-            dict[str, t.Callable[[WorkerEvent], t.Awaitable[None]]] | None
-        ) = None,
-    ) -> None:
-        """Wire a single worker's events to the tracker.
-
-        Args:
-            worker: The worker whose events should be wired to the tracker.
-            event_wiring: Custom event wiring dict. If None, uses default wiring.
-
-        Note: Future improvement - store handler references for cleanup in __aexit__().
-        """
-        wiring = event_wiring or _create_event_wiring(self._tracker)
-
-        for event_type, handler in wiring.items():
-            # Register async handler with this worker's emitter
-            worker.emitter.on(event_type, handler)
 
     async def __aenter__(self) -> "DownloadManager":
         """Enter the async context manager.
@@ -247,160 +198,26 @@ class DownloadManager:
                             If False, cancel immediately via stop_workers().
         """
         self._logger.debug(f"Initiating shutdown (wait_for_current={wait_for_current})")
-        self._shutdown_event.set()
+        await self._worker_pool.shutdown(wait_for_current=wait_for_current)
 
-        if wait_for_current:
-            # Wait for workers to finish current downloads
-            await self._wait_for_workers_and_clear()
-        else:
-            # Cancel immediately
-            await self.stop_workers()
+    def request_shutdown(self) -> None:
+        """Signal workers to stop accepting new work.
 
-    async def _handle_shutdown_and_requeue(self, file_config: FileConfig) -> bool:
-        """Check shutdown and requeue item if shutdown is active.
-
-        This helper consolidates the shutdown check and requeue logic used at
-        multiple points in the download processing loop. When shutdown is detected,
-        the item is returned to the queue and task_done() is called to maintain
-        queue accounting balance.
-
-        Args:
-            file_config: The file configuration to requeue if shutting down.
-
-        Returns:
-            True if shutdown was detected (caller should break), False otherwise.
+        This is the non-blocking equivalent of initiating shutdown.
+        Workers will finish current tasks (if running) and then exit.
         """
-        if self._shutdown_event.is_set():
-            # Put item back in queue if shutting down, then call task_done()
-            # to balance the accounting. The get() incremented the unfinished
-            # task counter, so we must decrement it even though we're re-queuing.
-            # Without task_done(), queue.join() would hang waiting for this item.
-            await self.queue.add([file_config])
-            self.queue.task_done()
-            return True
-        return False
-
-    def _create_worker(self) -> "BaseWorker":
-        """Create a worker instance using the factory.
-
-        Each worker gets its own EventEmitter for true isolation.
-
-        Returns:
-            A new worker instance configured with manager's client, logger,
-            and a new emitter.
-
-        Raises:
-            ManagerNotInitializedError: If called before manager initialization.
-
-        Note:
-            Future optimization: When tracker is NullTracker, could use NullEmitter
-            instead of EventEmitter to avoid event dispatch overhead. However,
-            using isinstance() check feels like a design smell. Consider using
-            composition pattern or factory configuration instead.
-        """
-        if self._client is None:
-            raise ManagerNotInitializedError(
-                "Manager must be initialized before creating workers"
-            )
-        # Create a new emitter for this worker (isolation)
-        # Consider using a factory instead to support Dependency Injection
-        emitter = EventEmitter(self._logger)
-        return self._worker_factory(self._client, self._logger, emitter)
-
-    async def process_queue(self, worker: "BaseWorker") -> None:
-        """Process downloads from queue until shutdown or cancellation.
-
-        Uses event-based shutdown mechanism to allow graceful termination.
-        Workers periodically check the shutdown event and can complete current
-        downloads before exiting.
-
-        Args:
-            worker: The worker instance to use for downloads in this task.
-        """
-
-        while not self._shutdown_event.is_set():
-            file_config = None
-            got_item = False
-            try:
-                # Use timeout to prevent indefinite blocking on empty queue.
-                # Without timeout, worker would be stuck waiting and couldn't
-                # respond to shutdown until a new item arrives. The 1-second
-                # timeout allows checking shutdown event every second maximum.
-                # Note that this does not impact when a worker starts a download, but
-                # sets the maximum time a worker can be blocked waiting for an item.
-                file_config = await asyncio.wait_for(self.queue.get_next(), timeout=1.0)
-                got_item = True
-
-                # FileConfig generates destination path and creates directories if needed
-                destination_path = file_config.get_destination_path(self.download_dir)
-
-                # Check shutdown before starting download to prevent race condition.
-                # This ensures we don't start downloads after shutdown is triggered.
-                if await self._handle_shutdown_and_requeue(file_config):
-                    break
-
-                self._logger.debug(
-                    f"Downloading {file_config.url} to {destination_path}"
-                )
-                await worker.download(
-                    str(file_config.url),
-                    destination_path,
-                    hash_config=file_config.hash_config,
-                )
-                self._logger.debug(
-                    f"Downloaded {file_config.url} to {destination_path}"
-                )
-            except asyncio.TimeoutError:
-                # No item available within timeout period. This is normal when
-                # queue is empty or all items were taken by other workers.
-                # Loop continues to check shutdown event and retry.
-                continue
-            except asyncio.CancelledError:
-                # Raised when task.cancel() is called (immediate shutdown).
-                # Must re-raise to properly terminate the task, otherwise
-                # asyncio considers cancellation "handled" and keeps running.
-                self._logger.debug("Worker cancelled, stopping immediately")
-                raise
-            except Exception as e:
-                # file_config may not be defined if error getting from queue.
-                url = file_config.url if file_config else "unknown"
-                self._logger.error(f"Failed to download {url}: {type(e).__name__}: {e}")
-                # Continue processing other items instead of crashing
-                # Error details are already logged by the worker
-            finally:
-                # Only call task_done if we actually got an item
-                if got_item:
-                    self.queue.task_done()
-
-        self._logger.debug("Worker shutting down gracefully")
-
-    async def _wait_for_workers_and_clear(self) -> None:
-        """Wait for all worker tasks to complete and clear the task list.
-
-        Handles exceptions gracefully via return_exceptions=True.
-        """
-        await asyncio.gather(*self._worker_tasks, return_exceptions=True)
-        self._worker_tasks.clear()
+        self._worker_pool.request_shutdown()
 
     async def start_workers(self) -> None:
         """Start worker tasks that process the download queue.
 
-        Creates one worker instance per task for isolation.
-        Each worker has its own emitter wired to the tracker.
+        Delegates to the worker pool to create and manage worker tasks.
         """
-        for _ in range(self.max_workers):
-            worker = self._create_worker()
-            self._wire_worker_to_tracker(worker)
-            task = asyncio.create_task(self.process_queue(worker))
-            self._worker_tasks.append(task)
+        await self._worker_pool.start(self.client)
 
     async def stop_workers(self) -> None:
         """Stop all worker tasks and wait for them to complete.
 
-        Requests cancellation of all worker tasks and waits for them to finish
-        before returning. This ensures proper cleanup before closing resources.
+        Delegates to the worker pool to stop all workers immediately.
         """
-        for task in self._worker_tasks:
-            task.cancel()
-
-        await self._wait_for_workers_and_clear()
+        await self._worker_pool.stop()
