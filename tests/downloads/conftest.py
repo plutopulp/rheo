@@ -284,9 +284,44 @@ def make_file_configs(
 
 @pytest.fixture
 def mock_worker_pool(mocker: MockerFixture) -> Mock:
-    """Create a mock WorkerPool."""
+    """Create a mock WorkerPool with is_running state tracking.
+
+    The pool tracks its running state:
+    - Initially False
+    - True after start() is called
+    - False after shutdown() is called
+    """
     pool = mocker.Mock(spec=BaseWorkerPool)
-    pool.is_running = False
+
+    # Track running state
+    running_state = {"is_running": False}
+
+    # Configure property to return current state
+    type(pool).is_running = mocker.PropertyMock(
+        side_effect=lambda: running_state["is_running"]
+    )
+
+    # Configure start() to set running to True
+    async def mock_start(client: ClientSession) -> None:
+        running_state["is_running"] = True
+
+    pool.start = mocker.AsyncMock(side_effect=mock_start)
+
+    # Configure shutdown() to set running to False
+    async def mock_shutdown(wait_for_current: bool = False) -> None:
+        running_state["is_running"] = False
+
+    pool.shutdown = mocker.AsyncMock(side_effect=mock_shutdown)
+
+    # Configure stop() to set running to False
+    async def mock_stop() -> None:
+        running_state["is_running"] = False
+
+    pool.stop = mocker.AsyncMock(side_effect=mock_stop)
+
+    # Configure request_shutdown() (non-blocking)
+    pool.request_shutdown = mocker.Mock()
+
     return pool
 
 

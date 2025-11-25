@@ -183,6 +183,32 @@ class DownloadManager:
             )
         return self._client
 
+    @property
+    def is_active(self) -> bool:
+        """Check if the manager is active and ready to process downloads.
+
+        Returns True when the manager has been initialised (via open() or
+        context manager entry) and workers are running. Returns False before
+        initialisation or after closing.
+
+        Note: This indicates readiness to accept downloads, not necessarily
+        that downloads are currently in progress.
+
+        Returns:
+            True if manager is active and can process downloads, False otherwise.
+
+        Example:
+            manager = DownloadManager(...)
+            assert not manager.is_active  # Not yet opened
+
+            await manager.open()
+            assert manager.is_active      # Ready to process
+
+            await manager.close()
+            assert not manager.is_active  # Closed
+        """
+        return self._worker_pool.is_running
+
     async def add(self, files: t.Sequence[FileConfig]) -> None:
         """Add files to download queue.
 
