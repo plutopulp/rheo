@@ -505,10 +505,10 @@ MIT Licence - see LICENSE file for details.
 
 ## Documentation
 
-- **[CLI Reference](docs/CLI.md)** - Complete command-line interface documentation
-- **[Architecture](docs/ARCHITECTURE.md)** - System design and component overview
-- **[Roadmap](docs/ROADMAP.md)** - Feature roadmap and development phases
-- **[Ideas](docs/IDEAS.md)** - Future ideas and brainstorming
+- **[CLI Reference](CLI.md)** - Complete command-line interface documentation
+- **[Architecture](ARCHITECTURE.md)** - System design and component overview
+- **[Roadmap](ROADMAP.md)** - Feature roadmap and development phases
+- **[Ideas](IDEAS.md)** - Future ideas and brainstorming
 
 ## Questions?
 

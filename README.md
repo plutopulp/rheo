@@ -65,19 +65,19 @@ rheo download https://example.com/file.zip --hash sha256:abc123...
 rheo download https://example.com/file.zip -o /path/to/dir
 ```
 
-See [CLI Reference](docs/CLI.md) for complete command documentation.
+See [CLI Reference](https://github.com/plutopulp/rheo/blob/main/docs/CLI.md) for complete command documentation.
 
 ## Documentation
 
-- **[Full Documentation](docs/README.md)** - Complete guide with detailed examples
-- **[CLI Reference](docs/CLI.md)** - Command-line interface
-- **[Architecture](docs/ARCHITECTURE.md)** - System design and patterns
-- **[Contributing](CONTRIBUTING.md)** - Development setup and guidelines
-- **[Roadmap](docs/ROADMAP.md)** - What's next
+- **[Full Documentation](https://github.com/plutopulp/rheo/blob/main/docs/README.md)** - Complete guide with detailed examples
+- **[CLI Reference](https://github.com/plutopulp/rheo/blob/main/docs/CLI.md)** - Command-line interface
+- **[Architecture](https://github.com/plutopulp/rheo/blob/main/docs/ARCHITECTURE.md)** - System design and patterns
+- **[Contributing](https://github.com/plutopulp/rheo/blob/main/CONTRIBUTING.md)** - Development setup and guidelines
+- **[Roadmap](https://github.com/plutopulp/rheo/blob/main/docs/ROADMAP.md)** - What's next
 
 ## Examples
 
-Check [`examples/`](examples/) for working code:
+Check [`examples/`](https://github.com/plutopulp/rheo/tree/main/examples) for working code:
 
 - `01_basic_download.py` - Simple single file download
 - `02_multiple_with_priority.py` - Multiple files with priorities
@@ -95,4 +95,4 @@ Check [`examples/`](examples/) for working code:
 
 ## Questions?
 
-Open an issue on [GitHub](https://github.com/plutopulp/rheo) or check the [full documentation](docs/README.md).
+Open an issue on [GitHub](https://github.com/plutopulp/rheo) or check the [full documentation](https://github.com/plutopulp/rheo/blob/main/docs/README.md).
