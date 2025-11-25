@@ -84,11 +84,21 @@ Key pieces:
 **DownloadManager**:
 
 - Entry point for the library
-- Manages worker pool with graceful shutdown support
+- Orchestrates high-level download operations
 - Initialises HTTP client
-- Wires events from workers to tracker
+- Delegates worker lifecycle to `WorkerPool`
 - Context manager for resource cleanup
-- Event-based shutdown mechanism for clean termination
+- Manages queue and tracker wiring
+
+**WorkerPool**:
+
+- Encapsulates worker lifecycle management
+- Creates one isolated worker per task
+- Wires worker event emitters to tracker handlers
+- Processes queue with timeout-based polling for shutdown responsiveness
+- Handles graceful vs immediate shutdown semantics
+- Re-queues unstarted downloads during shutdown
+- Maintains task lifecycle and cleanup
 
 **DownloadWorker**:
 
@@ -130,7 +140,7 @@ Key pieces:
 - Uses constant-time comparison to prevent timing attacks
 - Abstract base and null object pattern for optional validation
 
-**Why this structure**: Separation of concerns. Manager orchestrates, worker executes, queue organises, retry handler manages failure recovery, validator ensures file integrity.
+**Why this structure**: Separation of concerns. Manager orchestrates high-level operations, pool manages worker lifecycle, worker executes downloads, queue organises work, retry handler manages failure recovery, validator ensures file integrity.
 
 ### Events Layer
 
@@ -225,13 +235,15 @@ Key pieces:
 ### Processing Downloads
 
 ```text
-1. Manager starts N worker tasks
-2. Each worker calls queue.get_next() (blocks until available)
-3. Worker downloads file in chunks
-4. Worker emits events: started → progress + speed → progress + speed → ... → (validation if configured) → completed
-5. Tracker observes events, updates state (including real-time speed metrics and validation state)
-6. Worker marks queue task as done
-7. Worker loops back to step 2
+1. Manager delegates to WorkerPool.start(client)
+2. Pool creates N isolated worker tasks, each with its own EventEmitter
+3. Pool wires each worker's emitter to tracker handlers
+4. Each worker calls queue.get_next() with timeout (blocks until available)
+5. Worker downloads file in chunks
+6. Worker emits events: started → progress + speed → progress + speed → ... → (validation if configured) → completed
+7. Tracker observes events, updates state (including real-time speed metrics and validation state)
+8. Worker marks queue task as done
+9. Worker loops back to step 4
 ```
 
 **Speed Tracking Flow**:
@@ -310,22 +322,23 @@ Key pieces:
 
 ### Shutdown Flow
 
-The manager uses an event-based shutdown mechanism for clean termination:
+The system uses an event-based shutdown mechanism for clean termination:
 
 ```text
 1. User calls manager.shutdown(wait_for_current=True/False)
-2. Manager sets internal _shutdown_event
-3. Worker process_queue loops check event status:
+2. Manager delegates to pool.shutdown(wait_for_current)
+3. Pool sets internal _shutdown_event
+4. Worker process_queue loops check event status:
    a. If shutdown event set → exit loop gracefully
    b. Queue get_next uses 1-second timeout to periodically check event
    c. If item retrieved after shutdown → requeue item and exit
-4. If wait_for_current=True:
-   - Manager waits for all workers to complete current downloads
+5. If wait_for_current=True:
+   - Pool waits for all workers to complete current downloads
    - Workers finish naturally and log "Worker shutting down gracefully"
-5. If wait_for_current=False:
-   - Manager immediately cancels all worker tasks
+6. If wait_for_current=False:
+   - Pool immediately cancels all worker tasks
    - Workers raise CancelledError and stop immediately
-6. Manager clears task list and returns
+7. Pool clears task list and returns
 ```
 
 **Key features**:
@@ -335,6 +348,7 @@ The manager uses an event-based shutdown mechanism for clean termination:
 - Graceful shutdown allows current downloads to complete
 - Immediate cancellation available for urgent stops
 - Context manager (`async with`) automatically triggers graceful shutdown on exit
+- Pool encapsulates all shutdown complexity, keeping manager interface simple
 
 ## Design Patterns
 
@@ -346,13 +360,15 @@ Everything takes its dependencies as constructor args:
 DownloadManager(
     download_dir=Path(...),
     max_workers=3,
-    queue=custom_queue,      # Optional
-    tracker=custom_tracker,  # Optional
-    logger=custom_logger,    # Optional
+    queue=custom_queue,           # Optional
+    tracker=custom_tracker,       # Optional
+    logger=custom_logger,         # Optional
+    worker_factory=custom_worker, # Optional
+    worker_pool_factory=custom_pool,  # Optional
 )
 ```
 
-**Why**: Decoupling, flexibility and makes testing easy. Mock what you need, pass real implementations otherwise.
+**Why**: Decoupling, flexibility and makes testing easy. Mock what you need, pass real implementations otherwise. Pool extraction allows testing manager orchestration independently of worker lifecycle.
 
 ### Null Object Pattern
 
@@ -413,17 +429,26 @@ If you want to customise behaviour:
 
 1. **Custom Queue**: Implement queue interface, pass to manager
 2. **Custom Tracker**: Extend `BaseTracker`, pass to manager
-3. **Event Handlers**: Register your own handlers with manager
-4. **Custom Worker**: Create your own worker class
+3. **Custom Worker**: Implement `BaseWorker`, pass factory to manager
+4. **Custom Pool**: Implement `BaseWorkerPool`, pass factory to manager
+5. **Event Handlers**: Register your own handlers with tracker
 
-Example - custom event handler:
+Example - custom worker pool:
 
 ```python
-async def log_progress(event: ChunkDownloaded):
-    print(f"Downloaded {event.bytes_downloaded} bytes")
+class CustomPool(BaseWorkerPool):
+    """Custom pool with different worker creation strategy."""
 
-manager = DownloadManager(...)
-manager.worker.emitter.on("worker.chunk_downloaded", log_progress)
+    async def start(self, client: ClientSession) -> None:
+        # Your custom worker creation logic
+        pass
+
+    # ... implement other methods
+
+manager = DownloadManager(
+    worker_pool_factory=CustomPool,
+    # ... other params
+)
 ```
 
 ## Why These Choices?

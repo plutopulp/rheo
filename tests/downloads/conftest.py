@@ -2,9 +2,12 @@
 
 import asyncio
 import hashlib
+import typing as t
+from unittest.mock import Mock
 
 import pytest
 from aiohttp import ClientSession
+from pytest_mock import MockerFixture
 
 from rheo.domain.file_config import FileConfig
 from rheo.domain.hash_validation import HashAlgorithm
@@ -16,7 +19,16 @@ from rheo.downloads import (
     PriorityDownloadQueue,
     RetryHandler,
 )
-from rheo.events import EventEmitter
+from rheo.downloads.worker.factory import WorkerFactory
+from rheo.downloads.worker_pool.base import BaseWorkerPool
+from rheo.downloads.worker_pool.factory import WorkerPoolFactory
+from rheo.events import BaseEmitter, EventEmitter
+
+# Type alias for factory-maker function returned by make_mock_worker_factory
+WorkerFactoryMaker = t.Callable[..., WorkerFactory]
+
+if t.TYPE_CHECKING:
+    from loguru import Logger
 
 
 @pytest.fixture
@@ -40,7 +52,7 @@ def calculate_hash():
 
 
 @pytest.fixture
-def mock_aio_client(mocker):
+def mock_aio_client(mocker: MockerFixture) -> Mock:
     """Provide a mocked aiohttp ClientSession for unit tests."""
     mock_client = mocker.Mock(spec=ClientSession)
     mock_client.closed = False
@@ -48,7 +60,7 @@ def mock_aio_client(mocker):
 
 
 @pytest.fixture
-def mock_worker(mocker):
+def mock_worker(mocker: MockerFixture) -> Mock:
     """Provide a mocked DownloadWorker for unit tests."""
     worker = mocker.Mock(spec=DownloadWorker)
     worker.download = mocker.AsyncMock()
@@ -56,7 +68,7 @@ def mock_worker(mocker):
 
 
 @pytest.fixture
-def mock_worker_factory(mock_worker):
+def mock_worker_factory(mock_worker: Mock) -> t.Callable[..., WorkerFactory]:
     """Factory that returns the same mock worker instance.
 
     Useful for tests that want to verify the worker was called.
@@ -71,7 +83,9 @@ def mock_worker_factory(mock_worker):
 
 
 @pytest.fixture
-def isolated_mock_worker_factory(mocker):
+def isolated_mock_worker_factory(
+    mocker: MockerFixture,
+) -> t.Callable[..., WorkerFactory]:
     """Factory that creates a new mock worker for each call.
 
     Provides true isolation where each task gets its own mock.
@@ -79,10 +93,12 @@ def isolated_mock_worker_factory(mocker):
     """
     created_mocks = []
 
-    def _factory(client, logger, emitter):
+    def _factory(
+        client: ClientSession, logger: "Logger", emitter: BaseEmitter
+    ) -> DownloadWorker:
         worker = mocker.Mock(spec=DownloadWorker)
+        worker.emitter = emitter  # Required for event wiring in WorkerPool
         worker.download = mocker.AsyncMock()
-        worker.emitter = emitter  # Use emitter created by manager for this worker
         created_mocks.append(worker)
         return worker
 
@@ -91,7 +107,46 @@ def isolated_mock_worker_factory(mocker):
 
 
 @pytest.fixture
-def test_worker(aio_client, mock_logger):
+def make_mock_worker_factory(mocker: MockerFixture) -> WorkerFactoryMaker:
+    """Factory fixture that creates customizable mock worker factories.
+
+    Returns a function that accepts optional download side effect and returns
+    a WorkerFactory suitable for dependency injection.
+
+    Usage:
+        worker_factory = make_mock_worker_factory(download_side_effect=my_mock)
+        pool = WorkerPool(..., worker_factory=worker_factory)
+    """
+
+    def _make_factory(
+        download_side_effect: t.Callable[..., t.Awaitable[None]] | None = None,
+    ) -> WorkerFactory:
+        """Create a worker factory with custom download behavior.
+
+        Args:
+            download_side_effect: Optional async callable to use as download mock.
+                                 Can be a coroutine, AsyncMock, or slow_download_mock().
+
+        Returns:
+            WorkerFactory that creates mocked workers with specified behavior.
+        """
+
+        def _factory(
+            client: ClientSession, logger: "Logger", emitter: BaseEmitter
+        ) -> DownloadWorker:
+            worker = mocker.Mock(spec=DownloadWorker)
+            worker.emitter = emitter
+            if download_side_effect is not None:
+                worker.download = mocker.AsyncMock(side_effect=download_side_effect)
+            return worker
+
+        return _factory
+
+    return _make_factory
+
+
+@pytest.fixture
+def test_worker(aio_client: ClientSession, mock_logger: "Logger"):
     """Provide a real DownloadWorker with real client and mocked logger."""
     return DownloadWorker(aio_client, mock_logger)
 
@@ -112,7 +167,9 @@ def fast_retry_config():
 
 
 @pytest.fixture
-def test_worker_with_retry(aio_client, mock_logger, fast_retry_config):
+def test_worker_with_retry(
+    aio_client: ClientSession, mock_logger: "Logger", fast_retry_config: RetryConfig
+) -> DownloadWorker:
     """Provide a DownloadWorker with retry handler for validation tests.
 
     Uses fast_retry_config for quick test execution.
@@ -135,7 +192,9 @@ def test_worker_with_retry(aio_client, mock_logger, fast_retry_config):
 
 
 @pytest.fixture
-def worker_with_real_events(aio_client, mock_logger, fast_retry_config):
+def worker_with_real_events(
+    aio_client: ClientSession, mock_logger: "Logger", fast_retry_config: RetryConfig
+) -> DownloadWorker:
     """Provide a DownloadWorker with retry handler and real EventEmitter.
 
     Uses fast_retry_config for quick test execution. Includes a real
@@ -163,14 +222,18 @@ def worker_with_real_events(aio_client, mock_logger, fast_retry_config):
 
 
 @pytest.fixture
-def real_priority_queue(mock_logger):
+def real_priority_queue(mock_logger: "Logger") -> PriorityDownloadQueue:
     """Provide a real PriorityDownloadQueue with injected asyncio.PriorityQueue."""
     async_queue = asyncio.PriorityQueue()
     return PriorityDownloadQueue(queue=async_queue, logger=mock_logger)
 
 
 @pytest.fixture
-def mock_manager_dependencies(mock_aio_client, mock_worker_factory, mock_queue):
+def mock_manager_dependencies(
+    mock_aio_client: Mock,
+    mock_worker_factory: t.Callable[..., WorkerFactory],
+    mock_queue: PriorityDownloadQueue,
+) -> dict[str, t.Any]:
     """Provide all mocked dependencies for DownloadManager tests."""
     return {
         "client": mock_aio_client,
@@ -192,7 +255,9 @@ def make_file_config():
 
 
 @pytest.fixture
-def make_file_configs(make_file_config):
+def make_file_configs(
+    make_file_config: t.Callable[..., FileConfig],
+) -> t.Callable[..., list[FileConfig]]:
     """Factory fixture to create lists of FileConfig instances."""
 
     def _make_file_configs(
@@ -212,13 +277,35 @@ def make_file_configs(make_file_config):
 
 
 @pytest.fixture
+def mock_worker_pool(mocker: MockerFixture) -> Mock:
+    """Create a mock WorkerPool."""
+    pool = mocker.Mock(spec=BaseWorkerPool)
+    pool.is_running = False
+    return pool
+
+
+@pytest.fixture
+def mock_pool_factory(mock_worker_pool: Mock) -> WorkerPoolFactory:
+    """Create a factory returning the mock pool."""
+    return lambda *args, **kwargs: mock_worker_pool
+
+
+@pytest.fixture
 def make_shutdown_manager(
-    mock_aio_client, mock_worker_factory, real_priority_queue, mock_logger, tmp_path
+    mock_aio_client,
+    mock_worker_factory,
+    real_priority_queue,
+    mock_logger,
+    tmp_path,
 ):
     """Factory fixture to create DownloadManager for shutdown tests.
 
     Returns a factory function that creates managers with customizable max_workers.
     All managers share the same mocked dependencies from the test.
+
+    Note: Does NOT use mock_pool_factory by default - creates real WorkerPool instances
+    for integration testing. Tests that need to mock the pool should use
+    test_pool_integration.py.
     """
 
     def _create_manager(max_workers: int = 1, worker_factory=None):

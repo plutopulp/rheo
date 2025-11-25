@@ -31,6 +31,21 @@ class WorkerError(DownloadManagerError):
     pass
 
 
+class WorkerPoolError(DownloadManagerError):
+    """Base exception for worker pool errors."""
+
+    pass
+
+
+class WorkerPoolAlreadyStartedError(WorkerPoolError):
+    """Raised when attempting to start an already-running worker pool.
+
+    This prevents pool state corruption from multiple start() calls.
+    """
+
+    pass
+
+
 class QueueError(DownloadManagerError):
     """Base exception for queue-related errors."""
 
