@@ -185,6 +185,52 @@ Key pieces:
 
 **Why separate tracking**: Not everyone needs tracking. Library users might implement their own. This keeps it optional and replaceable.
 
+### Download ID System
+
+**What it does**: Provides unique identification for each download task.
+
+Each download is uniquely identified by a **download ID**, a 16-character hex string computed from:
+
+```python
+download_id = sha256(url + relative_destination_path).hexdigest()[:16]
+```
+
+**Key characteristics**:
+
+- **Identity**: Same URL to different destinations = different IDs
+- **Deduplication**: Same URL to same destination = same ID (duplicate skipped)
+- **Propagated everywhere**: Worker events, tracker keys, queue tracking
+- **Stable**: Immutable once `FileConfig` is created
+
+**Why this design**:
+
+- Prevents duplicate downloads (same URL+destination queued twice)
+- Enables same URL to different destinations (different IDs)
+- Allows re-downloading same file after completion (ID removed from queue tracking)
+- Fail-fast validation (queue raises `KeyError` if `task_done()` called with invalid ID)
+
+**Where it's used**:
+
+- `FileConfig.id` - generates and caches the ID
+- `DownloadInfo.id` - tracks download identity
+- Worker/Tracker events - `download_id` field on all events
+- Tracker methods - first parameter for all `track_*` methods
+- Queue deduplication - `_queued_ids` set prevents duplicates
+- WorkerPool - passes ID from `FileConfig` to worker
+
+**Example**:
+
+```python
+# These are treated as different downloads (different IDs):
+config1 = FileConfig(url="https://example.com/file.zip", destination_subdir="dir1")
+config2 = FileConfig(url="https://example.com/file.zip", destination_subdir="dir2")
+
+# These are treated as duplicates (same ID):
+config3 = FileConfig(url="https://example.com/file.zip", destination_subdir="dir1")
+config4 = FileConfig(url="https://example.com/file.zip", destination_subdir="dir1")
+# Adding both config3 and config4 will only queue one download
+```
+
 ### Infrastructure Layer
 
 **What it does**: Cross-cutting concerns like logging.

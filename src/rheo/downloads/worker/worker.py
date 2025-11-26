@@ -12,6 +12,7 @@ from pathlib import Path
 import aiofiles
 import aiofiles.os
 import aiohttp
+from aiofiles.threadpool.binary import AsyncBufferedIOBase
 
 from ...domain.exceptions import HashMismatchError
 from ...domain.hash_validation import HashConfig
@@ -118,7 +119,9 @@ class DownloadWorker(BaseWorker):
         """Event emitter for broadcasting worker events."""
         return self._emitter
 
-    async def _write_chunk_to_file(self, chunk: bytes, file_handle: t.Any) -> None:
+    async def _write_chunk_to_file(
+        self, chunk: bytes, file_handle: AsyncBufferedIOBase
+    ) -> None:
         """Write a data chunk to the output file asynchronously.
 
         This method provides an extension point for chunk processing.
@@ -191,6 +194,8 @@ class DownloadWorker(BaseWorker):
         self,
         url: str,
         destination_path: Path,
+        download_id: str,
+        *,
         chunk_size: int = 1024,
         timeout: float | None = None,
         speed_calculator: SpeedCalculator | None = None,
@@ -215,6 +220,7 @@ class DownloadWorker(BaseWorker):
         Args:
             url: HTTP/HTTPS URL to download from
             destination_path: Local filesystem path to save the file
+            download_id: Unique identifier for this download task
             chunk_size: Size of data chunks to read/write (default: 1024 bytes)
             timeout: Maximum time to wait for the entire download (None = no timeout)
             speed_calculator: Speed calculator for tracking download speed and ETA.
@@ -233,7 +239,11 @@ class DownloadWorker(BaseWorker):
             ```python
             async with aiohttp.ClientSession() as session:
                 worker = DownloadWorker(session, logger)
-                await worker.download("https://example.com/file.zip", Path("./file.zip"))
+                await worker.download(
+                    "https://example.com/file.zip",
+                    Path("./file.zip"),
+                    download_id="abc123"
+                )
             ```
         """
         # Always use retry handler (NullRetryHandler if no retries configured)
@@ -243,18 +253,21 @@ class DownloadWorker(BaseWorker):
             operation=lambda: self._download_with_cleanup(
                 url,
                 destination_path,
+                download_id,
                 chunk_size,
                 timeout,
                 speed_calculator,
                 hash_config,
             ),
             url=url,
+            download_id=download_id,
         )
 
     async def _download_with_cleanup(
         self,
         url: str,
         destination_path: Path,
+        download_id: str,
         chunk_size: int,
         timeout: float | None,
         speed_calculator: SpeedCalculator | None,
@@ -268,6 +281,7 @@ class DownloadWorker(BaseWorker):
         Args:
             url: HTTP/HTTPS URL to download from
             destination_path: Local filesystem path to save the file
+            download_id: Unique identifier for this download task
             chunk_size: Size of data chunks to read/write
             timeout: Maximum time to wait for the entire download
             speed_calculator: Optional speed calculator. If None, creates a fresh one
@@ -299,7 +313,9 @@ class DownloadWorker(BaseWorker):
                     # Emit started event
                     await self.emitter.emit(
                         "worker.started",
-                        WorkerStartedEvent(url=url, total_bytes=total_bytes),
+                        WorkerStartedEvent(
+                            download_id=download_id, url=url, total_bytes=total_bytes
+                        ),
                     )
 
                     # Stream download in chunks for memory efficiency
@@ -319,6 +335,7 @@ class DownloadWorker(BaseWorker):
                         await self.emitter.emit(
                             "worker.progress",
                             WorkerProgressEvent(
+                                download_id=download_id,
                                 url=url,
                                 chunk_size=len(chunk),
                                 bytes_downloaded=bytes_downloaded,
@@ -330,6 +347,7 @@ class DownloadWorker(BaseWorker):
                         await self.emitter.emit(
                             "worker.speed_updated",
                             WorkerSpeedUpdatedEvent(
+                                download_id=download_id,
                                 url=url,
                                 current_speed_bps=speed_metrics.current_speed_bps,
                                 average_speed_bps=speed_metrics.average_speed_bps,
@@ -344,12 +362,15 @@ class DownloadWorker(BaseWorker):
 
             # Validate hash if configured
             if hash_config is not None:
-                await self._validate_download(url, destination_path, hash_config)
+                await self._validate_download(
+                    url, destination_path, download_id, hash_config
+                )
 
             # Emit completed event
             await self.emitter.emit(
                 "worker.completed",
                 WorkerCompletedEvent(
+                    download_id=download_id,
                     url=url,
                     destination_path=str(destination_path),
                     total_bytes=bytes_downloaded,
@@ -367,6 +388,7 @@ class DownloadWorker(BaseWorker):
             await self.emitter.emit(
                 "worker.failed",
                 WorkerFailedEvent(
+                    download_id=download_id,
                     url=url,
                     error_message=str(download_error),
                     error_type=type(download_error).__name__,
@@ -398,7 +420,7 @@ class DownloadWorker(BaseWorker):
             )
 
     async def _validate_download(
-        self, url: str, file_path: Path, hash_config: HashConfig
+        self, url: str, file_path: Path, download_id: str, hash_config: HashConfig
     ) -> None:
         """Validate downloaded file hash matches expected value.
 
@@ -413,6 +435,7 @@ class DownloadWorker(BaseWorker):
         Args:
             url: The URL that was downloaded
             file_path: Path to the downloaded file
+            download_id: Unique identifier for this download task
             hash_config: Hash configuration with algorithm and expected hash
 
         Raises:
@@ -422,7 +445,9 @@ class DownloadWorker(BaseWorker):
         # Emit validation started event
         await self.emitter.emit(
             "worker.validation_started",
-            WorkerValidationStartedEvent(url=url, algorithm=hash_config.algorithm),
+            WorkerValidationStartedEvent(
+                download_id=download_id, url=url, algorithm=hash_config.algorithm
+            ),
         )
 
         validation_start = time.monotonic()
@@ -438,6 +463,7 @@ class DownloadWorker(BaseWorker):
             await self.emitter.emit(
                 "worker.validation_completed",
                 WorkerValidationCompletedEvent(
+                    download_id=download_id,
                     url=url,
                     algorithm=hash_config.algorithm,
                     calculated_hash=calculated_hash,
@@ -455,6 +481,7 @@ class DownloadWorker(BaseWorker):
             await self.emitter.emit(
                 "worker.validation_failed",
                 WorkerValidationFailedEvent(
+                    download_id=download_id,
                     url=url,
                     algorithm=hash_config.algorithm,
                     expected_hash=exc.expected_hash,

@@ -3,10 +3,11 @@
 import pytest
 
 from rheo.downloads import NullRetryHandler
+from rheo.downloads.retry.base import BaseRetryHandler
 
 
 @pytest.fixture
-def null_retry_handler():
+def null_retry_handler() -> NullRetryHandler:
     """Provide a NullRetryHandler instance for testing."""
     return NullRetryHandler()
 
@@ -15,7 +16,9 @@ class TestNullRetryHandler:
     """Test NullRetryHandler null object implementation."""
 
     @pytest.mark.asyncio
-    async def test_executes_operation_without_retry(self, null_retry_handler):
+    async def test_executes_operation_without_retry(
+        self, null_retry_handler: BaseRetryHandler
+    ) -> None:
         """NullRetryHandler executes operation directly without retry."""
         call_count = 0
 
@@ -25,14 +28,16 @@ class TestNullRetryHandler:
             return "result"
 
         result = await null_retry_handler.execute_with_retry(
-            operation, url="http://example.com/file.txt"
+            operation, url="http://example.com/file.txt", download_id="test-id"
         )
 
         assert result == "result"
         assert call_count == 1  # Called only once, no retry
 
     @pytest.mark.asyncio
-    async def test_propagates_exceptions(self, null_retry_handler):
+    async def test_propagates_exceptions(
+        self, null_retry_handler: BaseRetryHandler
+    ) -> None:
         """NullRetryHandler propagates exceptions without retry."""
         call_count = 0
 
@@ -43,13 +48,15 @@ class TestNullRetryHandler:
 
         with pytest.raises(ValueError, match="Test error"):
             await null_retry_handler.execute_with_retry(
-                operation, url="http://example.com/file.txt"
+                operation, url="http://example.com/file.txt", download_id="test-id"
             )
 
         assert call_count == 1  # Called only once, no retry on error
 
     @pytest.mark.asyncio
-    async def test_ignores_max_retries_parameter(self, null_retry_handler):
+    async def test_ignores_max_retries_parameter(
+        self, null_retry_handler: BaseRetryHandler
+    ) -> None:
         """NullRetryHandler ignores max_retries parameter."""
         call_count = 0
 
@@ -63,13 +70,16 @@ class TestNullRetryHandler:
         # Even with max_retries specified, should not retry
         with pytest.raises(ValueError, match="First call fails"):
             await null_retry_handler.execute_with_retry(
-                operation, url="http://example.com/file.txt", max_retries=5
+                operation,
+                url="http://example.com/file.txt",
+                download_id="test-id",
+                max_retries=5,
             )
 
         assert call_count == 1  # No retry even with max_retries
 
     @pytest.mark.asyncio
-    async def test_returns_any_type(self, null_retry_handler):
+    async def test_returns_any_type(self, null_retry_handler: BaseRetryHandler) -> None:
         """NullRetryHandler can return any type."""
 
         async def string_operation():
@@ -82,10 +92,13 @@ class TestNullRetryHandler:
             return {"key": "value"}
 
         assert (
-            await null_retry_handler.execute_with_retry(string_operation, "")
+            await null_retry_handler.execute_with_retry(string_operation, "", "test-id")
             == "string result"
         )
-        assert await null_retry_handler.execute_with_retry(int_operation, "") == 42
-        assert await null_retry_handler.execute_with_retry(dict_operation, "") == {
-            "key": "value"
-        }
+        assert (
+            await null_retry_handler.execute_with_retry(int_operation, "", "test-id")
+            == 42
+        )
+        assert await null_retry_handler.execute_with_retry(
+            dict_operation, "", "test-id"
+        ) == {"key": "value"}

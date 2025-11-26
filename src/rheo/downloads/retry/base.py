@@ -19,6 +19,7 @@ class BaseRetryHandler(ABC):
         self,
         operation: t.Callable[[], t.Awaitable[T]],
         url: str,
+        download_id: str,
         max_retries: int | None = None,
     ) -> T:
         """Execute an async operation with retry logic.
@@ -26,6 +27,7 @@ class BaseRetryHandler(ABC):
         Args:
             operation: The async callable to execute.
             url: The URL associated with the operation, for logging and events.
+            download_id: Unique identifier for the download task.
             max_retries: Optional override for max retries (implementation-specific).
 
         Returns:

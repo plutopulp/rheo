@@ -45,7 +45,7 @@ class TestDownloadWorkerSuccessfulDownloads:
         with aioresponses() as mock:
             mock.get(test_url, status=200, body=test_content)
 
-            await test_worker.download(test_url, temp_file)
+            await test_worker.download(test_url, temp_file, download_id="test-id")
 
         # Verify file was created with correct content
         assert temp_file.exists()
@@ -71,7 +71,9 @@ class TestDownloadWorkerSuccessfulDownloads:
         with aioresponses() as mock:
             mock.get(test_url, status=200, body=test_content)
 
-            await test_worker.download(test_url, temp_file, chunk_size=256)
+            await test_worker.download(
+                test_url, temp_file, download_id="test-id", chunk_size=256
+            )
 
         assert temp_file.exists()
         assert temp_file.read_bytes() == test_content
@@ -86,7 +88,9 @@ class TestDownloadWorkerSuccessfulDownloads:
         with aioresponses() as mock:
             mock.get(test_url, status=200, body=test_content)
 
-            await test_worker.download(test_url, temp_file, chunk_size=1024)
+            await test_worker.download(
+                test_url, temp_file, download_id="test-id", chunk_size=1024
+            )
 
         assert temp_file.exists()
         assert temp_file.read_bytes() == test_content
@@ -100,7 +104,7 @@ class TestDownloadWorkerSuccessfulDownloads:
         with aioresponses() as mock:
             mock.get(test_url, status=200, body=b"")
 
-            await test_worker.download(test_url, temp_file)
+            await test_worker.download(test_url, temp_file, download_id="test-id")
 
         assert temp_file.exists()
         assert temp_file.read_bytes() == b""
@@ -119,7 +123,7 @@ class TestDownloadWorkerHTTPErrors:
             mock.get(test_url, status=404, body="Not Found")
 
             with pytest.raises(aiohttp.ClientResponseError) as exc_info:
-                await test_worker.download(test_url, temp_file)
+                await test_worker.download(test_url, temp_file, download_id="test-id")
 
         # Verify error handling
         assert exc_info.value.status == 404
@@ -136,7 +140,7 @@ class TestDownloadWorkerHTTPErrors:
             mock.get(test_url, status=500, body="Internal Server Error")
 
             with pytest.raises(aiohttp.ClientResponseError) as exc_info:
-                await test_worker.download(test_url, temp_file)
+                await test_worker.download(test_url, temp_file, download_id="test-id")
 
         assert exc_info.value.status == 500
         assert not temp_file.exists()
@@ -152,7 +156,7 @@ class TestDownloadWorkerHTTPErrors:
             mock.get(test_url, status=403, body="Forbidden")
 
             with pytest.raises(aiohttp.ClientResponseError) as exc_info:
-                await test_worker.download(test_url, temp_file)
+                await test_worker.download(test_url, temp_file, download_id="test-id")
 
         assert exc_info.value.status == 403
         assert not temp_file.exists()
@@ -172,7 +176,7 @@ class TestDownloadWorkerNetworkErrors:
             mock.get(test_url, exception=ConnectionError("Connection failed"))
 
             with pytest.raises(ConnectionError):
-                await test_worker.download(test_url, temp_file)
+                await test_worker.download(test_url, temp_file, download_id="test-id")
 
         assert not temp_file.exists()
         mock_logger.error.assert_called()
@@ -191,7 +195,7 @@ class TestDownloadWorkerNetworkErrors:
             mock.get(test_url, exception=Exception("SSL verification failed"))
 
             with pytest.raises(Exception):
-                await test_worker.download(test_url, temp_file)
+                await test_worker.download(test_url, temp_file, download_id="test-id")
 
         assert not temp_file.exists()
         mock_logger.error.assert_called()
@@ -208,7 +212,7 @@ class TestDownloadWorkerNetworkErrors:
             mock.get(test_url, exception=aiohttp.ClientPayloadError("Invalid payload"))
 
             with pytest.raises(aiohttp.ClientPayloadError):
-                await test_worker.download(test_url, temp_file)
+                await test_worker.download(test_url, temp_file, download_id="test-id")
 
         assert not temp_file.exists()
         mock_logger.error.assert_called()
@@ -232,7 +236,7 @@ class TestDownloadWorkerTimeouts:
 
             with pytest.raises(asyncio.TimeoutError):
                 await test_worker.download(
-                    test_url, temp_file, timeout=0.01
+                    test_url, temp_file, download_id="test-id", timeout=0.01
                 )  # Very short timeout
 
         assert not temp_file.exists()
@@ -258,7 +262,9 @@ class TestDownloadWorkerFileSystemErrors:
             mock.get(test_url, status=200, body=b"test content")
 
             with pytest.raises(PermissionError):
-                await test_worker.download(test_url, readonly_file)
+                await test_worker.download(
+                    test_url, readonly_file, download_id="test-id"
+                )
 
         mock_logger.error.assert_called()
         error_call = mock_logger.error.call_args[0][0]
@@ -274,7 +280,9 @@ class TestDownloadWorkerFileSystemErrors:
             mock.get(test_url, status=200, body=b"test content")
 
             with pytest.raises(FileNotFoundError):
-                await test_worker.download(test_url, nonexistent_path)
+                await test_worker.download(
+                    test_url, nonexistent_path, download_id="test-id"
+                )
 
         mock_logger.error.assert_called()
         error_call = mock_logger.error.call_args[0][0]
@@ -300,7 +308,7 @@ class TestDownloadWorkerFileCleanup:
             mock.get(test_url, status=404)
 
             with pytest.raises(aiohttp.ClientResponseError):
-                await test_worker.download(test_url, temp_file)
+                await test_worker.download(test_url, temp_file, download_id="test-id")
 
         # File should be cleaned up
         assert not temp_file.exists()

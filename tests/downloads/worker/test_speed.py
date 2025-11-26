@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 from aioresponses import aioresponses
 
+from rheo.downloads.worker.base import BaseWorker
 from rheo.events import WorkerSpeedUpdatedEvent
 
 
@@ -20,7 +21,7 @@ class SpeedTestData:
 
 
 @pytest.fixture
-def test_data(tmp_path):
+def test_data(tmp_path: Path) -> SpeedTestData:
     """Provide default test data for speed tracking tests.
 
     Uses 5KB content by default to ensure multiple chunks (at 1KB chunk size).
@@ -34,13 +35,13 @@ def test_data(tmp_path):
 
 
 @pytest.fixture
-def speed_events(test_worker):
+def speed_events(test_worker: BaseWorker) -> list[WorkerSpeedUpdatedEvent]:
     """Set up speed event listener and return events list.
 
     Returns a list that will be populated with WorkerSpeedUpdatedEvent
     instances as they are emitted during downloads.
     """
-    events = []
+    events: list[WorkerSpeedUpdatedEvent] = []
     test_worker.emitter.on("worker.speed_updated", lambda e: events.append(e))
     return events
 
@@ -50,12 +51,17 @@ class TestWorkerSpeedTracking:
 
     @pytest.mark.asyncio
     async def test_worker_emits_speed_events_after_each_chunk(
-        self, test_worker, test_data, speed_events
-    ):
+        self,
+        test_worker: BaseWorker,
+        test_data: SpeedTestData,
+        speed_events: list[WorkerSpeedUpdatedEvent],
+    ) -> None:
         """Test that worker emits speed event after each chunk."""
         with aioresponses() as mock:
             mock.get(test_data.url, status=200, body=test_data.content)
-            await test_worker.download(test_data.url, test_data.path, chunk_size=1024)
+            await test_worker.download(
+                test_data.url, test_data.path, download_id="test-id", chunk_size=1024
+            )
 
         # Should have multiple speed events (at least 5 for 5KB with 1KB chunks)
         assert len(speed_events) >= 5
@@ -63,25 +69,35 @@ class TestWorkerSpeedTracking:
 
     @pytest.mark.asyncio
     async def test_speed_event_contains_correct_url(
-        self, test_worker, test_data, speed_events
-    ):
+        self,
+        test_worker: BaseWorker,
+        test_data: SpeedTestData,
+        speed_events: list[WorkerSpeedUpdatedEvent],
+    ) -> None:
         """Test that speed events contain the correct URL."""
         with aioresponses() as mock:
             mock.get(test_data.url, status=200, body=b"test content")
-            await test_worker.download(test_data.url, test_data.path)
+            await test_worker.download(
+                test_data.url, test_data.path, download_id="test-id"
+            )
 
         assert all(e.url == test_data.url for e in speed_events)
 
     @pytest.mark.asyncio
     async def test_speed_event_has_cumulative_bytes(
-        self, test_worker, test_data, speed_events
-    ):
+        self,
+        test_worker: BaseWorker,
+        test_data: SpeedTestData,
+        speed_events: list[WorkerSpeedUpdatedEvent],
+    ) -> None:
         """Test that speed events show cumulative bytes downloaded."""
         content = b"a" * 3000  # 3KB
 
         with aioresponses() as mock:
             mock.get(test_data.url, status=200, body=content)
-            await test_worker.download(test_data.url, test_data.path, chunk_size=1024)
+            await test_worker.download(
+                test_data.url, test_data.path, download_id="test-id", chunk_size=1024
+            )
 
         # Bytes should be cumulative and increasing
         bytes_values = [e.bytes_downloaded for e in speed_events]
@@ -90,8 +106,11 @@ class TestWorkerSpeedTracking:
 
     @pytest.mark.asyncio
     async def test_speed_event_includes_total_bytes_when_known(
-        self, test_worker, test_data, speed_events
-    ):
+        self,
+        test_worker: BaseWorker,
+        test_data: SpeedTestData,
+        speed_events: list[WorkerSpeedUpdatedEvent],
+    ) -> None:
         """Test that speed events include total_bytes from Content-Length."""
         content = b"test content"
 
@@ -103,19 +122,26 @@ class TestWorkerSpeedTracking:
                 body=content,
                 headers={"Content-Length": str(len(content))},
             )
-            await test_worker.download(test_data.url, test_data.path)
+            await test_worker.download(
+                test_data.url, test_data.path, download_id="test-id"
+            )
 
         # All events should have total_bytes set
         assert all(e.total_bytes == len(content) for e in speed_events)
 
     @pytest.mark.asyncio
     async def test_first_speed_event_has_zero_speeds(
-        self, test_worker, test_data, speed_events
-    ):
+        self,
+        test_worker: BaseWorker,
+        test_data: SpeedTestData,
+        speed_events: list[WorkerSpeedUpdatedEvent],
+    ) -> None:
         """Test that first speed event has zero speeds (no previous data)."""
         with aioresponses() as mock:
             mock.get(test_data.url, status=200, body=b"test content")
-            await test_worker.download(test_data.url, test_data.path)
+            await test_worker.download(
+                test_data.url, test_data.path, download_id="test-id"
+            )
 
         # First event should have zero speeds
         first_event = speed_events[0]
@@ -125,14 +151,19 @@ class TestWorkerSpeedTracking:
 
     @pytest.mark.asyncio
     async def test_subsequent_speed_events_have_nonzero_speeds(
-        self, test_worker, test_data, speed_events
-    ):
+        self,
+        test_worker: BaseWorker,
+        test_data: SpeedTestData,
+        speed_events: list[WorkerSpeedUpdatedEvent],
+    ) -> None:
         """Test that subsequent speed events have calculated speeds."""
         content = b"a" * 3000  # 3KB
 
         with aioresponses() as mock:
             mock.get(test_data.url, status=200, body=content)
-            await test_worker.download(test_data.url, test_data.path, chunk_size=1024)
+            await test_worker.download(
+                test_data.url, test_data.path, download_id="test-id", chunk_size=1024
+            )
 
         # Skip first event (zero speeds), check rest have speeds
         if len(speed_events) > 1:
@@ -146,8 +177,11 @@ class TestWorkerSpeedTracking:
 
     @pytest.mark.asyncio
     async def test_speed_event_includes_eta_when_total_known(
-        self, test_worker, test_data, speed_events
-    ):
+        self,
+        test_worker: BaseWorker,
+        test_data: SpeedTestData,
+        speed_events: list[WorkerSpeedUpdatedEvent],
+    ) -> None:
         """Test that ETA is calculated when total_bytes is known."""
         with aioresponses() as mock:
             # Explicitly set Content-Length header
@@ -157,7 +191,9 @@ class TestWorkerSpeedTracking:
                 body=test_data.content,
                 headers={"Content-Length": str(len(test_data.content))},
             )
-            await test_worker.download(test_data.url, test_data.path, chunk_size=1024)
+            await test_worker.download(
+                test_data.url, test_data.path, download_id="test-id", chunk_size=1024
+            )
 
         # Skip first event (zero speed, no ETA)
         # Middle events should have ETA when speed > 0 and total known
@@ -171,8 +207,11 @@ class TestWorkerSpeedTracking:
 
     @pytest.mark.asyncio
     async def test_final_speed_event_has_zero_eta(
-        self, test_worker, test_data, speed_events
-    ):
+        self,
+        test_worker: BaseWorker,
+        test_data: SpeedTestData,
+        speed_events: list[WorkerSpeedUpdatedEvent],
+    ) -> None:
         """Test that final speed event has ETA of 0 (download complete)."""
         content = b"a" * 2000  # 2KB
 
@@ -184,7 +223,9 @@ class TestWorkerSpeedTracking:
                 body=content,
                 headers={"Content-Length": str(len(content))},
             )
-            await test_worker.download(test_data.url, test_data.path, chunk_size=1024)
+            await test_worker.download(
+                test_data.url, test_data.path, download_id="test-id", chunk_size=1024
+            )
 
         # Final event should have ETA of 0 (all bytes downloaded)
         final_event = speed_events[-1]
@@ -193,8 +234,11 @@ class TestWorkerSpeedTracking:
 
     @pytest.mark.asyncio
     async def test_speed_tracking_with_unknown_total_size(
-        self, test_worker, test_data, speed_events
-    ):
+        self,
+        test_worker: BaseWorker,
+        test_data: SpeedTestData,
+        speed_events: list[WorkerSpeedUpdatedEvent],
+    ) -> None:
         """Test speed tracking when Content-Length is not provided."""
         with aioresponses() as mock:
             # Headers without Content-Length
@@ -204,7 +248,9 @@ class TestWorkerSpeedTracking:
                 body=b"test content",
                 headers={},  # No Content-Length
             )
-            await test_worker.download(test_data.url, test_data.path)
+            await test_worker.download(
+                test_data.url, test_data.path, download_id="test-id"
+            )
 
         # Speed events should still be emitted
         assert len(speed_events) > 0
@@ -214,8 +260,8 @@ class TestWorkerSpeedTracking:
 
     @pytest.mark.asyncio
     async def test_concurrent_downloads_have_independent_speed_tracking(
-        self, test_worker, tmp_path
-    ):
+        self, test_worker: BaseWorker, tmp_path: Path
+    ) -> None:
         """Test that concurrent downloads each have independent speed calculators.
 
         This ensures:
@@ -248,9 +294,9 @@ class TestWorkerSpeedTracking:
 
             # Run downloads concurrently
             await asyncio.gather(
-                test_worker.download(url1, dest1, chunk_size=1024),
-                test_worker.download(url2, dest2, chunk_size=1024),
-                test_worker.download(url3, dest3, chunk_size=1024),
+                test_worker.download(url1, dest1, download_id="id1", chunk_size=1024),
+                test_worker.download(url2, dest2, download_id="id2", chunk_size=1024),
+                test_worker.download(url3, dest3, download_id="id3", chunk_size=1024),
             )
 
         # Verify events were emitted for all downloads

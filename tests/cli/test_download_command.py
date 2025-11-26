@@ -99,7 +99,7 @@ class TestDownloadCommandErrors:
     """Test error handling and user feedback."""
 
     def test_download_failed_status_exits_with_error(
-        self, cli_runner, app_with_mock_manager, mock_tracker
+        self, cli_runner, app_with_mock_manager, mock_tracker, mock_download_manager
     ):
         """Test that failed download shows error and exits with code 1."""
 
@@ -115,5 +115,9 @@ class TestDownloadCommandErrors:
         )
 
         assert result.exit_code == 1
-        # Verify tracker was queried for download info
-        mock_tracker.get_download_info.assert_called_with("http://example.com/file.zip")
+
+        # Verify tracker was queried with the download_id (from FileConfig.id)
+        # Extract the FileConfig that was created to get its ID
+        call_args = mock_download_manager.add.call_args[0][0]
+        file_config = call_args[0]
+        mock_tracker.get_download_info.assert_called_with(file_config.id)

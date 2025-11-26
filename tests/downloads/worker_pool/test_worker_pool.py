@@ -408,6 +408,43 @@ class TestWorkerPoolQueueProcessing:
     """Test successful queue processing and error handling."""
 
     @pytest.mark.asyncio
+    async def test_pool_passes_download_id_to_worker(
+        self,
+        mock_aio_client: aiohttp.ClientSession,
+        make_worker_pool: t.Callable[..., WorkerPool],
+        make_file_config: t.Callable[..., FileConfig],
+        real_priority_queue: PriorityDownloadQueue,
+        make_mock_worker_factory: WorkerFactoryMaker,
+    ) -> None:
+        """Worker pool should pass download_id from file_config.id to worker.
+
+        Verifies that WorkerPool extracts the download_id from FileConfig.id
+        and passes it to worker.download().
+        """
+        file_config = make_file_config()
+        await real_priority_queue.add([file_config])
+
+        # Track what arguments were passed to worker.download()
+        download_kwargs = {}
+
+        async def capture_download_kwargs(*args, **kwargs):
+            nonlocal download_kwargs
+            download_kwargs = kwargs
+
+        worker_factory = make_mock_worker_factory(
+            download_side_effect=capture_download_kwargs
+        )
+        pool = make_worker_pool(worker_factory=worker_factory)
+
+        await pool.start(mock_aio_client)
+        await asyncio.wait_for(real_priority_queue.join(), timeout=1.0)
+        await pool.stop()
+
+        # Verify download_id was passed and matches file_config.id
+        assert "download_id" in download_kwargs
+        assert download_kwargs["download_id"] == file_config.id
+
+    @pytest.mark.asyncio
     async def test_process_queue_consumes_items(
         self,
         mock_aio_client: aiohttp.ClientSession,
@@ -658,7 +695,7 @@ class TestWorkerPoolImplementationRationale:
             await asyncio.wait_for(real_priority_queue.join(), timeout=0.5)
 
         # Control case: manually calling task_done fixes the queue state
-        real_priority_queue.task_done()
+        real_priority_queue.task_done(file_config.id)
 
         # Now join should complete immediately
         await asyncio.wait_for(real_priority_queue.join(), timeout=0.5)

@@ -44,10 +44,13 @@ class TestWorkerEventPayloads:
                 body=test_data.content,
                 headers={"Content-Length": str(len(test_data.content))},
             )
-            await test_worker.download(test_data.url, test_data.path)
+            await test_worker.download(
+                test_data.url, test_data.path, download_id="test-id-123"
+            )
 
         # aioresponses should set content_length
         assert events_received[0].total_bytes is not None
+        assert events_received[0].download_id == "test-id-123"
 
     @pytest.mark.asyncio
     async def test_progress_event_includes_total_bytes_if_available(
@@ -64,7 +67,10 @@ class TestWorkerEventPayloads:
                 body=test_data.content,
                 headers={"Content-Length": str(len(test_data.content))},
             )
-            await test_worker.download(test_data.url, test_data.path)
+            await test_worker.download(
+                test_data.url, test_data.path, download_id="test-id-456"
+            )
 
-        # All progress events should have total_bytes
+        # All progress events should have total_bytes and download_id
         assert all(e.total_bytes is not None for e in events_received)
+        assert all(e.download_id == "test-id-456" for e in events_received)

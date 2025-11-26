@@ -19,6 +19,8 @@ async def main() -> None:
 
     # Create files with different priorities
     # Higher priority numbers download first
+    # Note: Same URL can be downloaded to different destinations (different filenames).
+    # Each URL+destination pair is treated as a unique download with its own ID.
     files = [
         FileConfig(
             url="https://proof.ovh.net/files/10Mb.dat",

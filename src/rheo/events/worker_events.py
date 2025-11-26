@@ -10,8 +10,12 @@ class WorkerEvent:
 
     Worker events represent the actual download operation state,
     while tracker events represent the overall tracking state.
+
+    All worker events include download_id to identify which download
+    task the event relates to.
     """
 
+    download_id: str
     url: str
     timestamp: datetime = field(default_factory=datetime.now)
     event_type: str = "worker.base"

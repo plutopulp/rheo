@@ -178,7 +178,7 @@ async def main() -> None:
         # Manually trigger queued events
         for file_config in files:
             await manager.tracker.track_queued(
-                str(file_config.url), file_config.priority
+                file_config.id, str(file_config.url), file_config.priority
             )
 
         await manager.add(files)

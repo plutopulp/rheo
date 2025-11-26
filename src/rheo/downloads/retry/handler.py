@@ -49,6 +49,7 @@ class RetryHandler(BaseRetryHandler):
         self,
         operation: t.Callable[[], t.Awaitable[T]],
         url: str,
+        download_id: str,
         max_retries: int | None = None,
     ) -> T:
         """
@@ -57,6 +58,7 @@ class RetryHandler(BaseRetryHandler):
         Args:
             operation: Async callable to execute
             url: URL being processed (for logging/events)
+            download_id: Unique identifier for the download task
             max_retries: Override config max_retries (optional)
 
         Returns:
@@ -105,6 +107,7 @@ class RetryHandler(BaseRetryHandler):
                     await self.emitter.emit(
                         "worker.retry",
                         WorkerRetryEvent(
+                            download_id=download_id,
                             url=url,
                             attempt=attempt + 1,
                             max_retries=effective_max_retries,

@@ -30,6 +30,8 @@ class BaseWorker(ABC):
         self,
         url: str,
         destination_path: Path,
+        download_id: str,
+        *,
         chunk_size: int = 1024,
         timeout: float | None = None,
         speed_calculator: SpeedCalculator | None = None,
@@ -40,6 +42,7 @@ class BaseWorker(ABC):
         Args:
             url: HTTP/HTTPS URL to download from
             destination_path: Full path where file should be saved
+            download_id: Unique identifier for this download task
             chunk_size: Size of chunks to read/write (bytes)
             timeout: HTTP request timeout in seconds
             speed_calculator: Optional speed calculator for this download

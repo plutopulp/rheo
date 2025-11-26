@@ -30,31 +30,38 @@ def _create_event_wiring(
     """Create event wiring mapping from worker events to tracker methods."""
 
     return {
-        "worker.started": lambda e: tracker.track_started(e.url, e.url, e.total_bytes),
+        "worker.started": lambda e: tracker.track_started(
+            e.download_id, e.url, e.total_bytes
+        ),
         "worker.progress": lambda e: tracker.track_progress(
-            e.url, e.url, e.bytes_downloaded, e.total_bytes
+            e.download_id, e.url, e.bytes_downloaded, e.total_bytes
         ),
         "worker.speed_updated": lambda e: tracker.track_speed_update(
-            e.url,
+            e.download_id,
             e.current_speed_bps,
             e.average_speed_bps,
             e.eta_seconds,
             e.elapsed_seconds,
         ),
         "worker.validation_started": lambda e: tracker.track_validation_started(
-            e.url, e.url, e.algorithm
+            e.download_id, e.url, e.algorithm
         ),
         "worker.validation_completed": lambda e: tracker.track_validation_completed(
-            e.url, e.url, e.algorithm, e.calculated_hash
+            e.download_id, e.url, e.algorithm, e.calculated_hash
         ),
         "worker.validation_failed": lambda e: tracker.track_validation_failed(
-            e.url, e.url, e.algorithm, e.expected_hash, e.actual_hash, e.error_message
+            e.download_id,
+            e.url,
+            e.algorithm,
+            e.expected_hash,
+            e.actual_hash,
+            e.error_message,
         ),
         "worker.completed": lambda e: tracker.track_completed(
-            e.url, e.url, e.total_bytes, e.destination_path
+            e.download_id, e.url, e.total_bytes, e.destination_path
         ),
         "worker.failed": lambda e: tracker.track_failed(
-            e.url, e.url, Exception(f"{e.error_type}: {e.error_message}")
+            e.download_id, e.url, Exception(f"{e.error_type}: {e.error_message}")
         ),
     }
 
@@ -269,6 +276,7 @@ class WorkerPool(BaseWorkerPool):
                 await worker.download(
                     str(file_config.url),
                     destination_path,
+                    download_id=file_config.id,
                     hash_config=file_config.hash_config,
                 )
                 self._logger.debug(
@@ -295,8 +303,9 @@ class WorkerPool(BaseWorkerPool):
                 # Error details are already logged by the worker.
             finally:
                 # Only call task_done if we actually got an item.
-                if got_item:
-                    self.queue.task_done()
+                # Pass download_id to allow re-queueing the same download later.
+                if got_item and file_config:
+                    self.queue.task_done(file_config.id)
 
         self._logger.debug("Worker shutting down gracefully")
 
@@ -321,7 +330,7 @@ class WorkerPool(BaseWorkerPool):
             # task counter, so we must decrement it even though we're re-queuing.
             # Without task_done(), queue.join() would hang waiting for this item.
             await self.queue.add([file_config])
-            self.queue.task_done()
+            self.queue.task_done(file_config.id)
         return shutdown_is_set
 
     async def _wait_for_workers_and_clear(self) -> None:
