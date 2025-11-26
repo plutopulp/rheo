@@ -116,6 +116,7 @@ class TestDownloadTrackerEventEmission:
 
         assert len(events_received) == 1
         assert isinstance(events_received[0], DownloadQueuedEvent)
+        assert events_received[0].download_id == "https://example.com/file.txt"
         assert events_received[0].url == "https://example.com/file.txt"
 
     @pytest.mark.asyncio
@@ -132,6 +133,7 @@ class TestDownloadTrackerEventEmission:
 
         assert len(events_received) == 1
         assert isinstance(events_received[0], DownloadStartedEvent)
+        assert events_received[0].download_id == "https://example.com/file.txt"
         assert events_received[0].url == "https://example.com/file.txt"
         assert events_received[0].total_bytes == 1024
 
@@ -151,6 +153,7 @@ class TestDownloadTrackerEventEmission:
 
         assert len(events_received) == 1
         assert isinstance(events_received[0], DownloadProgressEvent)
+        assert events_received[0].download_id == "https://example.com/file.txt"
         assert events_received[0].url == "https://example.com/file.txt"
         assert events_received[0].bytes_downloaded == 512
         assert events_received[0].total_bytes == 1024
@@ -169,6 +172,7 @@ class TestDownloadTrackerEventEmission:
 
         assert len(events_received) == 1
         assert isinstance(events_received[0], DownloadCompletedEvent)
+        assert events_received[0].download_id == "https://example.com/file.txt"
         assert events_received[0].url == "https://example.com/file.txt"
         assert events_received[0].total_bytes == 1024
 
@@ -187,6 +191,7 @@ class TestDownloadTrackerEventEmission:
 
         assert len(events_received) == 1
         assert isinstance(events_received[0], DownloadFailedEvent)
+        assert events_received[0].download_id == "https://example.com/file.txt"
         assert events_received[0].url == "https://example.com/file.txt"
         assert events_received[0].error_message == "Connection failed"
         assert events_received[0].error_type == "ValueError"

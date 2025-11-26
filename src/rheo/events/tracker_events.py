@@ -8,9 +8,11 @@ from datetime import datetime
 class DownloadEvent:
     """Base class for all download tracker events.
 
-    All events include a timestamp and the URL being tracked.
+    All events include the download ID, URL, and timestamp.
+    The download_id uniquely identifies which download this event relates to.
     """
 
+    download_id: str
     url: str
     timestamp: datetime = field(default_factory=datetime.now)
     event_type: str = "tracker.base"

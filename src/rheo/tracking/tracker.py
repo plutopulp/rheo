@@ -135,7 +135,8 @@ class DownloadTracker(BaseTracker):
             )
 
         await self._emit(
-            "tracker.queued", DownloadQueuedEvent(url=url, priority=priority)
+            "tracker.queued",
+            DownloadQueuedEvent(download_id=url, url=url, priority=priority),
         )
 
     async def track_started(self, url: str, total_bytes: int | None = None) -> None:
@@ -157,7 +158,8 @@ class DownloadTracker(BaseTracker):
                 self._downloads[url].total_bytes = total_bytes
 
         await self._emit(
-            "tracker.started", DownloadStartedEvent(url=url, total_bytes=total_bytes)
+            "tracker.started",
+            DownloadStartedEvent(download_id=url, url=url, total_bytes=total_bytes),
         )
 
     async def track_progress(
@@ -184,7 +186,10 @@ class DownloadTracker(BaseTracker):
         await self._emit(
             "tracker.progress",
             DownloadProgressEvent(
-                url=url, bytes_downloaded=bytes_downloaded, total_bytes=total_bytes
+                download_id=url,
+                url=url,
+                bytes_downloaded=bytes_downloaded,
+                total_bytes=total_bytes,
             ),
         )
 
@@ -287,7 +292,10 @@ class DownloadTracker(BaseTracker):
         await self._emit(
             "tracker.completed",
             DownloadCompletedEvent(
-                url=url, total_bytes=total_bytes, destination_path=destination_path
+                download_id=url,
+                url=url,
+                total_bytes=total_bytes,
+                destination_path=destination_path,
             ),
         )
 
@@ -314,7 +322,10 @@ class DownloadTracker(BaseTracker):
         await self._emit(
             "tracker.failed",
             DownloadFailedEvent(
-                url=url, error_message=str(error), error_type=type(error).__name__
+                download_id=url,
+                url=url,
+                error_message=str(error),
+                error_type=type(error).__name__,
             ),
         )
 
@@ -328,7 +339,9 @@ class DownloadTracker(BaseTracker):
 
         await self._emit(
             "tracker.validation_started",
-            DownloadValidationStartedEvent(url=url, algorithm=algorithm),
+            DownloadValidationStartedEvent(
+                download_id=url, url=url, algorithm=algorithm
+            ),
         )
 
     async def track_validation_completed(
@@ -349,6 +362,7 @@ class DownloadTracker(BaseTracker):
         await self._emit(
             "tracker.validation_completed",
             DownloadValidationCompletedEvent(
+                download_id=url,
                 url=url,
                 algorithm=algorithm,
                 calculated_hash=calculated_hash,
@@ -375,6 +389,7 @@ class DownloadTracker(BaseTracker):
         await self._emit(
             "tracker.validation_failed",
             DownloadValidationFailedEvent(
+                download_id=url,
                 url=url,
                 algorithm=algorithm,
                 expected_hash=expected_hash,
