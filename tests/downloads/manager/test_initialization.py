@@ -4,6 +4,7 @@ import pytest
 from aiohttp import ClientSession
 
 from rheo.domain.exceptions import ManagerNotInitializedError
+from rheo.domain.file_config import FileConfig
 from rheo.downloads import (
     DownloadManager,
     DownloadWorker,
@@ -76,6 +77,23 @@ class TestDownloadManagerInitialization:
         with pytest.raises(ValueError, match="Factory initialization failed"):
             async with manager:
                 pass
+
+    @pytest.mark.asyncio
+    async def test_manager_handles_duplicate_downloads(self, mock_logger):
+        """Test that adding same URL+destination twice only queues one download.
+
+        Verifies that the manager properly delegates to the queue's deduplication
+        logic, preventing duplicate downloads from being queued.
+        """
+        manager = DownloadManager(logger=mock_logger)
+        file_config = FileConfig(url="https://example.com/file.txt")
+
+        # Add same config twice
+        await manager.add([file_config])
+        await manager.add([file_config])
+
+        # Should only have one item in queue (duplicate was skipped)
+        assert manager.queue.size() == 1
 
 
 class TestDownloadManagerContextManager:
