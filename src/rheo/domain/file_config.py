@@ -1,9 +1,18 @@
 """File configuration and filename handling for downloads."""
 
+import hashlib
 import re
+import typing as t
 from pathlib import Path
 
-from pydantic import BaseModel, Field, HttpUrl, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    HttpUrl,
+    computed_field,
+    field_validator,
+)
 
 from .hash_validation import HashConfig
 
@@ -180,6 +189,20 @@ class FileConfig(BaseModel):
 
     Priority: higher numbers = higher priority (1=low, 5=high)
     Size info enables progress bars; omit if unknown.
+
+    Each FileConfig automatically generates a unique download_id from
+    the URL and destination path, ensuring proper tracking and deduplication.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    # Download ID configuration
+    DOWNLOAD_ID_LENGTH: t.ClassVar[int] = 16
+    """Length of generated download_id in hex characters.
+
+    16 chars = 64 bits of entropy.
+    Collision probability < 0.03% for 1 million downloads.
+    Can be increased to 20-32 chars if higher uniqueness needed.
     """
 
     # ========== Required ==========
@@ -349,3 +372,46 @@ class FileConfig(BaseModel):
         else:
             # Just base_dir and filename
             return base_dir / filename
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def download_id(self) -> str:
+        """Unique identifier for this download task.
+
+        Auto-generated from URL and relative destination path.
+
+        Design rationale: The ID includes destination because a "download"
+        represents the complete operation (fetch + save to location), not just
+        content acquisition. This ensures each download task is independent,
+        trackable, cancellable, and retryable without coupling.
+
+        Used for:
+        - Duplicate detection in queue (same URL+dest = duplicate)
+        - Tracking downloads with same URL to different destinations
+        - Event correlation across the download lifecycle
+
+        The ID is stable: same URL + destination = same ID always.
+
+        Future enhancements might include:
+        - HTTP headers (for auth-dependent downloads)
+        - HTTP method (for POST downloads)
+        - Byte ranges (for partial downloads)
+
+        Returns:
+            Hex string of length DOWNLOAD_ID_LENGTH (default 16 chars = 64 bits).
+            Collision probability < 0.03% for 1 million downloads.
+        """
+        filename = self.get_destination_filename()
+        relative_path = Path(self.destination_subdir or "") / filename
+
+        # Components that define download identity
+        identity_components = [
+            str(self.url),
+            str(relative_path),
+            # Future: str(self.headers) if self.headers else "",
+            # Future: str(self.method) if self.method != "GET" else "",
+        ]
+
+        identity_string = "::".join(identity_components)
+        full_hash = hashlib.sha256(identity_string.encode()).hexdigest()
+        return full_hash[: self.DOWNLOAD_ID_LENGTH]
