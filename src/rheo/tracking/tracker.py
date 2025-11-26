@@ -120,46 +120,60 @@ class DownloadTracker(BaseTracker):
         """
         await self._emitter.emit(event_type, event)
 
-    async def track_queued(self, url: str, priority: int = 1) -> None:
+    async def track_queued(self, download_id: str, url: str, priority: int = 1) -> None:
         """Record that a download was queued.
 
         Creates a new DownloadInfo with QUEUED status and emits DownloadQueuedEvent.
 
         Args:
-            url: The URL being queued
+            download_id: Unique identifier for this download task
+            url: The URL being downloaded
             priority: Priority level for the download
         """
         async with self._lock:
-            self._downloads[url] = DownloadInfo(url=url, status=DownloadStatus.QUEUED)
+            self._downloads[download_id] = DownloadInfo(
+                id=download_id, url=url, status=DownloadStatus.QUEUED
+            )
 
         await self._emit(
-            "tracker.queued", DownloadQueuedEvent(url=url, priority=priority)
+            "tracker.queued",
+            DownloadQueuedEvent(download_id=download_id, url=url, priority=priority),
         )
 
-    async def track_started(self, url: str, total_bytes: int | None = None) -> None:
+    async def track_started(
+        self, download_id: str, url: str, total_bytes: int | None = None
+    ) -> None:
         """Record that a download started.
 
         Updates status to IN_PROGRESS and sets total_bytes if known.
         Emits DownloadStartedEvent.
 
         Args:
+            download_id: Unique identifier for this download task
             url: The URL being downloaded
             total_bytes: Total size in bytes (optional)
         """
         async with self._lock:
-            if url not in self._downloads:
-                self._downloads[url] = DownloadInfo(url=url)
+            if download_id not in self._downloads:
+                self._downloads[download_id] = DownloadInfo(id=download_id, url=url)
 
-            self._downloads[url].status = DownloadStatus.IN_PROGRESS
+            self._downloads[download_id].status = DownloadStatus.IN_PROGRESS
             if total_bytes is not None:
-                self._downloads[url].total_bytes = total_bytes
+                self._downloads[download_id].total_bytes = total_bytes
 
         await self._emit(
-            "tracker.started", DownloadStartedEvent(url=url, total_bytes=total_bytes)
+            "tracker.started",
+            DownloadStartedEvent(
+                download_id=download_id, url=url, total_bytes=total_bytes
+            ),
         )
 
     async def track_progress(
-        self, url: str, bytes_downloaded: int, total_bytes: int | None = None
+        self,
+        download_id: str,
+        url: str,
+        bytes_downloaded: int,
+        total_bytes: int | None = None,
     ) -> None:
         """Update download progress.
 
@@ -167,28 +181,32 @@ class DownloadTracker(BaseTracker):
         Emits DownloadProgressEvent.
 
         Args:
+            download_id: Unique identifier for this download task
             url: The URL being downloaded
             bytes_downloaded: Bytes downloaded so far
             total_bytes: Total size in bytes (optional)
         """
         async with self._lock:
-            if url not in self._downloads:
-                self._downloads[url] = DownloadInfo(url=url)
+            if download_id not in self._downloads:
+                self._downloads[download_id] = DownloadInfo(id=download_id, url=url)
 
-            self._downloads[url].bytes_downloaded = bytes_downloaded
+            self._downloads[download_id].bytes_downloaded = bytes_downloaded
             if total_bytes is not None:
-                self._downloads[url].total_bytes = total_bytes
+                self._downloads[download_id].total_bytes = total_bytes
 
         await self._emit(
             "tracker.progress",
             DownloadProgressEvent(
-                url=url, bytes_downloaded=bytes_downloaded, total_bytes=total_bytes
+                download_id=download_id,
+                url=url,
+                bytes_downloaded=bytes_downloaded,
+                total_bytes=total_bytes,
             ),
         )
 
     async def track_speed_update(
         self,
-        url: str,
+        download_id: str,
         current_speed_bps: float,
         average_speed_bps: float,
         eta_seconds: float | None,
@@ -200,43 +218,44 @@ class DownloadTracker(BaseTracker):
         Speed metrics are cleared when download completes or fails.
 
         Args:
-            url: The URL being downloaded
+            download_id: Unique identifier for this download task
             current_speed_bps: Instantaneous speed in bytes per second
             average_speed_bps: Moving average speed in bytes per second
             eta_seconds: Estimated time to completion in seconds (None if unknown)
             elapsed_seconds: Time elapsed since download started in seconds
         """
         async with self._lock:
-            self._speed_metrics[url] = SpeedMetrics(
+            self._speed_metrics[download_id] = SpeedMetrics(
                 current_speed_bps=current_speed_bps,
                 average_speed_bps=average_speed_bps,
                 eta_seconds=eta_seconds,
                 elapsed_seconds=elapsed_seconds,
             )
 
-    def get_speed_metrics(self, url: str) -> SpeedMetrics | None:
+    def get_speed_metrics(self, download_id: str) -> SpeedMetrics | None:
         """Get current speed metrics for a download.
 
         Args:
-            url: The URL to query
+            download_id: The download ID to query
 
         Returns:
             SpeedMetrics if available, None otherwise
         """
-        return self._speed_metrics.get(url)
+        return self._speed_metrics.get(download_id)
 
-    def _ensure_download_exists(self, url: str) -> None:
-        """Ensure DownloadInfo exists for URL, create if missing.
+    def _ensure_download_exists(self, download_id: str, url: str) -> None:
+        """Ensure DownloadInfo exists for download, create if missing.
 
         Must be called within _lock context.
 
         Args:
-            url: The URL to ensure exists in tracking
+            download_id: Unique identifier for this download task
+            url: The URL being downloaded
         """
-        if url not in self._downloads:
-            self._downloads[url] = DownloadInfo(url=url)
+        if download_id not in self._downloads:
+            self._downloads[download_id] = DownloadInfo(id=download_id, url=url)
 
-    def _capture_and_clear_final_speed(self, url: str) -> float | None:
+    def _capture_and_clear_final_speed(self, download_id: str) -> float | None:
         """Capture final average speed and clear transient metrics.
 
         Extracts the average speed from transient metrics for persistence,
@@ -245,22 +264,26 @@ class DownloadTracker(BaseTracker):
         Must be called within _lock context.
 
         Args:
-            url: The URL to capture speed for
+            download_id: The download ID to capture speed for
 
         Returns:
             Final average speed in bytes/second, or None if no metrics exist
         """
         final_speed = None
-        if url in self._speed_metrics:
-            final_speed = self._speed_metrics[url].average_speed_bps
+        if download_id in self._speed_metrics:
+            final_speed = self._speed_metrics[download_id].average_speed_bps
 
         # Clear transient speed metrics
-        self._speed_metrics.pop(url, None)
+        self._speed_metrics.pop(download_id, None)
 
         return final_speed
 
     async def track_completed(
-        self, url: str, total_bytes: int = 0, destination_path: str = ""
+        self,
+        download_id: str,
+        url: str,
+        total_bytes: int = 0,
+        destination_path: str = "",
     ) -> None:
         """Record that a download completed successfully.
 
@@ -269,27 +292,31 @@ class DownloadTracker(BaseTracker):
         Emits DownloadCompletedEvent.
 
         Args:
+            download_id: Unique identifier for this download task
             url: The URL that was downloaded
             total_bytes: Final size in bytes
             destination_path: Where the file was saved
         """
         async with self._lock:
-            self._ensure_download_exists(url)
-            final_speed = self._capture_and_clear_final_speed(url)
+            self._ensure_download_exists(download_id, url)
+            final_speed = self._capture_and_clear_final_speed(download_id)
 
-            self._downloads[url].status = DownloadStatus.COMPLETED
-            self._downloads[url].bytes_downloaded = total_bytes
-            self._downloads[url].total_bytes = total_bytes
-            self._downloads[url].average_speed_bps = final_speed
+            self._downloads[download_id].status = DownloadStatus.COMPLETED
+            self._downloads[download_id].bytes_downloaded = total_bytes
+            self._downloads[download_id].total_bytes = total_bytes
+            self._downloads[download_id].average_speed_bps = final_speed
 
         await self._emit(
             "tracker.completed",
             DownloadCompletedEvent(
-                url=url, total_bytes=total_bytes, destination_path=destination_path
+                download_id=download_id,
+                url=url,
+                total_bytes=total_bytes,
+                destination_path=destination_path,
             ),
         )
 
-    async def track_failed(self, url: str, error: Exception) -> None:
+    async def track_failed(self, download_id: str, url: str, error: Exception) -> None:
         """Record that a download failed.
 
         Sets status to FAILED and stores error message.
@@ -298,47 +325,56 @@ class DownloadTracker(BaseTracker):
         Emits DownloadFailedEvent.
 
         Args:
+            download_id: Unique identifier for this download task
             url: The URL that failed
             error: The exception that occurred
         """
         async with self._lock:
-            self._ensure_download_exists(url)
-            final_speed = self._capture_and_clear_final_speed(url)
+            self._ensure_download_exists(download_id, url)
+            final_speed = self._capture_and_clear_final_speed(download_id)
 
-            self._downloads[url].status = DownloadStatus.FAILED
-            self._downloads[url].error = str(error)
-            self._downloads[url].average_speed_bps = final_speed
+            self._downloads[download_id].status = DownloadStatus.FAILED
+            self._downloads[download_id].error = str(error)
+            self._downloads[download_id].average_speed_bps = final_speed
 
         await self._emit(
             "tracker.failed",
             DownloadFailedEvent(
-                url=url, error_message=str(error), error_type=type(error).__name__
+                download_id=download_id,
+                url=url,
+                error_message=str(error),
+                error_type=type(error).__name__,
             ),
         )
 
-    async def track_validation_started(self, url: str, algorithm: str) -> None:
+    async def track_validation_started(
+        self, download_id: str, url: str, algorithm: str
+    ) -> None:
         """Record that validation has started for a download."""
         async with self._lock:
-            self._ensure_download_exists(url)
-            self._downloads[url].validation = ValidationState(
+            self._ensure_download_exists(download_id, url)
+            self._downloads[download_id].validation = ValidationState(
                 status=ValidationStatus.IN_PROGRESS,
             )
 
         await self._emit(
             "tracker.validation_started",
-            DownloadValidationStartedEvent(url=url, algorithm=algorithm),
+            DownloadValidationStartedEvent(
+                download_id=download_id, url=url, algorithm=algorithm
+            ),
         )
 
     async def track_validation_completed(
         self,
+        download_id: str,
         url: str,
         algorithm: str,
         calculated_hash: str,
     ) -> None:
         """Record successful validation."""
         async with self._lock:
-            self._ensure_download_exists(url)
-            self._downloads[url].validation = ValidationState(
+            self._ensure_download_exists(download_id, url)
+            self._downloads[download_id].validation = ValidationState(
                 status=ValidationStatus.SUCCEEDED,
                 validated_hash=calculated_hash,
                 error=None,
@@ -347,6 +383,7 @@ class DownloadTracker(BaseTracker):
         await self._emit(
             "tracker.validation_completed",
             DownloadValidationCompletedEvent(
+                download_id=download_id,
                 url=url,
                 algorithm=algorithm,
                 calculated_hash=calculated_hash,
@@ -355,6 +392,7 @@ class DownloadTracker(BaseTracker):
 
     async def track_validation_failed(
         self,
+        download_id: str,
         url: str,
         algorithm: str,
         expected_hash: str,
@@ -363,8 +401,8 @@ class DownloadTracker(BaseTracker):
     ) -> None:
         """Record failed validation attempt."""
         async with self._lock:
-            self._ensure_download_exists(url)
-            self._downloads[url].validation = ValidationState(
+            self._ensure_download_exists(download_id, url)
+            self._downloads[download_id].validation = ValidationState(
                 status=ValidationStatus.FAILED,
                 validated_hash=actual_hash,
                 error=error_message,
@@ -373,6 +411,7 @@ class DownloadTracker(BaseTracker):
         await self._emit(
             "tracker.validation_failed",
             DownloadValidationFailedEvent(
+                download_id=download_id,
                 url=url,
                 algorithm=algorithm,
                 expected_hash=expected_hash,
@@ -381,16 +420,16 @@ class DownloadTracker(BaseTracker):
             ),
         )
 
-    def get_download_info(self, url: str) -> DownloadInfo | None:
+    def get_download_info(self, download_id: str) -> DownloadInfo | None:
         """Get current state of a download.
 
         Args:
-            url: The URL to query
+            download_id: The download ID to query
 
         Returns:
             DownloadInfo if found, None otherwise
         """
-        return self._downloads.get(url)
+        return self._downloads.get(download_id)
 
     def get_all_downloads(self) -> dict[str, DownloadInfo]:
         """Get state of all tracked downloads.

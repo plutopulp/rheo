@@ -438,3 +438,62 @@ class TestFileConfigPathTraversalSecurity:
         # Also test omitting the field entirely
         config = FileConfig(url="https://example.com/file.txt")
         assert config.destination_subdir is None
+
+
+class TestFileConfigId:
+    """Test ID generation from URL and destination path."""
+
+    def test_id_stable_for_same_config(self):
+        """Test that same config produces same ID consistently."""
+        config1 = FileConfig(url="https://example.com/file.txt")
+        config2 = FileConfig(url="https://example.com/file.txt")
+
+        assert config1.id == config2.id
+
+    def test_id_different_for_different_urls(self):
+        """Test that different URLs produce different IDs."""
+        config1 = FileConfig(url="https://example.com/file1.txt")
+        config2 = FileConfig(url="https://example.com/file2.txt")
+
+        assert config1.id != config2.id
+
+    def test_id_different_for_different_destinations(self):
+        """Test that same URL but different filenames produce different IDs."""
+        config1 = FileConfig(url="https://example.com/file.txt", filename="custom1.txt")
+        config2 = FileConfig(url="https://example.com/file.txt", filename="custom2.txt")
+
+        assert config1.id != config2.id
+
+    def test_id_different_for_different_subdirs(self):
+        """Test that same filename but different subdirs produce different IDs."""
+        config1 = FileConfig(
+            url="https://example.com/file.txt", destination_subdir="folder1"
+        )
+        config2 = FileConfig(
+            url="https://example.com/file.txt", destination_subdir="folder2"
+        )
+
+        assert config1.id != config2.id
+
+    def test_id_is_correct_length_hex(self):
+        """Test that ID format is correct length hex string."""
+        config = FileConfig(url="https://example.com/file.txt")
+        download_id = config.id
+
+        # Should be exactly DOWNLOAD_ID_LENGTH characters
+        assert len(download_id) == FileConfig.DOWNLOAD_ID_LENGTH
+
+        # Should be valid hexadecimal
+        assert int(download_id, 16) >= 0
+
+    def test_frozen_config_prevents_mutation(self):
+        """Test that frozen=True prevents field mutation."""
+        config = FileConfig(url="https://example.com/file.txt")
+
+        # Should not be able to modify URL
+        with pytest.raises(ValidationError):
+            config.url = "https://example.com/different.txt"
+
+        # Should not be able to modify filename
+        with pytest.raises(ValidationError):
+            config.filename = "modified.txt"

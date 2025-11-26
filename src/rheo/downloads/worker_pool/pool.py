@@ -30,9 +30,9 @@ def _create_event_wiring(
     """Create event wiring mapping from worker events to tracker methods."""
 
     return {
-        "worker.started": lambda e: tracker.track_started(e.url, e.total_bytes),
+        "worker.started": lambda e: tracker.track_started(e.url, e.url, e.total_bytes),
         "worker.progress": lambda e: tracker.track_progress(
-            e.url, e.bytes_downloaded, e.total_bytes
+            e.url, e.url, e.bytes_downloaded, e.total_bytes
         ),
         "worker.speed_updated": lambda e: tracker.track_speed_update(
             e.url,
@@ -42,19 +42,19 @@ def _create_event_wiring(
             e.elapsed_seconds,
         ),
         "worker.validation_started": lambda e: tracker.track_validation_started(
-            e.url, e.algorithm
+            e.url, e.url, e.algorithm
         ),
         "worker.validation_completed": lambda e: tracker.track_validation_completed(
-            e.url, e.algorithm, e.calculated_hash
+            e.url, e.url, e.algorithm, e.calculated_hash
         ),
         "worker.validation_failed": lambda e: tracker.track_validation_failed(
-            e.url, e.algorithm, e.expected_hash, e.actual_hash, e.error_message
+            e.url, e.url, e.algorithm, e.expected_hash, e.actual_hash, e.error_message
         ),
         "worker.completed": lambda e: tracker.track_completed(
-            e.url, e.total_bytes, e.destination_path
+            e.url, e.url, e.total_bytes, e.destination_path
         ),
         "worker.failed": lambda e: tracker.track_failed(
-            e.url, Exception(f"{e.error_type}: {e.error_message}")
+            e.url, e.url, Exception(f"{e.error_type}: {e.error_message}")
         ),
     }
 

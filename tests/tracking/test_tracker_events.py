@@ -112,10 +112,13 @@ class TestDownloadTrackerEventEmission:
 
         tracker.on("tracker.queued", handler)
 
-        await tracker.track_queued("https://example.com/file.txt")
+        await tracker.track_queued(
+            "https://example.com/file.txt", "https://example.com/file.txt"
+        )
 
         assert len(events_received) == 1
         assert isinstance(events_received[0], DownloadQueuedEvent)
+        assert events_received[0].download_id == "https://example.com/file.txt"
         assert events_received[0].url == "https://example.com/file.txt"
 
     @pytest.mark.asyncio
@@ -128,10 +131,15 @@ class TestDownloadTrackerEventEmission:
 
         tracker.on("tracker.started", handler)
 
-        await tracker.track_started("https://example.com/file.txt", total_bytes=1024)
+        await tracker.track_started(
+            "https://example.com/file.txt",
+            "https://example.com/file.txt",
+            total_bytes=1024,
+        )
 
         assert len(events_received) == 1
         assert isinstance(events_received[0], DownloadStartedEvent)
+        assert events_received[0].download_id == "https://example.com/file.txt"
         assert events_received[0].url == "https://example.com/file.txt"
         assert events_received[0].total_bytes == 1024
 
@@ -146,11 +154,15 @@ class TestDownloadTrackerEventEmission:
         tracker.on("tracker.progress", handler)
 
         await tracker.track_progress(
-            "https://example.com/file.txt", bytes_downloaded=512, total_bytes=1024
+            "https://example.com/file.txt",
+            "https://example.com/file.txt",
+            bytes_downloaded=512,
+            total_bytes=1024,
         )
 
         assert len(events_received) == 1
         assert isinstance(events_received[0], DownloadProgressEvent)
+        assert events_received[0].download_id == "https://example.com/file.txt"
         assert events_received[0].url == "https://example.com/file.txt"
         assert events_received[0].bytes_downloaded == 512
         assert events_received[0].total_bytes == 1024
@@ -165,10 +177,15 @@ class TestDownloadTrackerEventEmission:
 
         tracker.on("tracker.completed", handler)
 
-        await tracker.track_completed("https://example.com/file.txt", total_bytes=1024)
+        await tracker.track_completed(
+            "https://example.com/file.txt",
+            "https://example.com/file.txt",
+            total_bytes=1024,
+        )
 
         assert len(events_received) == 1
         assert isinstance(events_received[0], DownloadCompletedEvent)
+        assert events_received[0].download_id == "https://example.com/file.txt"
         assert events_received[0].url == "https://example.com/file.txt"
         assert events_received[0].total_bytes == 1024
 
@@ -183,10 +200,13 @@ class TestDownloadTrackerEventEmission:
         tracker.on("tracker.failed", handler)
 
         error = ValueError("Connection failed")
-        await tracker.track_failed("https://example.com/file.txt", error)
+        await tracker.track_failed(
+            "https://example.com/file.txt", "https://example.com/file.txt", error
+        )
 
         assert len(events_received) == 1
         assert isinstance(events_received[0], DownloadFailedEvent)
+        assert events_received[0].download_id == "https://example.com/file.txt"
         assert events_received[0].url == "https://example.com/file.txt"
         assert events_received[0].error_message == "Connection failed"
         assert events_received[0].error_type == "ValueError"
@@ -203,7 +223,9 @@ class TestDownloadTrackerEventEmission:
 
         tracker.on("tracker.started", handler)
 
-        await tracker.track_started("https://example.com/file.txt")
+        await tracker.track_started(
+            "https://example.com/file.txt", "https://example.com/file.txt"
+        )
 
         # Handler should see the updated state
         assert len(state_when_handler_called) == 1

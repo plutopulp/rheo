@@ -21,7 +21,9 @@ class TestDownloadTrackerEventHandlers:
 
         tracker.on("tracker.queued", sync_handler)
 
-        await tracker.track_queued("https://example.com/file.txt")
+        await tracker.track_queued(
+            "https://example.com/file.txt", "https://example.com/file.txt"
+        )
 
         assert handler_called == ["sync"]
 
@@ -36,7 +38,9 @@ class TestDownloadTrackerEventHandlers:
 
         tracker.on("tracker.queued", async_handler)
 
-        await tracker.track_queued("https://example.com/file.txt")
+        await tracker.track_queued(
+            "https://example.com/file.txt", "https://example.com/file.txt"
+        )
 
         assert handler_called == ["async"]
 
@@ -49,7 +53,8 @@ class TestDownloadTrackerEventHandlers:
         tracker.on("tracker.started", lambda e: handlers_called.append("handler2"))
         tracker.on("tracker.started", lambda e: handlers_called.append("handler3"))
 
-        await tracker.track_started("https://example.com/file.txt")
+        url = "https://example.com/file.txt"
+        await tracker.track_started(url, url)
 
         assert len(handlers_called) == 3
         assert "handler1" in handlers_called
@@ -68,7 +73,9 @@ class TestDownloadTrackerEventHandlers:
         tracker.on("tracker.queued", bad_handler)
 
         # Should not raise, tracking should continue
-        await tracker.track_queued("https://example.com/file.txt")
+        await tracker.track_queued(
+            "https://example.com/file.txt", "https://example.com/file.txt"
+        )
 
         # State should still be updated
         info = tracker.get_download_info("https://example.com/file.txt")
@@ -92,7 +99,9 @@ class TestDownloadTrackerEventHandlers:
         tracker.on("tracker.queued", bad_handler)
         tracker.on("tracker.queued", good_handler)
 
-        await tracker.track_queued("https://example.com/file.txt")
+        await tracker.track_queued(
+            "https://example.com/file.txt", "https://example.com/file.txt"
+        )
 
         # Both handlers should have been called
         assert "bad" in handlers_called
@@ -105,10 +114,13 @@ class TestDownloadTrackerEventHandlers:
 
         tracker.on("*", lambda e: events_received.append(e.event_type))
 
-        await tracker.track_queued("https://example.com/file.txt")
-        await tracker.track_started("https://example.com/file.txt")
-        await tracker.track_progress("https://example.com/file.txt", 100)
-        await tracker.track_completed("https://example.com/file.txt", 100)
+        await tracker.track_queued(
+            "https://example.com/file.txt", "https://example.com/file.txt"
+        )
+        url = "https://example.com/file.txt"
+        await tracker.track_started(url, url)
+        await tracker.track_progress(url, url, 100)
+        await tracker.track_completed(url, url, 100)
 
         assert "tracker.queued" in events_received
         assert "tracker.started" in events_received
@@ -126,7 +138,9 @@ class TestDownloadTrackerEventHandlers:
         tracker.on("tracker.queued", lambda e: specific_called.append(e))
         tracker.on("*", lambda e: wildcard_called.append(e))
 
-        await tracker.track_queued("https://example.com/file.txt")
+        await tracker.track_queued(
+            "https://example.com/file.txt", "https://example.com/file.txt"
+        )
 
         assert len(specific_called) == 1
         assert len(wildcard_called) == 1
@@ -143,7 +157,9 @@ class TestDownloadTrackerEventHandlers:
         tracker.on("tracker.queued", bad_handler)
 
         # Should not raise
-        await tracker.track_queued("https://example.com/file.txt")
+        await tracker.track_queued(
+            "https://example.com/file.txt", "https://example.com/file.txt"
+        )
 
         # Logger.exception should have been called
         tracker._logger.exception.assert_called_once()
@@ -176,7 +192,9 @@ class TestDownloadTrackerEventHandlers:
         tracker.on("tracker.queued", bad_handler)
 
         # Should not raise even though handler fails
-        await tracker.track_queued("https://example.com/file.txt")
+        await tracker.track_queued(
+            "https://example.com/file.txt", "https://example.com/file.txt"
+        )
 
         # State should still be updated despite handler exception
         info = tracker.get_download_info("https://example.com/file.txt")
@@ -195,7 +213,9 @@ class TestDownloadTrackerEventHandlers:
         tracker.on("tracker.queued", bad_async_handler)
 
         # Should not raise
-        await tracker.track_queued("https://example.com/file.txt")
+        await tracker.track_queued(
+            "https://example.com/file.txt", "https://example.com/file.txt"
+        )
 
         # Logger.opt().error() should have been called for async handler
         tracker._logger.opt.assert_called_once()
@@ -228,7 +248,9 @@ class TestDownloadTrackerEventHandlers:
         tracker.on("tracker.queued", bad_async_handler)
 
         # Should not raise
-        await tracker.track_queued("https://example.com/file.txt")
+        await tracker.track_queued(
+            "https://example.com/file.txt", "https://example.com/file.txt"
+        )
 
         # Sync handler should call logger.exception() once
         assert tracker._logger.exception.call_count == 1

@@ -20,7 +20,8 @@ class TestDownloadTrackerEventPayloads:
 
         tracker.on("tracker.queued", lambda e: events_received.append(e))
 
-        await tracker.track_queued("https://example.com/file.txt", priority=5)
+        url = "https://example.com/file.txt"
+        await tracker.track_queued(url, url, priority=5)
 
         assert events_received[0].priority == 5
 
@@ -35,7 +36,10 @@ class TestDownloadTrackerEventPayloads:
         tracker.on("tracker.progress", lambda e: events_received.append(e))
 
         await tracker.track_progress(
-            "https://example.com/file.txt", bytes_downloaded=250, total_bytes=1000
+            "https://example.com/file.txt",
+            "https://example.com/file.txt",
+            bytes_downloaded=250,
+            total_bytes=1000,
         )
 
         event = events_received[0]
@@ -54,6 +58,7 @@ class TestDownloadTrackerEventPayloads:
 
         await tracker.track_completed(
             "https://example.com/file.txt",
+            "https://example.com/file.txt",
             total_bytes=1024,
             destination_path="/tmp/file.txt",
         )
@@ -69,7 +74,9 @@ class TestDownloadTrackerEventPayloads:
         tracker.on("tracker.queued", lambda e: events_received.append(e))
 
         before = datetime.now()
-        await tracker.track_queued("https://example.com/file.txt")
+        await tracker.track_queued(
+            "https://example.com/file.txt", "https://example.com/file.txt"
+        )
         after = datetime.now()
 
         event = events_received[0]
