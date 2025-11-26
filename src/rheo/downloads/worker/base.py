@@ -31,6 +31,7 @@ class BaseWorker(ABC):
         url: str,
         destination_path: Path,
         download_id: str,
+        *,
         chunk_size: int = 1024,
         timeout: float | None = None,
         speed_calculator: SpeedCalculator | None = None,

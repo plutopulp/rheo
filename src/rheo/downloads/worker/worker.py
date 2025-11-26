@@ -12,6 +12,7 @@ from pathlib import Path
 import aiofiles
 import aiofiles.os
 import aiohttp
+from aiofiles.threadpool.binary import AsyncBufferedIOBase
 
 from ...domain.exceptions import HashMismatchError
 from ...domain.hash_validation import HashConfig
@@ -118,7 +119,9 @@ class DownloadWorker(BaseWorker):
         """Event emitter for broadcasting worker events."""
         return self._emitter
 
-    async def _write_chunk_to_file(self, chunk: bytes, file_handle: t.Any) -> None:
+    async def _write_chunk_to_file(
+        self, chunk: bytes, file_handle: AsyncBufferedIOBase
+    ) -> None:
         """Write a data chunk to the output file asynchronously.
 
         This method provides an extension point for chunk processing.
@@ -192,6 +195,7 @@ class DownloadWorker(BaseWorker):
         url: str,
         destination_path: Path,
         download_id: str,
+        *,
         chunk_size: int = 1024,
         timeout: float | None = None,
         speed_calculator: SpeedCalculator | None = None,
