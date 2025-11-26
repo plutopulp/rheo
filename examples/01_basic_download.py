@@ -23,6 +23,8 @@ async def main() -> None:
         )
     ]
 
+    # Note: Duplicate downloads (same URL+destination) are automatically prevented.
+    # If you add the same file twice, only one download will be queued.
     async with DownloadManager(download_dir=Path("./downloads")) as manager:
         await manager.add(files)
         await manager.wait_until_complete()

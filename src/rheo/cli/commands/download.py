@@ -100,7 +100,7 @@ async def download_file(
         await manager.queue.join()
 
         # Query final state to determine exit code
-        info = tracker.get_download_info(str(url))
+        info = tracker.get_download_info(file_config.id)
         if info and info.status == DownloadStatus.FAILED:
             raise typer.Exit(code=1)
 
