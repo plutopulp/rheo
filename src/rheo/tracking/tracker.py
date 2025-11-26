@@ -131,7 +131,7 @@ class DownloadTracker(BaseTracker):
         """
         async with self._lock:
             self._downloads[url] = DownloadInfo(
-                download_id=url, url=url, status=DownloadStatus.QUEUED
+                id=url, url=url, status=DownloadStatus.QUEUED
             )
 
         await self._emit(
@@ -150,7 +150,7 @@ class DownloadTracker(BaseTracker):
         """
         async with self._lock:
             if url not in self._downloads:
-                self._downloads[url] = DownloadInfo(download_id=url, url=url)
+                self._downloads[url] = DownloadInfo(id=url, url=url)
 
             self._downloads[url].status = DownloadStatus.IN_PROGRESS
             if total_bytes is not None:
@@ -175,7 +175,7 @@ class DownloadTracker(BaseTracker):
         """
         async with self._lock:
             if url not in self._downloads:
-                self._downloads[url] = DownloadInfo(download_id=url, url=url)
+                self._downloads[url] = DownloadInfo(id=url, url=url)
 
             self._downloads[url].bytes_downloaded = bytes_downloaded
             if total_bytes is not None:
@@ -236,7 +236,7 @@ class DownloadTracker(BaseTracker):
             url: The URL to ensure exists in tracking
         """
         if url not in self._downloads:
-            self._downloads[url] = DownloadInfo(download_id=url, url=url)
+            self._downloads[url] = DownloadInfo(id=url, url=url)
 
     def _capture_and_clear_final_speed(self, url: str) -> float | None:
         """Capture final average speed and clear transient metrics.

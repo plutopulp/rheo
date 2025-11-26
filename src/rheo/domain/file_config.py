@@ -190,15 +190,15 @@ class FileConfig(BaseModel):
     Priority: higher numbers = higher priority (1=low, 5=high)
     Size info enables progress bars; omit if unknown.
 
-    Each FileConfig automatically generates a unique download_id from
-    the URL and destination path, ensuring proper tracking and deduplication.
+    Each FileConfig automatically generates a unique ID from the URL and
+    destination path, ensuring proper tracking and deduplication.
     """
 
     model_config = ConfigDict(frozen=True)
 
     # Download ID configuration
     DOWNLOAD_ID_LENGTH: t.ClassVar[int] = 16
-    """Length of generated download_id in hex characters.
+    """Length of generated ID in hex characters.
 
     16 chars = 64 bits of entropy.
     Collision probability < 0.03% for 1 million downloads.
@@ -220,7 +220,10 @@ class FileConfig(BaseModel):
     priority: int = Field(
         default=1,
         ge=1,
-        description="Queue priority - higher numbers = higher priority",
+        description=(
+            "Queue priority - higher numbers = higher priority. "
+            "Typical range: 1-5, but unbounded for flexibility."
+        ),
     )
     size_human: str | None = Field(
         default=None,
@@ -375,7 +378,7 @@ class FileConfig(BaseModel):
 
     @computed_field  # type: ignore[prop-decorator]
     @property
-    def download_id(self) -> str:
+    def id(self) -> str:
         """Unique identifier for this download task.
 
         Auto-generated from URL and relative destination path.

@@ -105,6 +105,7 @@ class TestDownloadCommandErrors:
 
         # Mock tracker to return failed download info
         mock_tracker.get_download_info.return_value = DownloadInfo(
+            id="test123",
             url="http://example.com/file.zip",
             status=DownloadStatus.FAILED,
         )

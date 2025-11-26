@@ -24,7 +24,7 @@ def make_download_info() -> t.Callable[..., DownloadInfo]:
 
     def _factory(**overrides: t.Any) -> DownloadInfo:
         defaults = {
-            "download_id": "test_download_id",
+            "id": "test_download_id",
             "url": "https://example.com/file.txt",
             "status": DownloadStatus.PENDING,
             "bytes_downloaded": 0,

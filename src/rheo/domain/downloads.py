@@ -27,13 +27,13 @@ class DownloadInfo(BaseModel):
     and errors. For completed downloads, includes final average speed for
     historical analysis.
 
-    Identity fields (download_id, url) are set once at creation and should not
-    be modified. State fields are updated throughout the download lifecycle by
+    Identity fields (id, url) are set once at creation and should not be
+    modified. State fields are updated throughout the download lifecycle by
     the tracker.
     """
 
     # ========== Identity (set once, do not modify) ==========
-    download_id: str = Field(description="Unique identifier for this download task")
+    id: str = Field(description="Unique identifier for this download task")
     url: str = Field(description="URL of the file being downloaded")
 
     # ========== Mutable state (updated during download) ==========

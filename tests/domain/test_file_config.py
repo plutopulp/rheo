@@ -440,31 +440,31 @@ class TestFileConfigPathTraversalSecurity:
         assert config.destination_subdir is None
 
 
-class TestFileConfigDownloadId:
-    """Test download_id generation from URL and destination path."""
+class TestFileConfigId:
+    """Test ID generation from URL and destination path."""
 
-    def test_download_id_stable_for_same_config(self):
+    def test_id_stable_for_same_config(self):
         """Test that same config produces same ID consistently."""
         config1 = FileConfig(url="https://example.com/file.txt")
         config2 = FileConfig(url="https://example.com/file.txt")
 
-        assert config1.download_id == config2.download_id
+        assert config1.id == config2.id
 
-    def test_download_id_different_for_different_urls(self):
+    def test_id_different_for_different_urls(self):
         """Test that different URLs produce different IDs."""
         config1 = FileConfig(url="https://example.com/file1.txt")
         config2 = FileConfig(url="https://example.com/file2.txt")
 
-        assert config1.download_id != config2.download_id
+        assert config1.id != config2.id
 
-    def test_download_id_different_for_different_destinations(self):
+    def test_id_different_for_different_destinations(self):
         """Test that same URL but different filenames produce different IDs."""
         config1 = FileConfig(url="https://example.com/file.txt", filename="custom1.txt")
         config2 = FileConfig(url="https://example.com/file.txt", filename="custom2.txt")
 
-        assert config1.download_id != config2.download_id
+        assert config1.id != config2.id
 
-    def test_download_id_different_for_different_subdirs(self):
+    def test_id_different_for_different_subdirs(self):
         """Test that same filename but different subdirs produce different IDs."""
         config1 = FileConfig(
             url="https://example.com/file.txt", destination_subdir="folder1"
@@ -473,12 +473,12 @@ class TestFileConfigDownloadId:
             url="https://example.com/file.txt", destination_subdir="folder2"
         )
 
-        assert config1.download_id != config2.download_id
+        assert config1.id != config2.id
 
-    def test_download_id_is_correct_length_hex(self):
-        """Test that download_id format is correct length hex string."""
+    def test_id_is_correct_length_hex(self):
+        """Test that ID format is correct length hex string."""
         config = FileConfig(url="https://example.com/file.txt")
-        download_id = config.download_id
+        download_id = config.id
 
         # Should be exactly DOWNLOAD_ID_LENGTH characters
         assert len(download_id) == FileConfig.DOWNLOAD_ID_LENGTH
