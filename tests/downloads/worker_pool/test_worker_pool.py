@@ -695,7 +695,7 @@ class TestWorkerPoolImplementationRationale:
             await asyncio.wait_for(real_priority_queue.join(), timeout=0.5)
 
         # Control case: manually calling task_done fixes the queue state
-        real_priority_queue.task_done()
+        real_priority_queue.task_done(file_config.id)
 
         # Now join should complete immediately
         await asyncio.wait_for(real_priority_queue.join(), timeout=0.5)

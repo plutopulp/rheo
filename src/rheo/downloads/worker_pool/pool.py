@@ -303,8 +303,9 @@ class WorkerPool(BaseWorkerPool):
                 # Error details are already logged by the worker.
             finally:
                 # Only call task_done if we actually got an item.
-                if got_item:
-                    self.queue.task_done()
+                # Pass download_id to allow re-queueing the same download later.
+                if got_item and file_config:
+                    self.queue.task_done(file_config.id)
 
         self._logger.debug("Worker shutting down gracefully")
 
@@ -329,7 +330,7 @@ class WorkerPool(BaseWorkerPool):
             # task counter, so we must decrement it even though we're re-queuing.
             # Without task_done(), queue.join() would hang waiting for this item.
             await self.queue.add([file_config])
-            self.queue.task_done()
+            self.queue.task_done(file_config.id)
         return shutdown_is_set
 
     async def _wait_for_workers_and_clear(self) -> None:
