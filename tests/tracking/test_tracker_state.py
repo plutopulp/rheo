@@ -189,6 +189,29 @@ class TestDownloadTrackerStateUpdates:
         assert info.status == DownloadStatus.FAILED
         assert info.error == "Unexpected error"
 
+    # Cleaner version of the test
+    @pytest.mark.asyncio
+    async def test_updating_one_download_leaves_others_unchanged(
+        self, tracker: DownloadTracker
+    ):
+        """Test that updating one download doesn't affect others."""
+        url1, url2 = "https://example.com/file1.txt", "https://example.com/file2.txt"
+
+        # Set up two downloads
+        await tracker.track_queued(url1, url1, priority=1)
+        await tracker.track_started(url2, url2, total_bytes=1000)
+
+        # Capture initial state of url1
+        initial_info1 = tracker.get_download_info(url1)
+
+        # Update url2 only
+        await tracker.track_progress(url2, url2, bytes_downloaded=750)
+        await tracker.track_completed(url2, url2, total_bytes=1000)
+
+        # Verify url1 completely unchanged
+        info1 = tracker.get_download_info(url1)
+        assert info1 == initial_info1
+
     @pytest.mark.asyncio
     async def test_same_url_different_destinations_tracked_separately(
         self, tracker: DownloadTracker
