@@ -18,7 +18,7 @@ async def test_track_validation_started_updates_state(tracker: DownloadTracker) 
     events: list[DownloadValidationStartedEvent] = []
     tracker.on("tracker.validation_started", lambda event: events.append(event))
 
-    await tracker.track_validation_started(url, algorithm="sha256")
+    await tracker.track_validation_started(url, url, algorithm="sha256")
 
     info = tracker.get_download_info(url)
     assert info is not None
@@ -34,12 +34,13 @@ async def test_track_validation_completed_updates_state(
 ) -> None:
     """track_validation_completed records hash and emits event."""
     url = "https://example.com/file.txt"
-    await tracker.track_validation_started(url, algorithm="sha256")
+    await tracker.track_validation_started(url, url, algorithm="sha256")
 
     events: list[DownloadValidationCompletedEvent] = []
     tracker.on("tracker.validation_completed", lambda event: events.append(event))
 
     await tracker.track_validation_completed(
+        url,
         url,
         algorithm="sha256",
         calculated_hash="abc123",
@@ -59,13 +60,14 @@ async def test_track_validation_completed_updates_state(
 async def test_track_validation_failed_updates_state(tracker: DownloadTracker) -> None:
     """track_validation_failed records error details."""
     url = "https://example.com/file.txt"
-    await tracker.track_validation_started(url, algorithm="sha256")
+    await tracker.track_validation_started(url, url, algorithm="sha256")
 
     events: list[DownloadValidationFailedEvent] = []
     tracker.on("tracker.validation_failed", lambda event: events.append(event))
 
     await tracker.track_validation_failed(
-        url=url,
+        url,
+        url,
         algorithm="sha256",
         expected_hash="expected",
         actual_hash="actual",

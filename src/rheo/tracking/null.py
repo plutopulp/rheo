@@ -17,29 +17,39 @@ class NullTracker(BaseTracker):
         """Returns no-op emitter."""
         return self._emitter
 
-    def get_download_info(self, url: str) -> DownloadInfo | None:
+    def get_download_info(self, download_id: str) -> DownloadInfo | None:
         """No-op: always returns None."""
         return None
 
-    async def track_queued(self, url: str, priority: int = 1) -> None:
+    async def track_queued(self, download_id: str, url: str, priority: int = 1) -> None:
         pass
 
-    async def track_started(self, url: str, total_bytes: int | None = None) -> None:
+    async def track_started(
+        self, download_id: str, url: str, total_bytes: int | None = None
+    ) -> None:
         pass
 
     async def track_progress(
-        self, url: str, bytes_downloaded: int, total_bytes: int | None = None
+        self,
+        download_id: str,
+        url: str,
+        bytes_downloaded: int,
+        total_bytes: int | None = None,
     ) -> None:
         pass
 
     async def track_completed(
-        self, url: str, total_bytes: int = 0, destination_path: str = ""
+        self,
+        download_id: str,
+        url: str,
+        total_bytes: int = 0,
+        destination_path: str = "",
     ) -> None:
         pass
 
     async def track_speed_update(
         self,
-        url: str,
+        download_id: str,
         current_speed_bps: float,
         average_speed_bps: float,
         eta_seconds: float | None,
@@ -48,19 +58,22 @@ class NullTracker(BaseTracker):
         """No-op speed tracking."""
         pass
 
-    async def track_failed(self, url: str, error: Exception) -> None:
+    async def track_failed(self, download_id: str, url: str, error: Exception) -> None:
         pass
 
-    async def track_validation_started(self, url: str, algorithm: str) -> None:
+    async def track_validation_started(
+        self, download_id: str, url: str, algorithm: str
+    ) -> None:
         pass
 
     async def track_validation_completed(
-        self, url: str, algorithm: str, calculated_hash: str
+        self, download_id: str, url: str, algorithm: str, calculated_hash: str
     ) -> None:
         pass
 
     async def track_validation_failed(
         self,
+        download_id: str,
         url: str,
         algorithm: str,
         expected_hash: str,
