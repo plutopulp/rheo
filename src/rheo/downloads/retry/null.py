@@ -19,6 +19,7 @@ class NullRetryHandler(BaseRetryHandler):
         self,
         operation: t.Callable[[], t.Awaitable[T]],
         url: str,
+        download_id: str,
         max_retries: int | None = None,
     ) -> T:
         """Execute operation directly without retry logic.
@@ -26,6 +27,7 @@ class NullRetryHandler(BaseRetryHandler):
         Args:
             operation: The async callable to execute.
             url: The URL (ignored by null handler).
+            download_id: Unique identifier (ignored by null handler).
             max_retries: Max retries override (ignored by null handler).
 
         Returns:

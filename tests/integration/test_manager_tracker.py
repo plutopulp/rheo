@@ -38,7 +38,7 @@ class TestManagerTrackerWiring:
                 await manager.queue.join()
 
         # Tracker should have recorded the download
-        info = manager_with_tracker.tracker.get_download_info(test_url)
+        info = manager_with_tracker.tracker.get_download_info(file_config.id)
         assert info is not None
         assert info.status == DownloadStatus.COMPLETED
 
@@ -60,7 +60,7 @@ class TestManagerTrackerWiring:
             async with manager_with_tracker as manager:
                 await manager.queue.join()
 
-        info = manager_with_tracker.tracker.get_download_info(test_url)
+        info = manager_with_tracker.tracker.get_download_info(file_config.id)
         assert info.bytes_downloaded == len(test_content)
 
     @pytest.mark.asyncio
@@ -80,7 +80,7 @@ class TestManagerTrackerWiring:
             async with manager_with_tracker as manager:
                 await manager.queue.join()
 
-        info = manager_with_tracker.tracker.get_download_info(test_url)
+        info = manager_with_tracker.tracker.get_download_info(file_config.id)
         assert info.status == DownloadStatus.COMPLETED
         assert info.total_bytes == len(test_content)
 
@@ -99,7 +99,7 @@ class TestManagerTrackerWiring:
             async with manager_with_tracker as manager:
                 await manager.queue.join()
 
-        info = manager_with_tracker.tracker.get_download_info(test_url)
+        info = manager_with_tracker.tracker.get_download_info(file_config.id)
         assert info is not None
         assert info.status == DownloadStatus.FAILED
         assert "404" in info.error or "ClientResponseError" in info.error

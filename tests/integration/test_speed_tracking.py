@@ -56,7 +56,7 @@ class TestSpeedTrackingIntegration:
                 await manager.queue.join()
 
         # Speed metrics should be cleared after completion
-        metrics = manager_with_tracker.tracker.get_speed_metrics(test_data.url)
+        metrics = manager_with_tracker.tracker.get_speed_metrics(file_config.id)
         assert metrics is None
 
     @pytest.mark.asyncio
@@ -79,7 +79,7 @@ class TestSpeedTrackingIntegration:
                 await manager.queue.join()
 
         # Download should be completed
-        info = manager_with_tracker.tracker.get_download_info(test_data.url)
+        info = manager_with_tracker.tracker.get_download_info(file_config.id)
         assert info is not None
         assert info.status == DownloadStatus.COMPLETED
 
@@ -104,7 +104,7 @@ class TestSpeedTrackingIntegration:
                 await manager.queue.join()
 
         # Download should be failed
-        info = manager_with_tracker.tracker.get_download_info(test_data.url)
+        info = manager_with_tracker.tracker.get_download_info(file_config.id)
         assert info is not None
         assert info.status == DownloadStatus.FAILED
 
@@ -159,9 +159,9 @@ class TestSpeedTrackingIntegration:
                 await manager.queue.join()
 
         # All downloads should be completed with independent speeds
-        info1 = manager_with_tracker.tracker.get_download_info(url1)
-        info2 = manager_with_tracker.tracker.get_download_info(url2)
-        info3 = manager_with_tracker.tracker.get_download_info(url3)
+        info1 = manager_with_tracker.tracker.get_download_info(file_configs[0].id)
+        info2 = manager_with_tracker.tracker.get_download_info(file_configs[1].id)
+        info3 = manager_with_tracker.tracker.get_download_info(file_configs[2].id)
 
         assert info1.status == DownloadStatus.COMPLETED
         assert info2.status == DownloadStatus.COMPLETED
@@ -195,7 +195,7 @@ class TestSpeedTrackingIntegration:
             """Periodically check if speed metrics are available."""
             for _ in range(10):  # Check 10 times
                 await asyncio.sleep(0.01)  # Small delay
-                metrics = manager.tracker.get_speed_metrics(test_data.url)
+                metrics = manager.tracker.get_speed_metrics(file_config.id)
                 if metrics is not None:
                     speed_metrics_seen.append(metrics)
 
@@ -234,7 +234,7 @@ class TestSpeedTrackingIntegration:
                 await manager.queue.join()
 
         # Download should complete successfully
-        info = manager_with_tracker.tracker.get_download_info(test_data.url)
+        info = manager_with_tracker.tracker.get_download_info(file_config.id)
         assert info is not None
         assert info.status == DownloadStatus.COMPLETED
 

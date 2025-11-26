@@ -1,5 +1,6 @@
 """Tests for DownloadWorker hash validation integration."""
 
+import typing as t
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -8,6 +9,7 @@ from aioresponses import aioresponses
 
 from rheo.domain.exceptions import HashMismatchError
 from rheo.domain.hash_validation import HashAlgorithm, HashConfig
+from rheo.downloads.worker.base import BaseWorker
 from rheo.events import (
     WorkerValidationCompletedEvent,
     WorkerValidationFailedEvent,
@@ -15,22 +17,22 @@ from rheo.events import (
 )
 
 
+@dataclass
+class ValidationTestData:
+    """Test data container for validation tests."""
+
+    url: str
+    content: bytes
+    path: Path
+
+
 @pytest.fixture
-def validation_test_data(tmp_path):
+def validation_test_data(tmp_path: Path) -> ValidationTestData:
     """Provide test data for hash validation tests.
 
     Returns a simple dataclass-like object with url, content, and path.
     Content is generic enough for most validation scenarios.
     """
-
-    @dataclass
-    class ValidationTestData:
-        """Test data container for validation tests."""
-
-        url: str
-        content: bytes
-        path: Path
-
     return ValidationTestData(
         url="https://example.com/file.txt",
         content=b"test content for validation",
@@ -43,7 +45,10 @@ class TestWorkerValidationSuccess:
 
     @pytest.mark.asyncio
     async def test_download_with_valid_hash_succeeds(
-        self, test_worker, calculate_hash, validation_test_data
+        self,
+        test_worker: BaseWorker,
+        calculate_hash: t.Callable[[bytes, str], str],
+        validation_test_data: ValidationTestData,
     ) -> None:
         """Download with matching hash completes successfully."""
         hash_config = HashConfig(
@@ -60,6 +65,7 @@ class TestWorkerValidationSuccess:
             await test_worker.download(
                 validation_test_data.url,
                 validation_test_data.path,
+                download_id="test-id",
                 hash_config=hash_config,
             )
 
@@ -68,7 +74,7 @@ class TestWorkerValidationSuccess:
 
     @pytest.mark.asyncio
     async def test_download_without_hash_config_skips_validation(
-        self, test_worker, validation_test_data
+        self, test_worker: BaseWorker, validation_test_data: ValidationTestData
     ) -> None:
         """Download without hash_config skips validation entirely."""
         validation_events = []
@@ -79,7 +85,9 @@ class TestWorkerValidationSuccess:
                 validation_test_data.url, status=200, body=validation_test_data.content
             )
             await test_worker.download(
-                validation_test_data.url, validation_test_data.path
+                validation_test_data.url,
+                validation_test_data.path,
+                download_id="test-id",
             )
 
         assert validation_test_data.path.exists()
@@ -91,7 +99,10 @@ class TestWorkerValidationEvents:
 
     @pytest.mark.asyncio
     async def test_emits_validation_started_event(
-        self, test_worker, calculate_hash, validation_test_data
+        self,
+        test_worker: BaseWorker,
+        calculate_hash: t.Callable[[bytes, str], str],
+        validation_test_data: ValidationTestData,
     ) -> None:
         """Worker emits validation_started event when validating."""
 
@@ -112,6 +123,7 @@ class TestWorkerValidationEvents:
             await test_worker.download(
                 validation_test_data.url,
                 validation_test_data.path,
+                download_id="test-id",
                 hash_config=hash_config,
             )
 
@@ -122,7 +134,10 @@ class TestWorkerValidationEvents:
 
     @pytest.mark.asyncio
     async def test_emits_validation_completed_event(
-        self, test_worker, calculate_hash, validation_test_data
+        self,
+        test_worker: BaseWorker,
+        calculate_hash: t.Callable[[bytes, str], str],
+        validation_test_data: ValidationTestData,
     ) -> None:
         """Worker emits validation_completed event on success."""
         expected_hash = calculate_hash(
@@ -143,6 +158,7 @@ class TestWorkerValidationEvents:
             await test_worker.download(
                 validation_test_data.url,
                 validation_test_data.path,
+                download_id="test-id",
                 hash_config=hash_config,
             )
 
@@ -155,7 +171,10 @@ class TestWorkerValidationEvents:
 
     @pytest.mark.asyncio
     async def test_emits_actual_calculated_hash_not_expected_hash(
-        self, test_worker, calculate_hash, validation_test_data
+        self,
+        test_worker: BaseWorker,
+        calculate_hash: t.Callable[[bytes, str], str],
+        validation_test_data: ValidationTestData,
     ) -> None:
         """Worker emits the ACTUAL calculated hash, not just expected hash.
 
@@ -181,6 +200,7 @@ class TestWorkerValidationEvents:
             await test_worker.download(
                 validation_test_data.url,
                 validation_test_data.path,
+                download_id="test-id",
                 hash_config=hash_config,
             )
 
@@ -202,7 +222,7 @@ class TestWorkerValidationEvents:
 
     @pytest.mark.asyncio
     async def test_emits_validation_failed_event_on_mismatch(
-        self, test_worker, validation_test_data
+        self, test_worker: BaseWorker, validation_test_data: ValidationTestData
     ) -> None:
         """Worker emits validation_failed event on hash mismatch."""
         hash_config = HashConfig(
@@ -221,6 +241,7 @@ class TestWorkerValidationEvents:
                 await test_worker.download(
                     validation_test_data.url,
                     validation_test_data.path,
+                    download_id="test-id",
                     hash_config=hash_config,
                 )
 
@@ -237,7 +258,7 @@ class TestWorkerValidationFailures:
 
     @pytest.mark.asyncio
     async def test_hash_mismatch_raises_and_cleans_up(
-        self, test_worker, validation_test_data
+        self, test_worker: BaseWorker, validation_test_data: ValidationTestData
     ) -> None:
         """Hash mismatch raises error and removes file."""
         hash_config = HashConfig(
@@ -253,6 +274,7 @@ class TestWorkerValidationFailures:
                 await test_worker.download(
                     validation_test_data.url,
                     validation_test_data.path,
+                    download_id="test-id",
                     hash_config=hash_config,
                 )
 
@@ -262,7 +284,7 @@ class TestWorkerValidationFailures:
 
     @pytest.mark.asyncio
     async def test_download_completes_event_not_emitted_on_validation_failure(
-        self, test_worker, validation_test_data
+        self, test_worker: BaseWorker, validation_test_data: ValidationTestData
     ) -> None:
         """worker.completed event not emitted when validation fails."""
         hash_config = HashConfig(
@@ -281,6 +303,7 @@ class TestWorkerValidationFailures:
                 await test_worker.download(
                     validation_test_data.url,
                     validation_test_data.path,
+                    download_id="test-id",
                     hash_config=hash_config,
                 )
 
@@ -292,7 +315,9 @@ class TestWorkerValidationWithRetry:
 
     @pytest.mark.asyncio
     async def test_validation_failure_not_retried_by_default(
-        self, test_worker_with_retry, validation_test_data
+        self,
+        test_worker_with_retry: BaseWorker,
+        validation_test_data: ValidationTestData,
     ) -> None:
         """Hash mismatch is not retried (permanent error).
 
@@ -323,6 +348,7 @@ class TestWorkerValidationWithRetry:
                 await test_worker_with_retry.download(
                     validation_test_data.url,
                     validation_test_data.path,
+                    download_id="test-id",
                     hash_config=hash_config,
                 )
 

@@ -7,6 +7,7 @@ import aiohttp
 import pytest
 from aioresponses import aioresponses
 
+from rheo.downloads.worker.base import BaseWorker
 from rheo.events import (
     WorkerCompletedEvent,
     WorkerFailedEvent,
@@ -25,7 +26,7 @@ class EventTestData:
 
 
 @pytest.fixture
-def test_data(tmp_path):
+def test_data(tmp_path: Path) -> EventTestData:
     """Provide default test data for event emission tests."""
     return EventTestData(
         url="https://example.com/file.txt",
@@ -38,27 +39,33 @@ class TestWorkerEventEmission:
     """Test that worker emits events during download lifecycle."""
 
     @pytest.mark.asyncio
-    async def test_worker_has_emitter_attribute(self, test_worker):
+    async def test_worker_has_emitter_attribute(self, test_worker: BaseWorker) -> None:
         """Test that worker has an event emitter attribute."""
         assert hasattr(test_worker, "emitter")
         assert test_worker.emitter is not None
 
     @pytest.mark.asyncio
-    async def test_worker_emits_started_event(self, test_worker, test_data):
+    async def test_worker_emits_started_event(
+        self, test_worker: BaseWorker, test_data: EventTestData
+    ) -> None:
         """Test that worker emits started event when download begins."""
         events_received = []
         test_worker.emitter.on("worker.started", lambda e: events_received.append(e))
 
         with aioresponses() as mock:
             mock.get(test_data.url, status=200, body=test_data.content)
-            await test_worker.download(test_data.url, test_data.path)
+            await test_worker.download(
+                test_data.url, test_data.path, download_id="test-id"
+            )
 
         assert len(events_received) == 1
         assert isinstance(events_received[0], WorkerStartedEvent)
         assert events_received[0].url == test_data.url
 
     @pytest.mark.asyncio
-    async def test_worker_emits_progress_after_each_chunk(self, test_worker, test_data):
+    async def test_worker_emits_progress_after_each_chunk(
+        self, test_worker: BaseWorker, test_data: EventTestData
+    ) -> None:
         """Test that worker emits progress event after each chunk."""
         events_received = []
         test_worker.emitter.on("worker.progress", lambda e: events_received.append(e))
@@ -68,7 +75,9 @@ class TestWorkerEventEmission:
 
         with aioresponses() as mock:
             mock.get(test_data.url, status=200, body=content)
-            await test_worker.download(test_data.url, test_data.path, chunk_size=1024)
+            await test_worker.download(
+                test_data.url, test_data.path, download_id="test-id", chunk_size=1024
+            )
 
         # Should have multiple progress events (at least 5 for 5KB with 1KB chunks)
         assert len(events_received) >= 5
@@ -78,29 +87,35 @@ class TestWorkerEventEmission:
         assert events_received[-1].bytes_downloaded == len(content)
 
     @pytest.mark.asyncio
-    async def test_worker_emits_progress_with_chunk_size(self, test_worker, test_data):
+    async def test_worker_emits_progress_with_chunk_size(
+        self, test_worker: BaseWorker, test_data: EventTestData
+    ) -> None:
         """Test that progress events include chunk size."""
         events_received = []
         test_worker.emitter.on("worker.progress", lambda e: events_received.append(e))
 
         with aioresponses() as mock:
             mock.get(test_data.url, status=200, body=b"test_chunk_data")
-            await test_worker.download(test_data.url, test_data.path)
+            await test_worker.download(
+                test_data.url, test_data.path, download_id="test-id"
+            )
 
         # All chunks should have chunk_size > 0
         assert all(e.chunk_size > 0 for e in events_received)
 
     @pytest.mark.asyncio
     async def test_worker_emits_completed_event_on_success(
-        self, test_worker, test_data
-    ):
+        self, test_worker: BaseWorker, test_data: EventTestData
+    ) -> None:
         """Test that worker emits completed event on successful download."""
         events_received = []
         test_worker.emitter.on("worker.completed", lambda e: events_received.append(e))
 
         with aioresponses() as mock:
             mock.get(test_data.url, status=200, body=test_data.content)
-            await test_worker.download(test_data.url, test_data.path)
+            await test_worker.download(
+                test_data.url, test_data.path, download_id="test-id"
+            )
 
         assert len(events_received) == 1
         assert isinstance(events_received[0], WorkerCompletedEvent)
@@ -109,7 +124,9 @@ class TestWorkerEventEmission:
         assert events_received[0].total_bytes == len(test_data.content)
 
     @pytest.mark.asyncio
-    async def test_worker_emits_failed_event_on_error(self, test_worker, test_data):
+    async def test_worker_emits_failed_event_on_error(
+        self, test_worker: BaseWorker, test_data: EventTestData
+    ) -> None:
         """Test that worker emits failed event when download fails."""
         events_received = []
         test_worker.emitter.on("worker.failed", lambda e: events_received.append(e))
@@ -118,7 +135,9 @@ class TestWorkerEventEmission:
             mock.get(test_data.url, status=404, body="Not Found")
 
             with pytest.raises(aiohttp.ClientResponseError):
-                await test_worker.download(test_data.url, test_data.path)
+                await test_worker.download(
+                    test_data.url, test_data.path, download_id="test-id"
+                )
 
         # Should have emitted failed event
         assert len(events_received) == 1
@@ -128,8 +147,8 @@ class TestWorkerEventEmission:
 
     @pytest.mark.asyncio
     async def test_worker_emits_failed_event_on_network_error(
-        self, test_worker, test_data
-    ):
+        self, test_worker: BaseWorker, test_data: EventTestData
+    ) -> None:
         """Test that worker emits failed event on network errors."""
         events_received = []
         test_worker.emitter.on("worker.failed", lambda e: events_received.append(e))
@@ -139,7 +158,9 @@ class TestWorkerEventEmission:
             mock.get(test_data.url, status=500, body="Internal Server Error")
 
             with pytest.raises(aiohttp.ClientResponseError):
-                await test_worker.download(test_data.url, test_data.path)
+                await test_worker.download(
+                    test_data.url, test_data.path, download_id="test-id"
+                )
 
         # Should have emitted failed event
         assert len(events_received) == 1

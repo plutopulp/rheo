@@ -2,6 +2,7 @@
 
 import asyncio
 from pathlib import Path
+from unittest.mock import Mock
 
 import aiohttp
 import pytest
@@ -15,16 +16,20 @@ from rheo.downloads import (
     NullRetryHandler,
     RetryHandler,
 )
+from rheo.downloads.worker.base import BaseWorker
+from rheo.events.base import BaseEmitter
 
 
 @pytest.fixture
-def retry_config():
+def retry_config() -> RetryConfig:
     """Provide a retry config with fast retries for testing."""
     return RetryConfig(max_retries=2, base_delay=0.01, jitter=False)
 
 
 @pytest.fixture
-def retry_handler(mock_logger, mock_emitter, retry_config):
+def retry_handler(
+    mock_logger: Mock, mock_emitter: BaseEmitter, retry_config: RetryConfig
+) -> RetryHandler:
     """Provide a RetryHandler for testing."""
     categoriser = ErrorCategoriser(retry_config.policy)
     return RetryHandler(
@@ -36,7 +41,12 @@ def retry_handler(mock_logger, mock_emitter, retry_config):
 
 
 @pytest.fixture
-def worker_with_retry(aio_client, mock_logger, mock_emitter, retry_handler):
+def worker_with_retry(
+    aio_client: Mock,
+    mock_logger: Mock,
+    mock_emitter: BaseEmitter,
+    retry_handler: RetryHandler,
+) -> DownloadWorker:
     """Provide a DownloadWorker with retry enabled."""
     return DownloadWorker(
         client=aio_client,
@@ -47,7 +57,9 @@ def worker_with_retry(aio_client, mock_logger, mock_emitter, retry_handler):
 
 
 @pytest.fixture
-def worker_without_retry(aio_client, mock_logger, mock_emitter):
+def worker_without_retry(
+    aio_client: Mock, mock_logger: Mock, mock_emitter: BaseEmitter
+) -> DownloadWorker:
     """Provide a DownloadWorker without retry (None)."""
     return DownloadWorker(
         client=aio_client,
@@ -61,8 +73,12 @@ class TestWorkerRetryInitialization:
     """Test worker initialization with retry handler."""
 
     def test_init_with_retry_handler(
-        self, aio_client, mock_logger, mock_emitter, retry_handler
-    ):
+        self,
+        aio_client: Mock,
+        mock_logger: Mock,
+        mock_emitter: BaseEmitter,
+        retry_handler: RetryHandler,
+    ) -> None:
         """Worker can be initialized with a retry handler."""
         worker = DownloadWorker(
             client=aio_client,
@@ -72,7 +88,9 @@ class TestWorkerRetryInitialization:
         )
         assert worker.retry_handler is retry_handler
 
-    def test_init_without_retry_handler(self, aio_client, mock_logger, mock_emitter):
+    def test_init_without_retry_handler(
+        self, aio_client: Mock, mock_logger: Mock, mock_emitter: BaseEmitter
+    ) -> None:
         """Worker defaults to NullRetryHandler when None provided."""
         worker = DownloadWorker(
             client=aio_client,
@@ -82,7 +100,9 @@ class TestWorkerRetryInitialization:
         )
         assert isinstance(worker.retry_handler, NullRetryHandler)
 
-    def test_init_with_default_retry_handler(self, aio_client, mock_logger):
+    def test_init_with_default_retry_handler(
+        self, aio_client: Mock, mock_logger: Mock
+    ) -> None:
         """Worker uses NullRetryHandler by default."""
         worker = DownloadWorker(client=aio_client, logger=mock_logger)
         assert isinstance(worker.retry_handler, NullRetryHandler)
@@ -98,7 +118,7 @@ class DownloadTestData:
 
 
 @pytest.fixture
-def test_data(tmp_path):
+def test_data(tmp_path: Path) -> DownloadTestData:
     """Provide test data for download tests."""
     return DownloadTestData(
         url="https://example.com/file.txt",
@@ -112,8 +132,11 @@ class TestWorkerRetryOnTransientErrors:
 
     @pytest.mark.asyncio
     async def test_retries_on_500_error(
-        self, worker_with_retry, test_data, mock_emitter
-    ):
+        self,
+        worker_with_retry: BaseWorker,
+        test_data: DownloadTestData,
+        mock_emitter: Mock,
+    ) -> None:
         """Worker retries on transient 500 Internal Server Error."""
 
         with aioresponses() as mock:
@@ -121,7 +144,9 @@ class TestWorkerRetryOnTransientErrors:
             mock.get(test_data.url, status=500)
             mock.get(test_data.url, status=200, body=test_data.content)
 
-            await worker_with_retry.download(test_data.url, test_data.path)
+            await worker_with_retry.download(
+                test_data.url, test_data.path, download_id="test-id"
+            )
 
         # File should exist with correct content
         assert test_data.path.exists()
@@ -136,20 +161,26 @@ class TestWorkerRetryOnTransientErrors:
         assert len(retry_events) >= 1
 
     @pytest.mark.asyncio
-    async def test_retries_on_timeout(self, worker_with_retry, test_data):
+    async def test_retries_on_timeout(
+        self, worker_with_retry: BaseWorker, test_data: DownloadTestData
+    ) -> None:
         """Worker retries on timeout errors."""
         with aioresponses() as mock:
             # First attempt times out, second succeeds
             mock.get(test_data.url, exception=asyncio.TimeoutError())
             mock.get(test_data.url, status=200, body=test_data.content)
 
-            await worker_with_retry.download(test_data.url, test_data.path)
+            await worker_with_retry.download(
+                test_data.url, test_data.path, download_id="test-id"
+            )
 
         assert test_data.path.exists()
         assert test_data.path.read_bytes() == test_data.content
 
     @pytest.mark.asyncio
-    async def test_retries_on_connection_error(self, worker_with_retry, test_data):
+    async def test_retries_on_connection_error(
+        self, worker_with_retry: BaseWorker, test_data: DownloadTestData
+    ) -> None:
         """Worker retries on connection errors."""
         with aioresponses() as mock:
             # First attempt connection error, second succeeds
@@ -159,17 +190,23 @@ class TestWorkerRetryOnTransientErrors:
             )
             mock.get(test_data.url, status=200, body=test_data.content)
 
-            await worker_with_retry.download(test_data.url, test_data.path)
+            await worker_with_retry.download(
+                test_data.url, test_data.path, download_id="test-id"
+            )
 
     @pytest.mark.asyncio
-    async def test_fails_after_max_retries(self, worker_with_retry, test_data):
+    async def test_fails_after_max_retries(
+        self, worker_with_retry: BaseWorker, test_data: DownloadTestData
+    ) -> None:
         """Worker fails after exhausting all retries."""
         with aioresponses() as mock:
             # All attempts fail with 500
             mock.get(test_data.url, status=500, repeat=True)
 
             with pytest.raises(aiohttp.ClientResponseError):
-                await worker_with_retry.download(test_data.url, test_data.path)
+                await worker_with_retry.download(
+                    test_data.url, test_data.path, download_id="test-id"
+                )
 
         # File should not exist (cleaned up)
         assert not test_data.path.exists()
@@ -179,30 +216,40 @@ class TestWorkerRetryOnPermanentErrors:
     """Test that permanent errors are not retried."""
 
     @pytest.mark.asyncio
-    async def test_no_retry_on_404(self, worker_with_retry, test_data):
+    async def test_no_retry_on_404(
+        self, worker_with_retry: BaseWorker, test_data: DownloadTestData
+    ) -> None:
         """Worker does not retry on 404 Not Found (permanent error)."""
 
         with aioresponses() as mock:
             mock.get(test_data.url, status=404)
 
             with pytest.raises(aiohttp.ClientResponseError):
-                await worker_with_retry.download(test_data.url, test_data.path)
+                await worker_with_retry.download(
+                    test_data.url, test_data.path, download_id="test-id"
+                )
 
         assert not test_data.path.exists()
 
     @pytest.mark.asyncio
-    async def test_no_retry_on_403(self, worker_with_retry, test_data):
+    async def test_no_retry_on_403(
+        self, worker_with_retry: BaseWorker, test_data: DownloadTestData
+    ) -> None:
         """Worker does not retry on 403 Forbidden (permanent error)."""
         with aioresponses() as mock:
             mock.get(test_data.url, status=403)
 
             with pytest.raises(aiohttp.ClientResponseError):
-                await worker_with_retry.download(test_data.url, test_data.path)
+                await worker_with_retry.download(
+                    test_data.url, test_data.path, download_id="test-id"
+                )
 
         assert not test_data.path.exists()
 
     @pytest.mark.asyncio
-    async def test_no_retry_on_file_not_found_error(self, worker_with_retry, test_data):
+    async def test_no_retry_on_file_not_found_error(
+        self, worker_with_retry: BaseWorker, test_data: DownloadTestData
+    ) -> None:
         """Worker does not retry on filesystem errors like FileNotFoundError."""
         # Use a path with non-existent parent directory
         test_data.path = test_data.path.parent / "nonexistent" / "path" / "file.txt"
@@ -210,32 +257,42 @@ class TestWorkerRetryOnPermanentErrors:
             mock.get(test_data.url, status=200, body=b"test")
 
             with pytest.raises(FileNotFoundError):
-                await worker_with_retry.download(test_data.url, test_data.path)
+                await worker_with_retry.download(
+                    test_data.url, test_data.path, download_id="test-id"
+                )
 
 
 class TestWorkerWithoutRetry:
     """Test worker behavior when retry is disabled."""
 
     @pytest.mark.asyncio
-    async def test_no_retry_when_disabled(self, worker_without_retry, test_data):
+    async def test_no_retry_when_disabled(
+        self, worker_without_retry: BaseWorker, test_data: DownloadTestData
+    ) -> None:
         """Worker fails immediately when retry is disabled."""
 
         with aioresponses() as mock:
             mock.get(test_data.url, status=500)
 
             with pytest.raises(aiohttp.ClientResponseError):
-                await worker_without_retry.download(test_data.url, test_data.path)
+                await worker_without_retry.download(
+                    test_data.url, test_data.path, download_id="test-id"
+                )
 
         assert not test_data.path.exists()
 
     @pytest.mark.asyncio
-    async def test_success_without_retry(self, worker_without_retry, test_data):
+    async def test_success_without_retry(
+        self, worker_without_retry: BaseWorker, test_data: DownloadTestData
+    ) -> None:
         """Worker can still succeed when retry is disabled."""
 
         with aioresponses() as mock:
             mock.get(test_data.url, status=200, body=test_data.content)
 
-            await worker_without_retry.download(test_data.url, test_data.path)
+            await worker_without_retry.download(
+                test_data.url, test_data.path, download_id="test-id"
+            )
 
         assert test_data.path.exists()
         assert test_data.path.read_bytes() == test_data.content
@@ -245,7 +302,12 @@ class TestWorkerRetryEvents:
     """Test retry event emission."""
 
     @pytest.mark.asyncio
-    async def test_emits_retry_events(self, worker_with_retry, test_data, mock_emitter):
+    async def test_emits_retry_events(
+        self,
+        worker_with_retry: BaseWorker,
+        test_data: DownloadTestData,
+        mock_emitter: Mock,
+    ) -> None:
         """Worker emits retry events during retries."""
 
         with aioresponses() as mock:
@@ -253,7 +315,9 @@ class TestWorkerRetryEvents:
             mock.get(test_data.url, status=500)
             mock.get(test_data.url, status=200, body=test_data.content)
 
-            await worker_with_retry.download(test_data.url, test_data.path)
+            await worker_with_retry.download(
+                test_data.url, test_data.path, download_id="test-id"
+            )
 
         # Check retry events were emitted
         retry_events = [
@@ -275,8 +339,12 @@ class TestWorkerRetryWithCustomPolicy:
 
     @pytest.mark.asyncio
     async def test_custom_policy_treats_404_as_transient(
-        self, aio_client, mock_logger, mock_emitter, test_data
-    ):
+        self,
+        aio_client: Mock,
+        mock_logger: Mock,
+        mock_emitter: BaseEmitter,
+        test_data: DownloadTestData,
+    ) -> None:
         """Worker can use custom policy to retry normally permanent errors."""
         # Custom policy that treats 404 as transient
         custom_policy = RetryPolicy(
@@ -308,15 +376,18 @@ class TestWorkerRetryWithCustomPolicy:
             mock.get(test_data.url, status=404)
             mock.get(test_data.url, status=200, body=test_data.content)
 
-            await worker.download(test_data.url, test_data.path)
+            await worker.download(test_data.url, test_data.path, download_id="test-id")
 
         assert test_data.path.exists()
         assert test_data.path.read_bytes() == test_data.content
 
     @pytest.mark.asyncio
     async def test_retry_uses_fresh_speed_calculator(
-        self, worker_with_real_events, tmp_path, test_data
-    ):
+        self,
+        worker_with_real_events: BaseWorker,
+        tmp_path: Path,
+        test_data: DownloadTestData,
+    ) -> None:
         """Test that each retry attempt gets a fresh SpeedCalculator with clean state.
 
         Bug: When a download is retried, the same SpeedCalculator instance is reused,
@@ -345,7 +416,7 @@ class TestWorkerRetryWithCustomPolicy:
             )
 
             await worker_with_real_events.download(
-                test_data.url, test_data.path, chunk_size=1024
+                test_data.url, test_data.path, download_id="test-id", chunk_size=1024
             )
 
         # Verify file was successfully downloaded
