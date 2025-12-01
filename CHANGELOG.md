@@ -7,6 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2025-12-01
+
+### ⚠️ BREAKING CHANGES
+
+**API Simplification:**
+
+- `cancel_all()` removed from DownloadManager - use `close(wait_for_current=True/False)` instead
+- `stop()` and `request_shutdown()` removed from WorkerPool public interface
+
+**Migration:**
+
+```python
+# Before (v0.2.0)
+await manager.cancel_all(wait_for_current=True)
+
+# After (v0.3.0)
+await manager.close(wait_for_current=True)
+```
+
+### Changed
+
+- **Simplified shutdown API:**
+
+  - WorkerPool now exposes single `shutdown(wait_for_current)` method
+  - Manager's `close(wait_for_current)` handles both graceful and immediate shutdown
+  - Context manager methods (`__aenter__`/`__aexit__`) delegate to `open()`/`close()`
+  - Clearer control flow with inlined cancellation logic
+
+- **Download ID system:**
+  - Each download has a unique 16-char hex ID from URL + destination
+  - Tracker keyed by download_id instead of URL
+  - Queue deduplication prevents duplicate downloads (same URL+destination)
+  - All events include download_id for correlation
+
+### Fixed
+
+- Example 03 (hash validation): Use `file_config.id` instead of URL for tracker lookup
+- Example 04 (progress tracking): Extract filename from `event.url` (no `filename` attribute)
+
 ## [0.2.0] - 2025-11-25
 
 ### ⚠️ BREAKING CHANGES
