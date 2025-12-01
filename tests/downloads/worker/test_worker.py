@@ -324,24 +324,30 @@ class TestDownloadWorkerFileSystemErrors:
         assert "Permission denied writing file from" in error_call
 
     @pytest.mark.asyncio
-    async def test_file_not_found_directory(
+    async def test_makedirs_failure_on_protected_path(
         self, test_worker: DownloadWorker, mock_logger: "Logger"
     ) -> None:
-        """Test handling when parent directory doesn't exist."""
+        """Test handling when makedirs fails on a protected system path.
+
+        Worker creates parent directories automatically, but this should
+        fail gracefully when attempting to create directories at locations
+        where the user lacks permission (e.g., root-level paths).
+        """
         test_url = "https://example.com/test.txt"
-        nonexistent_path = Path("/nonexistent/directory/file.txt")
+        # Attempting to create directories at root level should fail
+        protected_path = Path("/nonexistent/directory/file.txt")
 
         with aioresponses() as mock:
             mock.get(test_url, status=200, body=b"test content")
 
-            with pytest.raises(FileNotFoundError):
+            with pytest.raises(OSError):  # PermissionError or similar
                 await test_worker.download(
-                    test_url, nonexistent_path, download_id="test-id"
+                    test_url, protected_path, download_id="test-id"
                 )
 
         mock_logger.error.assert_called()
         error_call = mock_logger.error.call_args[0][0]
-        assert "Could not create file for downloading from" in error_call
+        assert "File system error downloading from" in error_call
 
 
 class TestDownloadWorkerFileCleanup:
