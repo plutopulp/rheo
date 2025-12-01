@@ -355,9 +355,9 @@ class TestWorkerPoolShutdown:
         # shutdown check
         original_method = type(file_config).get_destination_path
 
-        def patched_get_destination_path(self, download_dir, create_dirs=True):
+        def patched_get_destination_path(self, download_dir):
             pool._request_shutdown()
-            return original_method(self, download_dir, create_dirs)
+            return original_method(self, download_dir)
 
         mocker.patch.object(
             type(file_config),
