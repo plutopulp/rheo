@@ -129,6 +129,7 @@ class DownloadManager:
             logger=logger,
             download_dir=download_dir,
             max_workers=self.max_concurrent,
+            file_exists_strategy=self.file_exists_strategy,
         )
 
     @property

@@ -371,7 +371,12 @@ class TestDownloadWorkerFileCleanup:
             mock.get(test_url, status=404)
 
             with pytest.raises(aiohttp.ClientResponseError):
-                await test_worker.download(test_url, temp_file, download_id="test-id")
+                await test_worker.download(
+                    test_url,
+                    temp_file,
+                    download_id="test-id",
+                    file_exists_strategy=FileExistsStrategy.OVERWRITE,
+                )
 
         # File should be cleaned up
         assert not temp_file.exists()
