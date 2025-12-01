@@ -63,7 +63,8 @@ Each layer has clear responsibilities and minimal coupling.
 
 Key pieces:
 
-- `FileConfig`: Download configuration (URL, destination, priority, hash validation, etc.). Includes path traversal protection on `destination_subdir`
+- `FileConfig`: Download configuration (URL, destination, priority, hash validation, file exists strategy, etc.). Includes path traversal protection on `destination_subdir`
+- `FileExistsStrategy`: Enum for handling existing files (SKIP, OVERWRITE, ERROR)
 - `DownloadInfo`: Current state of a download (includes final average speed and validation state)
 - `DownloadStatus`: Enum for states (pending, downloading, completed, failed)
 - `DownloadStats`: Aggregated statistics
@@ -73,7 +74,7 @@ Key pieces:
 - `ValidationStatus`: Enum for validation states (not_requested, in_progress, succeeded, failed)
 - `SpeedMetrics`: Real-time speed and ETA snapshot
 - `SpeedCalculator`: Calculates instantaneous and moving average speeds with ETA estimation
-- Custom exceptions: `ValidationError`, `HashMismatchError`, `FileAccessError`, `ManagerNotInitializedError`, `PendingDownloadsError`, etc.
+- Custom exceptions: `ValidationError`, `HashMismatchError`, `FileAccessError`, `FileExistsError`, `ManagerNotInitializedError`, `PendingDownloadsError`, etc.
 
 **Why**: Keeps business logic separate from infrastructure. These models can be used anywhere without importing heavy dependencies.
 
@@ -103,6 +104,7 @@ Key pieces:
 **DownloadWorker**:
 
 - Does the actual HTTP download
+- Checks file exists strategy before downloading (SKIP, OVERWRITE, ERROR)
 - Uses async file I/O (`aiofiles`) to prevent blocking the event loop
 - Chunks data for progress reporting
 - Emits events for lifecycle stages (including real-time speed and validation updates)

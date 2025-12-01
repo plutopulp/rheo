@@ -15,7 +15,7 @@ import aiohttp
 import certifi
 
 from ..domain.exceptions import ManagerNotInitializedError, PendingDownloadsError
-from ..domain.file_config import FileConfig
+from ..domain.file_config import FileConfig, FileExistsStrategy
 from ..infrastructure.logging import get_logger
 from ..tracking.base import BaseTracker
 from ..tracking.tracker import DownloadTracker
@@ -85,6 +85,7 @@ class DownloadManager:
         logger: "loguru.Logger" = get_logger(__name__),
         download_dir: Path = Path("."),
         worker_pool_factory: WorkerPoolFactory | None = None,
+        file_exists_strategy: FileExistsStrategy = FileExistsStrategy.SKIP,
     ) -> None:
         """Initialise the download manager.
 
@@ -102,6 +103,8 @@ class DownloadManager:
             download_dir: Directory where downloaded files will be saved.
             worker_pool_factory: Factory for creating the worker pool. If None,
                     defaults to WorkerPool constructor.
+            file_exists_strategy: Default strategy for handling existing files.
+                    Defaults to SKIP.
         """
         self._client = client
         self._owns_client = False  # Track if we created the client
@@ -116,6 +119,7 @@ class DownloadManager:
         self.timeout = timeout
         self.max_concurrent = max_concurrent
         self.download_dir = download_dir
+        self.file_exists_strategy = file_exists_strategy
 
         pool_factory = worker_pool_factory or WorkerPool
         self._worker_pool = pool_factory(
@@ -125,6 +129,7 @@ class DownloadManager:
             logger=logger,
             download_dir=download_dir,
             max_workers=self.max_concurrent,
+            file_exists_strategy=self.file_exists_strategy,
         )
 
     @property

@@ -3,6 +3,7 @@
 from abc import ABC, abstractmethod
 from pathlib import Path
 
+from ...domain.file_config import FileExistsStrategy
 from ...domain.hash_validation import HashConfig
 from ...domain.speed import SpeedCalculator
 from ...events import BaseEmitter
@@ -36,6 +37,7 @@ class BaseWorker(ABC):
         timeout: float | None = None,
         speed_calculator: SpeedCalculator | None = None,
         hash_config: HashConfig | None = None,
+        file_exists_strategy: FileExistsStrategy = FileExistsStrategy.SKIP,
     ) -> None:
         """Download a file from URL to local path.
 
@@ -47,6 +49,7 @@ class BaseWorker(ABC):
             timeout: HTTP request timeout in seconds
             speed_calculator: Optional speed calculator for this download
             hash_config: Optional hash validation configuration
+            file_exists_strategy: How to handle existing destination files
 
         Raises:
             Various exceptions depending on download failures.

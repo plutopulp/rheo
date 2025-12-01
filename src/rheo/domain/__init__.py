@@ -5,6 +5,7 @@ from .exceptions import (
     DownloadError,
     DownloadManagerError,
     FileAccessError,
+    FileExistsError,
     FileValidationError,
     HashMismatchError,
     ManagerNotInitializedError,
@@ -14,7 +15,7 @@ from .exceptions import (
     ValidationError,
     WorkerError,
 )
-from .file_config import FileConfig
+from .file_config import FileConfig, FileExistsStrategy
 from .hash_validation import (
     HashAlgorithm,
     HashConfig,
@@ -26,6 +27,7 @@ from .retry import ErrorCategory, RetryConfig, RetryPolicy
 __all__ = [
     # Download Models
     "FileConfig",
+    "FileExistsStrategy",
     "DownloadInfo",
     "DownloadStatus",
     "ValidationStatus",
@@ -48,5 +50,6 @@ __all__ = [
     "WorkerError",
     "FileValidationError",
     "FileAccessError",
+    "FileExistsError",
     "HashMismatchError",
 ]

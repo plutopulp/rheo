@@ -11,6 +11,8 @@ from aiohttp import ClientSession
 from aioresponses import aioresponses
 from pytest_mock import MockerFixture
 
+from rheo.domain.exceptions import FileExistsError
+from rheo.domain.file_config import FileExistsStrategy
 from rheo.downloads import DownloadWorker
 
 if t.TYPE_CHECKING:
@@ -369,7 +371,12 @@ class TestDownloadWorkerFileCleanup:
             mock.get(test_url, status=404)
 
             with pytest.raises(aiohttp.ClientResponseError):
-                await test_worker.download(test_url, temp_file, download_id="test-id")
+                await test_worker.download(
+                    test_url,
+                    temp_file,
+                    download_id="test-id",
+                    file_exists_strategy=FileExistsStrategy.OVERWRITE,
+                )
 
         # File should be cleaned up
         assert not temp_file.exists()
@@ -490,3 +497,89 @@ class TestDownloadWorkerExceptionHandling:
 
         debug_message = mock_logger.debug.call_args[0][0]
         assert "Uncaught exception of type" in debug_message
+
+
+class TestWorkerFileExistsStrategy:
+    """Test file exists strategy handling in worker."""
+
+    @pytest.mark.asyncio
+    async def test_skip_strategy_skips_download(
+        self,
+        test_worker: DownloadWorker,
+        tmp_path: Path,
+        mock_logger: "Logger",
+        mocker: MockerFixture,
+    ) -> None:
+        """SKIP strategy should skip download if file exists."""
+        existing_file = tmp_path / "existing.txt"
+        existing_file.write_text("original content")
+
+        download_spy = mocker.spy(test_worker, "_download_with_cleanup")
+
+        await test_worker.download(
+            "https://example.com/file.txt",
+            existing_file,
+            download_id="test-id",
+            file_exists_strategy=FileExistsStrategy.SKIP,
+        )
+
+        download_spy.assert_not_called()
+        assert existing_file.read_text() == "original content"
+        mock_logger.debug.assert_called_with(f"File exists, skipping: {existing_file}")
+
+    @pytest.mark.asyncio
+    async def test_error_strategy_raises_on_existing_file(
+        self, test_worker: DownloadWorker, tmp_path: Path
+    ) -> None:
+        """ERROR strategy should raise FileExistsError."""
+        existing_file = tmp_path / "existing.txt"
+        existing_file.write_text("original content")
+
+        with pytest.raises(FileExistsError) as exc_info:
+            await test_worker.download(
+                "https://example.com/file.txt",
+                existing_file,
+                download_id="test-id",
+                file_exists_strategy=FileExistsStrategy.ERROR,
+            )
+
+        assert exc_info.value.path == existing_file
+
+    @pytest.mark.asyncio
+    async def test_overwrite_strategy_overwrites_existing_file(
+        self, test_worker: DownloadWorker, tmp_path: Path
+    ) -> None:
+        """OVERWRITE strategy should replace existing file."""
+        existing_file = tmp_path / "existing.txt"
+        existing_file.write_text("original content")
+
+        with aioresponses() as mock:
+            mock.get("https://example.com/file.txt", body=b"new content")
+
+            await test_worker.download(
+                "https://example.com/file.txt",
+                existing_file,
+                download_id="test-id",
+                file_exists_strategy=FileExistsStrategy.OVERWRITE,
+            )
+
+        assert existing_file.read_bytes() == b"new content"
+
+    @pytest.mark.asyncio
+    async def test_skip_proceeds_if_file_does_not_exist(
+        self, test_worker: DownloadWorker, tmp_path: Path
+    ) -> None:
+        """SKIP strategy should download if file doesn't exist."""
+        new_file = tmp_path / "new.txt"
+
+        with aioresponses() as mock:
+            mock.get("https://example.com/file.txt", body=b"content")
+
+            await test_worker.download(
+                "https://example.com/file.txt",
+                new_file,
+                download_id="test-id",
+                file_exists_strategy=FileExistsStrategy.SKIP,
+            )
+
+        assert new_file.read_bytes() == b"content"

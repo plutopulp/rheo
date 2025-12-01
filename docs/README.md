@@ -50,6 +50,7 @@ That's it. The manager handles worker pools, state tracking, and cleanup automat
 - **Retry logic**: Automatic retry with exponential backoff for transient errors
 - **Speed & ETA tracking**: Real-time download speed with moving averages and estimated completion time
 - **Graceful shutdown**: Stop downloads cleanly or cancel immediately
+- **File exists handling**: Skip, overwrite, or error when destination exists (configurable per-file or globally)
 - **Event system**: React to download lifecycle events (started, progress, speed, completed, failed, retry, validation)
 - **Progress tracking**: Track bytes downloaded, completion status, errors, validation state, and final average speeds
 - **Async/await**: Built on asyncio for efficient I/O
@@ -320,6 +321,43 @@ for url, info in tracker.get_all_downloads().items():
             print(f"  Hash: {info.validation.calculated_hash}")
         elif info.validation.status == "failed":
             print(f"  Error: {info.validation.error_message}")
+```
+
+### File Exists Handling
+
+Control what happens when a download destination already exists:
+
+```python
+from rheo.domain import FileConfig, FileExistsStrategy
+
+# Manager-level default (applies to all downloads)
+async with DownloadManager(
+    download_dir=Path("./downloads"),
+    file_exists_strategy=FileExistsStrategy.SKIP,  # Default
+) as manager:
+    await manager.add(files)
+    await manager.wait_until_complete()
+```
+
+**Strategies**:
+
+- `SKIP` (default): Skip download if file exists, log and continue
+- `OVERWRITE`: Replace existing file with new download
+- `ERROR`: Raise `FileExistsError` if file exists
+
+**Per-file override**:
+
+```python
+files = [
+    FileConfig(
+        url="https://example.com/file.zip",
+        file_exists_strategy=FileExistsStrategy.OVERWRITE,  # Override manager default
+    ),
+    FileConfig(
+        url="https://example.com/other.zip",
+        # Uses manager's default (SKIP)
+    ),
+]
 ```
 
 ### Retry on Transient Errors

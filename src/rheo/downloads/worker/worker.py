@@ -14,7 +14,8 @@ import aiofiles.os
 import aiohttp
 from aiofiles.threadpool.binary import AsyncBufferedIOBase
 
-from ...domain.exceptions import HashMismatchError
+from ...domain.exceptions import FileExistsError, HashMismatchError
+from ...domain.file_config import FileExistsStrategy
 from ...domain.hash_validation import HashConfig
 from ...domain.speed import SpeedCalculator
 from ...events import (
@@ -200,6 +201,7 @@ class DownloadWorker(BaseWorker):
         timeout: float | None = None,
         speed_calculator: SpeedCalculator | None = None,
         hash_config: HashConfig | None = None,
+        file_exists_strategy: FileExistsStrategy = FileExistsStrategy.SKIP,
     ) -> None:
         """Download a file from URL to local path with error handling and retry support.
 
@@ -228,12 +230,15 @@ class DownloadWorker(BaseWorker):
                             Provide custom implementation for alternative speed tracking.
             hash_config: Optional hash configuration for post-download validation.
                         If provided, validates file hash matches expected value.
+            file_exists_strategy: How to handle existing destination files.
+                        SKIP (default) skips download, ERROR raises, OVERWRITE replaces.
 
         Raises:
             aiohttp.ClientError: For network/HTTP related errors
             asyncio.TimeoutError: If download exceeds timeout
             OSError: For filesystem errors (FileNotFoundError, PermissionError, etc.)
             HashMismatchError: If hash validation fails
+            FileExistsError: If file exists and strategy is ERROR
 
         Example:
             ```python
@@ -246,13 +251,20 @@ class DownloadWorker(BaseWorker):
                 )
             ```
         """
+        # Check file exists strategy before starting download
+        final_path = await self._handle_existing_file(
+            destination_path, file_exists_strategy
+        )
+        if final_path is None:
+            return
+
         # Always use retry handler (NullRetryHandler if no retries configured)
         # Note: SpeedCalculator is created inside _download_with_cleanup to ensure
         # each retry attempt gets a fresh calculator with clean state
         await self.retry_handler.execute_with_retry(
             operation=lambda: self._download_with_cleanup(
                 url,
-                destination_path,
+                final_path,
                 download_id,
                 chunk_size,
                 timeout,
@@ -432,6 +444,33 @@ class DownloadWorker(BaseWorker):
             self.logger.warning(
                 f"Failed to clean up partial file {file_path}: {cleanup_error}"
             )
+
+    async def _handle_existing_file(
+        self,
+        destination_path: Path,
+        strategy: FileExistsStrategy,
+    ) -> Path | None:
+        """Check if file exists and handle according to strategy.
+
+        Returns:
+            Path to use for download (may differ for RENAME), or None if skipped.
+
+        Raises:
+            FileExistsError: If file exists and strategy is ERROR.
+        """
+        if not await aiofiles.os.path.exists(destination_path):
+            return destination_path  # Proceed with original path
+
+        match strategy:
+            case FileExistsStrategy.SKIP:
+                self.logger.debug(f"File exists, skipping: {destination_path}")
+                return None
+            case FileExistsStrategy.ERROR:
+                raise FileExistsError(destination_path)
+            case FileExistsStrategy.OVERWRITE:
+                return destination_path  # Proceed with original path
+            # case FileExistsStrategy.RENAME:
+            #     return generate_unique_path(destination_path)
 
     async def _validate_download(
         self, url: str, file_path: Path, download_id: str, hash_config: HashConfig

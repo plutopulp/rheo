@@ -3,6 +3,7 @@
 import hashlib
 import re
 import typing as t
+from enum import StrEnum
 from pathlib import Path
 
 from pydantic import (
@@ -15,6 +16,16 @@ from pydantic import (
 )
 
 from .hash_validation import HashConfig
+
+
+class FileExistsStrategy(StrEnum):
+    """Strategy for handling existing files at download destination."""
+
+    SKIP = "skip"  # Skip download if file exists (default)
+    ERROR = "error"  # Raise FileExistsError if file exists
+    OVERWRITE = "overwrite"  # Overwrite existing file
+    # RENAME = "rename"  # Future: Auto-rename file.txt -> file (1).txt
+
 
 # Reserved Windows filenames that need special handling
 _WINDOWS_RESERVED_NAMES = {
@@ -266,6 +277,10 @@ class FileConfig(BaseModel):
         default=0,
         ge=0,
         description="Maximum retry attempts for this file",
+    )
+    file_exists_strategy: FileExistsStrategy | None = Field(
+        default=None,
+        description="Strategy for existing files. None uses manager's default.",
     )
 
     @field_validator("destination_subdir")

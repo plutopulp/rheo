@@ -9,7 +9,7 @@ from aiohttp import ClientSession
 from ...domain.exceptions import (
     WorkerPoolAlreadyStartedError,
 )
-from ...domain.file_config import FileConfig
+from ...domain.file_config import FileConfig, FileExistsStrategy
 from ...events import EventEmitter
 from ...tracking.base import BaseTracker
 from ..queue import PriorityDownloadQueue
@@ -113,6 +113,7 @@ class WorkerPool(BaseWorkerPool):
         download_dir: Path,
         max_workers: int = 3,
         event_wiring: dict[str, WorkerEventHandler] | None = None,
+        file_exists_strategy: FileExistsStrategy = FileExistsStrategy.SKIP,
     ) -> None:
         """Initialise the worker pool.
 
@@ -129,6 +130,8 @@ class WorkerPool(BaseWorkerPool):
             event_wiring: Optional custom event wiring dict mapping event types to
                          tracker handlers. If None, default wiring to tracker methods
                          is created automatically.
+            file_exists_strategy: Default strategy for handling existing files.
+                         Per-file strategy in FileConfig overrides this.
         """
         self.queue = queue
         self._worker_factory = worker_factory
@@ -140,6 +143,7 @@ class WorkerPool(BaseWorkerPool):
         self._worker_tasks: list[asyncio.Task[None]] = []
         self._is_running = False
         self._event_wiring = event_wiring or _create_event_wiring(tracker)
+        self._file_exists_strategy = file_exists_strategy
 
     @property
     def active_tasks(self) -> tuple[asyncio.Task[None], ...]:
@@ -262,6 +266,10 @@ class WorkerPool(BaseWorkerPool):
                 if await self._handle_shutdown_and_requeue(file_config):
                     break
 
+                # Use per-file strategy if set, otherwise pool default
+                strategy = (
+                    file_config.file_exists_strategy or self._file_exists_strategy
+                )
                 self._logger.debug(
                     f"Downloading {file_config.url} to {destination_path}"
                 )
@@ -270,6 +278,7 @@ class WorkerPool(BaseWorkerPool):
                     destination_path,
                     download_id=file_config.id,
                     hash_config=file_config.hash_config,
+                    file_exists_strategy=strategy,
                 )
                 self._logger.debug(
                     f"Downloaded {file_config.url} to {destination_path}"
