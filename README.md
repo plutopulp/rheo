@@ -92,7 +92,7 @@ Check [`examples/`](https://github.com/plutopulp/rheo/tree/main/examples) for wo
 
 - Python: 3.12+
 - License: MIT
-- Version: 0.3.0
+- Version: 0.4.0
 
 ## Questions?
 
