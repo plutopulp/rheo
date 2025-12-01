@@ -182,28 +182,20 @@ class WorkerPool(BaseWorkerPool):
 
         Args:
             wait_for_current: If True, allow in-flight downloads to complete before
-                            stopping. If False, cancel immediately via stop().
+                            stopping. If False, cancel all worker tasks immediately.
         """
-        self.request_shutdown()
+        self._request_shutdown()
 
-        if wait_for_current:
-            await self._wait_for_workers_and_clear()
-        else:
-            await self.stop()
+        if not wait_for_current:
+            # Cancel all worker tasks for immediate shutdown
+            for task in self._worker_tasks:
+                task.cancel()
 
-    async def stop(self) -> None:
-        """Stop all workers immediately and clean up task references.
-
-        Cancels all worker tasks and waits for them to finish cancellation.
-        Sets is_running to False.
-        """
-        for task in self._worker_tasks:
-            task.cancel()
-        # We await here to ensure worker tasks have fully processed the cancellation,
-        # run their cleanup logic (finally blocks), and terminated.
+        # Wait for workers to finish (either gracefully or after cancellation)
+        # and clean up task references
         await self._wait_for_workers_and_clear()
 
-    def request_shutdown(self) -> None:
+    def _request_shutdown(self) -> None:
         """Signal workers to stop accepting new work.
 
         Idempotent - safe to call multiple times. Workers will complete their
