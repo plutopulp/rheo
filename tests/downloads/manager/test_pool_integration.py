@@ -61,14 +61,14 @@ class TestDownloadManagerPoolIntegration:
         await manager.close()
 
     @pytest.mark.asyncio
-    async def test_stop_workers_delegates_to_pool(
+    async def test_close_delegates_to_pool_shutdown(
         self,
         mock_logger: "Logger",
         mock_worker_pool: Mock,
         mock_pool_factory: WorkerPoolFactory,
         tmp_path,
     ):
-        """close() should call pool.stop() and clean up client."""
+        """close() should call pool.shutdown() and clean up client."""
         manager = DownloadManager(
             logger=mock_logger,
             worker_pool_factory=mock_pool_factory,
@@ -80,45 +80,11 @@ class TestDownloadManagerPoolIntegration:
 
         await manager.close()
 
-        # Should have stopped workers
-        mock_worker_pool.stop.assert_called_once()
+        # Should have called shutdown with default wait_for_current=False
+        mock_worker_pool.shutdown.assert_called_once_with(wait_for_current=False)
 
         # Should have closed client (if we owned it)
         assert client.closed
-
-    @pytest.mark.asyncio
-    async def test_cancel_all_delegates_to_pool_shutdown(
-        self,
-        mock_logger: "Logger",
-        mock_worker_pool: Mock,
-        mock_pool_factory: WorkerPoolFactory,
-    ):
-        """cancel_all() should delegate to pool.shutdown() with correct parameters."""
-        manager = DownloadManager(
-            logger=mock_logger, worker_pool_factory=mock_pool_factory
-        )
-
-        await manager.cancel_all()
-
-        # Verify delegation with default parameter
-        mock_worker_pool.shutdown.assert_called_once_with(wait_for_current=False)
-
-    @pytest.mark.asyncio
-    async def test_cancel_all_with_wait_for_current(
-        self,
-        mock_logger: "Logger",
-        mock_worker_pool: Mock,
-        mock_pool_factory: WorkerPoolFactory,
-    ):
-        """cancel_all() should respect wait_for_current parameter."""
-        manager = DownloadManager(
-            logger=mock_logger, worker_pool_factory=mock_pool_factory
-        )
-
-        await manager.cancel_all(wait_for_current=True)
-
-        # Verify delegation with wait_for_current=True
-        mock_worker_pool.shutdown.assert_called_once_with(wait_for_current=True)
 
     @pytest.mark.asyncio
     async def test_close_with_wait_for_current(

@@ -27,7 +27,7 @@ class TestBasicShutdownBehavior:
         await asyncio.wait_for(mock_download.started.wait(), timeout=1.0)
 
         # Call shutdown with wait_for_current=True
-        await manager.cancel_all(wait_for_current=True)
+        await manager.close(wait_for_current=True)
 
         # Verify download was completed
         assert mock_download.completed.is_set()
@@ -64,7 +64,7 @@ class TestProcessQueueShutdown:
         await asyncio.sleep(0.15)
 
         # Trigger shutdown
-        await manager.cancel_all(wait_for_current=True)
+        await manager.close(wait_for_current=True)
 
         # Should have processed at least one download
         assert mock_download.count["value"] > 0
@@ -87,7 +87,7 @@ class TestProcessQueueShutdown:
         await asyncio.sleep(0.5)
 
         # Shutdown should work even with empty queue
-        await manager.cancel_all(wait_for_current=True)
+        await manager.close(wait_for_current=True)
 
         # Verify no downloads were attempted
         mock_worker.download.assert_not_called()
@@ -115,7 +115,7 @@ class TestImmediateCancellation:
         await asyncio.wait_for(mock_download.started.wait(), timeout=1.0)
 
         # Call shutdown with wait_for_current=False
-        await manager.cancel_all(wait_for_current=False)
+        await manager.close(wait_for_current=False)
 
         # Verify download was NOT completed (cancelled)
         assert not mock_download.completed.is_set()
@@ -144,7 +144,7 @@ class TestImmediateCancellation:
         await asyncio.sleep(0.05)
 
         # Immediate shutdown
-        await manager.cancel_all(wait_for_current=False)
+        await manager.close(wait_for_current=False)
 
         # Should have started at most 1 download
         assert mock_download.count["value"] <= 1
@@ -177,7 +177,7 @@ class TestMultipleWorkersShutdown:
         await asyncio.sleep(0.1)
 
         # Shutdown
-        await manager.cancel_all(wait_for_current=True)
+        await manager.close(wait_for_current=True)
 
         # Some downloads should have happened
         assert mock_download.count["value"] > 0
@@ -207,7 +207,7 @@ class TestMultipleWorkersShutdown:
         await asyncio.sleep(0.15)
 
         # Shutdown
-        await manager.cancel_all(wait_for_current=True)
+        await manager.close(wait_for_current=True)
 
         # Not all 20 should have been processed
         assert mock_download.count["value"] < 20
@@ -228,7 +228,7 @@ class TestEdgeCases:
         await manager.open()
 
         # Shutdown immediately
-        await manager.cancel_all(wait_for_current=True)
+        await manager.close(wait_for_current=True)
 
         # Should complete cleanly without errors
 
@@ -242,6 +242,6 @@ class TestEdgeCases:
 
         # Call shutdown multiple times
         for _ in range(3):
-            await manager.cancel_all(wait_for_current=True)
+            await manager.close(wait_for_current=True)
 
         # Should complete without errors

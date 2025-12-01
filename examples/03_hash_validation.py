@@ -78,7 +78,7 @@ async def main() -> None:
             await manager.wait_until_complete()
 
             # Check download status from manager's tracker
-            info = manager.tracker.get_download_info(str(file_config.url))
+            info = manager.tracker.get_download_info(str(file_config.id))
             if info and info.status == DownloadStatus.FAILED:
                 print(f"\tValidation failed: {info.error}\n")
                 failed.append((file_config.description, info.error or "Unknown error"))

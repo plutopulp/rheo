@@ -34,14 +34,6 @@ class BaseWorkerPool(ABC):
         any active downloads should be interrupted.
         """
 
-    @abstractmethod
-    async def stop(self) -> None:
-        """Forcefully stop all workers and clean up task references."""
-
-    @abstractmethod
-    def request_shutdown(self) -> None:
-        """Signal worker loops to stop fetching new work (idempotent)."""
-
     @property
     @abstractmethod
     def is_running(self) -> bool:

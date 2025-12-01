@@ -69,7 +69,7 @@ class TestWorkerPoolInitialization:
 
 
 class TestWorkerPoolLifecycle:
-    """Test worker pool start/stop lifecycle."""
+    """Test worker pool start/shutdown lifecycle."""
 
     @pytest.mark.asyncio
     async def test_start_sets_running_state(
@@ -83,7 +83,7 @@ class TestWorkerPoolLifecycle:
         await pool.start(mock_aio_client)
         assert pool.is_running
 
-        await pool.stop()
+        await pool.shutdown(wait_for_current=False)
 
     @pytest.mark.asyncio
     async def test_start_creates_worker_tasks(
@@ -98,7 +98,7 @@ class TestWorkerPoolLifecycle:
         await asyncio.sleep(0.01)
 
         assert len(pool.active_tasks) == 3
-        await pool.stop()
+        await pool.shutdown(wait_for_current=False)
 
     @pytest.mark.asyncio
     async def test_start_twice_raises_error(
@@ -115,36 +115,36 @@ class TestWorkerPoolLifecycle:
         with pytest.raises(WorkerPoolAlreadyStartedError, match="already started"):
             await pool.start(mock_aio_client)
 
-        await pool.stop()
+        await pool.shutdown(wait_for_current=False)
 
     @pytest.mark.asyncio
-    async def test_stop_clears_running_state(
+    async def test_shutdown_clears_running_state(
         self,
         mock_aio_client: aiohttp.ClientSession,
         make_worker_pool: t.Callable[..., WorkerPool],
     ):
-        """Pool should set is_running to False after stop."""
+        """Pool should set is_running to False after shutdown."""
         pool = make_worker_pool()
 
         await pool.start(mock_aio_client)
         assert pool.is_running
 
-        await pool.stop()
+        await pool.shutdown(wait_for_current=False)
         assert not pool.is_running
 
     @pytest.mark.asyncio
-    async def test_stop_clears_tasks(
+    async def test_shutdown_clears_tasks(
         self,
         mock_aio_client: aiohttp.ClientSession,
         make_worker_pool: t.Callable[..., WorkerPool],
     ):
-        """Pool should clear task list after stop."""
+        """Pool should clear task list after shutdown."""
         pool = make_worker_pool(max_workers=3)
 
         await pool.start(mock_aio_client)
         assert len(pool.active_tasks) == 3
 
-        await pool.stop()
+        await pool.shutdown(wait_for_current=False)
         assert len(pool.active_tasks) == 0
 
 
@@ -172,7 +172,7 @@ class TestWorkerPoolIsolation:
         emitter_ids = {id(worker.emitter) for worker in created_workers}
         assert len(emitter_ids) == 3, "Expected unique emitter per worker"
 
-        await pool.stop()
+        await pool.shutdown(wait_for_current=False)
 
 
 class TestWorkerPoolShutdown:
@@ -245,10 +245,10 @@ class TestWorkerPoolShutdown:
         pool = make_worker_pool(worker_factory=worker_factory)
 
         await pool.start(mock_aio_client)
-        pool.request_shutdown()
+        pool._request_shutdown()
 
         await asyncio.sleep(0.1)
-        await pool.stop()
+        await pool.shutdown(wait_for_current=False)
 
         assert not real_priority_queue.is_empty()
 
@@ -297,11 +297,11 @@ class TestWorkerPoolShutdown:
         await pool.start(mock_aio_client)
 
         # Call multiple times
-        pool.request_shutdown()
-        pool.request_shutdown()
-        pool.request_shutdown()
+        pool._request_shutdown()
+        pool._request_shutdown()
+        pool._request_shutdown()
 
-        await pool.stop()
+        await pool.shutdown(wait_for_current=False)
         assert not pool.is_running
 
     @pytest.mark.asyncio
@@ -356,7 +356,7 @@ class TestWorkerPoolShutdown:
         original_method = type(file_config).get_destination_path
 
         def patched_get_destination_path(self, download_dir, create_dirs=True):
-            pool.request_shutdown()
+            pool._request_shutdown()
             return original_method(self, download_dir, create_dirs)
 
         mocker.patch.object(
@@ -370,7 +370,7 @@ class TestWorkerPoolShutdown:
 
         # Wait briefly for processing
         await asyncio.sleep(0.1)
-        await pool.stop()
+        await pool.shutdown(wait_for_current=False)
 
         # Download should NOT have been called because shutdown was triggered
         # before the worker's final check
@@ -438,7 +438,7 @@ class TestWorkerPoolQueueProcessing:
 
         await pool.start(mock_aio_client)
         await asyncio.wait_for(real_priority_queue.join(), timeout=1.0)
-        await pool.stop()
+        await pool.shutdown(wait_for_current=False)
 
         # Verify download_id was passed and matches file_config.id
         assert "download_id" in download_kwargs
@@ -468,7 +468,7 @@ class TestWorkerPoolQueueProcessing:
         # If task_done() is not called, join() will hang
         await asyncio.wait_for(real_priority_queue.join(), timeout=1.0)
 
-        await pool.stop()
+        await pool.shutdown(wait_for_current=False)
         assert real_priority_queue.is_empty()
 
     @pytest.mark.asyncio
@@ -500,7 +500,7 @@ class TestWorkerPoolQueueProcessing:
         await asyncio.wait_for(real_priority_queue.join(), timeout=1.0)
         end_time = asyncio.get_running_loop().time()
 
-        await pool.stop()
+        await pool.shutdown(wait_for_current=False)
 
         # Should take roughly 0.1s, definitely less than 0.25s (if serial would be 0.3s)
         duration = end_time - start_time
@@ -540,7 +540,7 @@ class TestWorkerPoolQueueProcessing:
         # Should process both items (one fail, one success)
         await asyncio.wait_for(real_priority_queue.join(), timeout=1.0)
 
-        await pool.stop()
+        await pool.shutdown(wait_for_current=False)
 
         # Verify error was logged
         log_messages = [call.args[0] for call in mock_logger.error.call_args_list]
@@ -617,7 +617,7 @@ class TestWorkerPoolImplementationRationale:
         await asyncio.sleep(0.1)
 
         # Request shutdown
-        pool.request_shutdown()
+        pool._request_shutdown()
 
         # Try to shutdown with timeout - should NOT complete because workers
         # are stuck in get_next() and can't check the shutdown event
@@ -628,7 +628,7 @@ class TestWorkerPoolImplementationRationale:
         assert pool._shutdown_event.is_set()
 
         # Force cleanup by stopping (which cancels tasks)
-        await pool.stop()
+        await pool.shutdown(wait_for_current=False)
 
     @pytest.mark.asyncio
     async def test_without_task_done_on_requeue_queue_join_hangs(
@@ -679,13 +679,13 @@ class TestWorkerPoolImplementationRationale:
 
         # Immediately trigger shutdown (before download can start)
         # This will cause re-queue branch to execute
-        pool.request_shutdown()
+        pool._request_shutdown()
 
         # Wait for re-queue to happen
         await asyncio.sleep(0.2)
 
         # Stop the pool
-        await pool.stop()
+        await pool.shutdown(wait_for_current=False)
 
         # The item should be back in the queue
         assert not real_priority_queue.is_empty()
