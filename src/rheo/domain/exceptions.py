@@ -19,6 +19,20 @@ class ManagerNotInitializedError(DownloadManagerError):
     pass
 
 
+class PendingDownloadsError(DownloadManagerError):
+    """Raised when exiting DownloadManager with unprocessed downloads."""
+
+    def __init__(self, pending_count: int) -> None:
+        self.pending_count = pending_count
+        message = (
+            f"Exited DownloadManager with {pending_count} pending download(s). "
+            "These have been cancelled. To avoid this, call "
+            "await manager.wait_until_complete() before exiting, "
+            "or await manager.close() to cancel explicitly."
+        )
+        super().__init__(message)
+
+
 class DownloadError(DownloadManagerError):
     """Base exception for download operation errors."""
 
