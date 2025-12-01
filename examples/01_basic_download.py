@@ -20,6 +20,7 @@ async def main() -> None:
         FileConfig(
             url="https://proof.ovh.net/files/1Mb.dat",
             filename="01-basic-1Mb.dat",
+            destination_subdir="example_01",
         )
     ]
 
