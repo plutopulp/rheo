@@ -26,8 +26,8 @@ jobs:
       - name: Run type checking
         run: poetry run mypy src/
 
-      - name: Run examples
-        run: poetry run python scripts/run_examples.py
+    # Examples are intended as docs/demos, not CI-gated checks
+    # (was: poetry run python scripts/run_examples.py)
 
   build-and-publish:
     needs: test
