@@ -48,6 +48,7 @@ asyncio.run(main())
 - Hash validation (MD5, SHA256, SHA512)
 - Retry logic with exponential backoff
 - Real-time speed & ETA tracking
+- File exists handling (skip, overwrite, or error)
 - Event-driven architecture
 - CLI tool (`rheo download`)
 - Full type hints
