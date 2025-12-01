@@ -392,7 +392,7 @@ async with DownloadManager(download_dir=Path("./downloads"), max_concurrent=3) a
     await asyncio.sleep(5)
 
     # Gracefully shut down (waits for current downloads to finish)
-    await manager.shutdown(wait_for_current=True)
+    await manager.close(wait_for_current=True)
 ```
 
 **Immediate cancellation** when you need to stop right away:
@@ -406,10 +406,10 @@ async with DownloadManager(download_dir=Path("./downloads")) as manager:
     await asyncio.sleep(2)
 
     # Stop immediately without waiting
-    await manager.shutdown(wait_for_current=False)
+    await manager.close(wait_for_current=False)
 ```
 
-**Note**: The context manager (`async with`) automatically triggers graceful shutdown on exit, so explicit `shutdown()` calls are only needed for early termination.
+**Note**: The context manager (`async with`) automatically triggers immediate shutdown on exit, so explicit `close()` calls are only needed for early termination or graceful shutdown.
 
 ## Security Considerations
 

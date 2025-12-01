@@ -371,7 +371,7 @@ config4 = FileConfig(url="https://example.com/file.zip", destination_subdir="dir
 The system uses an event-based shutdown mechanism for clean termination:
 
 ```text
-1. User calls manager.shutdown(wait_for_current=True/False)
+1. User calls manager.close(wait_for_current=True/False)
 2. Manager delegates to pool.shutdown(wait_for_current)
 3. Pool sets internal _shutdown_event
 4. Worker process_queue loops check event status:
