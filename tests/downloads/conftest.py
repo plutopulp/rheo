@@ -313,15 +313,6 @@ def mock_worker_pool(mocker: MockerFixture) -> Mock:
 
     pool.shutdown = mocker.AsyncMock(side_effect=mock_shutdown)
 
-    # Configure stop() to set running to False
-    async def mock_stop() -> None:
-        running_state["is_running"] = False
-
-    pool.stop = mocker.AsyncMock(side_effect=mock_stop)
-
-    # Configure request_shutdown() (non-blocking)
-    pool.request_shutdown = mocker.Mock()
-
     return pool
 
 
