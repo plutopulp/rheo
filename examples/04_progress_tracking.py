@@ -102,7 +102,7 @@ async def main() -> None:
         def on_progress(event: DownloadProgressEvent) -> None:
             """Show real-time progress with speed and ETA."""
             # Get speed metrics from tracker
-            speed_metrics = manager.tracker.get_speed_metrics(event.url)
+            speed_metrics = manager.tracker.get_speed_metrics(event.download_id)
 
             # Format progress
             filename = event.url.split("/")[-1]
