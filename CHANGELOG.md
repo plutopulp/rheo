@@ -7,6 +7,74 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2025-12-01
+
+### ⚠️ BREAKING CHANGES
+
+**File Exists Handling:**
+
+- Default behavior changed: existing files are now **SKIP**ped instead of silently overwritten
+- To restore previous behavior, set `file_exists_strategy=FileExistsStrategy.OVERWRITE`
+
+**Context Manager Safety:**
+
+- `PendingDownloadsError` now raised when exiting `async with` block with unhandled downloads
+- Must call `wait_until_complete()` or `close()` before exiting to avoid this error
+
+**Migration:**
+
+```python
+# Before (v0.3.0) - files silently overwritten, pending downloads silently cancelled
+async with DownloadManager(download_dir=Path("./downloads")) as manager:
+    await manager.add(files)
+    # Exiting without wait_until_complete() would silently cancel
+
+# After (v0.4.0) - explicit handling required
+async with DownloadManager(download_dir=Path("./downloads")) as manager:
+    await manager.add(files)
+    await manager.wait_until_complete()  # Required to avoid PendingDownloadsError
+
+# Or to restore overwrite behavior:
+async with DownloadManager(
+    download_dir=Path("./downloads"),
+    file_exists_strategy=FileExistsStrategy.OVERWRITE,
+) as manager:
+    ...
+```
+
+### Added
+
+- **FileExistsStrategy enum** (#63):
+
+  - `SKIP` (default): Skip download if file exists
+  - `OVERWRITE`: Replace existing file
+  - `ERROR`: Raise `FileExistsError` if file exists
+  - Configurable at manager level or per-file in `FileConfig`
+
+- **PendingDownloadsError** (#62):
+
+  - Raised when exiting context manager with unprocessed downloads
+  - Prevents silent data loss from cancelled downloads
+  - `queue.pending_count` property exposes pending download count
+
+- **FileExistsError exception**: Raised when file exists and strategy is ERROR
+
+### Fixed
+
+- **Partial file cleanup on cancellation** (#60):
+  - `CancelledError` now properly triggers cleanup of partial files
+  - Previously, cancellation left corrupted partial files on disk
+
+### Changed
+
+- **Domain purity** (#61):
+
+  - Removed I/O from `FileConfig.get_destination_path()`
+  - Directory creation moved to `DownloadWorker` (uses async `aiofiles.os.makedirs`)
+  - Examples updated to use `destination_subdir` for organization
+
+- **Worker checks file existence** before download using async I/O
+
 ## [0.3.0] - 2025-12-01
 
 ### ⚠️ BREAKING CHANGES
