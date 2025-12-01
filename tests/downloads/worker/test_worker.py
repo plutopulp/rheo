@@ -1,31 +1,39 @@
 """Tests for DownloadWorker class."""
 
 import asyncio
+import typing as t
 from pathlib import Path
 
 import aiofiles
 import aiohttp
 import pytest
+from aiohttp import ClientSession
 from aioresponses import aioresponses
+from pytest_mock import MockerFixture
 
 from rheo.downloads import DownloadWorker
 
+if t.TYPE_CHECKING:
+    from loguru import Logger
+
 
 @pytest.fixture
-def test_worker(aio_client, mock_logger):
+def test_worker(aio_client: ClientSession, mock_logger: "Logger") -> DownloadWorker:
     return DownloadWorker(aio_client, mock_logger)
 
 
 class TestDownloadWorkerInitialization:
     """Test DownloadWorker initialization and basic setup."""
 
-    def test_init_with_explicit_logger(self, aio_client, mock_logger):
+    def test_init_with_explicit_logger(
+        self, aio_client: ClientSession, mock_logger: "Logger"
+    ) -> None:
         """Test worker initialization with explicit logger."""
         worker = DownloadWorker(aio_client, mock_logger)
         assert worker.client is aio_client
         assert worker.logger is mock_logger
 
-    def test_init_with_default_logger(self, aio_client):
+    def test_init_with_default_logger(self, aio_client: ClientSession) -> None:
         """Test worker initialization with default logger."""
         worker = DownloadWorker(aio_client)
         assert worker.client is aio_client
@@ -36,7 +44,9 @@ class TestDownloadWorkerSuccessfulDownloads:
     """Test successful download scenarios."""
 
     @pytest.mark.asyncio
-    async def test_basic_download_success(self, test_worker, tmp_path, mock_logger):
+    async def test_basic_download_success(
+        self, test_worker: DownloadWorker, tmp_path: Path, mock_logger: "Logger"
+    ) -> None:
         """Test basic successful file download."""
         test_url = "https://example.com/test.txt"
         test_content = b"Hello, World!"
@@ -61,8 +71,8 @@ class TestDownloadWorkerSuccessfulDownloads:
 
     @pytest.mark.asyncio
     async def test_download_with_custom_chunk_size(
-        self, test_worker, tmp_path, mock_logger
-    ):
+        self, test_worker: DownloadWorker, tmp_path: Path, mock_logger: "Logger"
+    ) -> None:
         """Test download with custom chunk size."""
         test_url = "https://example.com/binary.dat"
         test_content = b"x" * 1000  # 1KB of data
@@ -79,7 +89,9 @@ class TestDownloadWorkerSuccessfulDownloads:
         assert temp_file.read_bytes() == test_content
 
     @pytest.mark.asyncio
-    async def test_download_large_file(self, test_worker, tmp_path, mock_logger):
+    async def test_download_large_file(
+        self, test_worker: DownloadWorker, tmp_path: Path, mock_logger: "Logger"
+    ) -> None:
         """Test download of larger file to ensure chunking works."""
         test_url = "https://example.com/large.bin"
         test_content = b"A" * 10000  # 10KB file
@@ -96,7 +108,9 @@ class TestDownloadWorkerSuccessfulDownloads:
         assert temp_file.read_bytes() == test_content
 
     @pytest.mark.asyncio
-    async def test_download_empty_file(self, test_worker, tmp_path, mock_logger):
+    async def test_download_empty_file(
+        self, test_worker: DownloadWorker, tmp_path: Path, mock_logger: "Logger"
+    ) -> None:
         """Test download of empty file."""
         test_url = "https://example.com/empty.txt"
         temp_file = tmp_path / "empty.txt"
@@ -109,12 +123,37 @@ class TestDownloadWorkerSuccessfulDownloads:
         assert temp_file.exists()
         assert temp_file.read_bytes() == b""
 
+    @pytest.mark.asyncio
+    async def test_download_creates_parent_directories(
+        self, test_worker: DownloadWorker, tmp_path: Path, mock_logger: "Logger"
+    ) -> None:
+        """Worker should create parent directories before writing file.
+
+        This ensures downloads to subdirectories work even when the
+        directories don't exist yet. Directory creation was moved from
+        FileConfig (domain) to Worker (infrastructure) for layer purity.
+        """
+        test_url = "https://example.com/file.txt"
+        test_content = b"Hello from nested dir!"
+        # Destination in non-existent nested subdirectory
+        dest_file = tmp_path / "new" / "nested" / "dir" / "file.txt"
+
+        with aioresponses() as mock:
+            mock.get(test_url, status=200, body=test_content)
+
+            await test_worker.download(test_url, dest_file, download_id="test-id")
+
+        assert dest_file.exists()
+        assert dest_file.read_bytes() == test_content
+
 
 class TestDownloadWorkerHTTPErrors:
     """Test HTTP error handling."""
 
     @pytest.mark.asyncio
-    async def test_download_404_error(self, test_worker, tmp_path, mock_logger):
+    async def test_download_404_error(
+        self, test_worker: DownloadWorker, tmp_path: Path, mock_logger: "Logger"
+    ) -> None:
         """Test handling of 404 Not Found error."""
         test_url = "https://example.com/notfound.txt"
         temp_file = tmp_path / "notfound.txt"
@@ -131,7 +170,9 @@ class TestDownloadWorkerHTTPErrors:
         mock_logger.error.assert_called()
 
     @pytest.mark.asyncio
-    async def test_download_500_error(self, test_worker, tmp_path, mock_logger):
+    async def test_download_500_error(
+        self, test_worker: DownloadWorker, tmp_path: Path, mock_logger: "Logger"
+    ) -> None:
         """Test handling of 500 Internal Server Error."""
         test_url = "https://example.com/server-error.txt"
         temp_file = tmp_path / "server-error.txt"
@@ -147,7 +188,9 @@ class TestDownloadWorkerHTTPErrors:
         mock_logger.error.assert_called()
 
     @pytest.mark.asyncio
-    async def test_download_403_forbidden(self, test_worker, tmp_path, mock_logger):
+    async def test_download_403_forbidden(
+        self, test_worker: DownloadWorker, tmp_path: Path, mock_logger: "Logger"
+    ) -> None:
         """Test handling of 403 Forbidden error."""
         test_url = "https://example.com/forbidden.txt"
         temp_file = tmp_path / "forbidden.txt"
@@ -166,7 +209,9 @@ class TestDownloadWorkerNetworkErrors:
     """Test network-related error handling."""
 
     @pytest.mark.asyncio
-    async def test_connection_error(self, test_worker, tmp_path, mock_logger):
+    async def test_connection_error(
+        self, test_worker: DownloadWorker, tmp_path: Path, mock_logger: "Logger"
+    ) -> None:
         """Test handling of connection errors."""
         test_url = "https://example.com/test.txt"
         temp_file = tmp_path / "test.txt"
@@ -185,7 +230,9 @@ class TestDownloadWorkerNetworkErrors:
         assert "File system error downloading from" in error_call
 
     @pytest.mark.asyncio
-    async def test_ssl_error(self, test_worker, tmp_path, mock_logger):
+    async def test_ssl_error(
+        self, test_worker: DownloadWorker, tmp_path: Path, mock_logger: "Logger"
+    ) -> None:
         """Test handling of SSL errors."""
         test_url = "https://example.com/test.txt"
         temp_file = tmp_path / "test.txt"
@@ -203,7 +250,9 @@ class TestDownloadWorkerNetworkErrors:
         assert "Unexpected error downloading from" in error_call
 
     @pytest.mark.asyncio
-    async def test_payload_error(self, test_worker, tmp_path, mock_logger):
+    async def test_payload_error(
+        self, test_worker: DownloadWorker, tmp_path: Path, mock_logger: "Logger"
+    ) -> None:
         """Test handling of payload errors."""
         test_url = "https://example.com/test.txt"
         temp_file = tmp_path / "test.txt"
@@ -224,7 +273,9 @@ class TestDownloadWorkerTimeouts:
     """Test timeout handling."""
 
     @pytest.mark.asyncio
-    async def test_timeout_error(self, test_worker, tmp_path, mock_logger):
+    async def test_timeout_error(
+        self, test_worker: DownloadWorker, tmp_path: Path, mock_logger: "Logger"
+    ) -> None:
         """Test handling of timeout errors."""
         test_url = "https://example.com/slow.txt"
         temp_file = tmp_path / "slow.txt"
@@ -249,7 +300,9 @@ class TestDownloadWorkerFileSystemErrors:
     """Test file system related error handling."""
 
     @pytest.mark.asyncio
-    async def test_permission_error(self, test_worker, tmp_path, mock_logger):
+    async def test_permission_error(
+        self, test_worker: DownloadWorker, tmp_path: Path, mock_logger: "Logger"
+    ) -> None:
         """Test handling of permission errors when writing files."""
         test_url = "https://example.com/test.txt"
 
@@ -271,7 +324,9 @@ class TestDownloadWorkerFileSystemErrors:
         assert "Permission denied writing file from" in error_call
 
     @pytest.mark.asyncio
-    async def test_file_not_found_directory(self, test_worker, mock_logger):
+    async def test_file_not_found_directory(
+        self, test_worker: DownloadWorker, mock_logger: "Logger"
+    ) -> None:
         """Test handling when parent directory doesn't exist."""
         test_url = "https://example.com/test.txt"
         nonexistent_path = Path("/nonexistent/directory/file.txt")
@@ -294,8 +349,8 @@ class TestDownloadWorkerFileCleanup:
 
     @pytest.mark.asyncio
     async def test_partial_file_cleanup_on_http_error(
-        self, test_worker, tmp_path, mock_logger
-    ):
+        self, test_worker: DownloadWorker, tmp_path: Path, mock_logger: "Logger"
+    ) -> None:
         """Test that partial files are cleaned up on HTTP errors."""
         test_url = "https://example.com/test.txt"
         temp_file = tmp_path / "test.txt"
@@ -319,7 +374,9 @@ class TestDownloadWorkerChunkWriting:
     """Test the chunk writing functionality."""
 
     @pytest.mark.asyncio
-    async def test_write_chunk_to_file(self, test_worker, tmp_path):
+    async def test_write_chunk_to_file(
+        self, test_worker: DownloadWorker, tmp_path: Path
+    ) -> None:
         """Test that _write_chunk_to_file writes data correctly with async I/O."""
 
         test_data = b"test chunk data"
@@ -331,7 +388,9 @@ class TestDownloadWorkerChunkWriting:
         assert temp_file.read_bytes() == test_data
 
     @pytest.mark.asyncio
-    async def test_write_multiple_chunks(self, test_worker, tmp_path):
+    async def test_write_multiple_chunks(
+        self, test_worker: DownloadWorker, tmp_path: Path
+    ) -> None:
         """Test writing multiple chunks sequentially with async I/O."""
 
         chunks = [b"chunk1", b"chunk2", b"chunk3"]
@@ -347,7 +406,12 @@ class TestDownloadWorkerChunkWriting:
 class TestDownloadWorkerExceptionHandling:
     """Test the exception handling and logging functionality."""
 
-    def test_handle_client_connector_error(self, test_worker, mocker, mock_logger):
+    def test_handle_client_connector_error(
+        self,
+        test_worker: DownloadWorker,
+        mocker: MockerFixture,
+        mock_logger: "Logger",
+    ) -> None:
         """Test handling of ClientConnectorError."""
         test_url = "https://example.com/test.txt"
 
@@ -363,7 +427,12 @@ class TestDownloadWorkerExceptionHandling:
         assert "Failed to connect to" in error_message
         assert test_url in error_message
 
-    def test_handle_client_response_error(self, test_worker, mocker, mock_logger):
+    def test_handle_client_response_error(
+        self,
+        test_worker: DownloadWorker,
+        mocker: MockerFixture,
+        mock_logger: "Logger",
+    ) -> None:
         """Test handling of ClientResponseError."""
         test_url = "https://example.com/test.txt"
 
@@ -381,7 +450,9 @@ class TestDownloadWorkerExceptionHandling:
         assert "HTTP 404 error from" in error_message
         assert test_url in error_message
 
-    def test_handle_timeout_error(self, aio_client, mock_logger):
+    def test_handle_timeout_error(
+        self, aio_client: ClientSession, mock_logger: "Logger"
+    ) -> None:
         """Test handling of TimeoutError."""
         test_worker = DownloadWorker(aio_client, mock_logger)
         test_url = "https://example.com/test.txt"
@@ -394,7 +465,9 @@ class TestDownloadWorkerExceptionHandling:
         assert "Timeout downloading from" in error_message
         assert test_url in error_message
 
-    def test_handle_generic_exception(self, aio_client, mock_logger):
+    def test_handle_generic_exception(
+        self, aio_client: ClientSession, mock_logger: "Logger"
+    ) -> None:
         """Test handling of generic exceptions."""
         test_worker = DownloadWorker(aio_client, mock_logger)
         test_url = "https://example.com/test.txt"
