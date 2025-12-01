@@ -347,7 +347,7 @@ class TestDownloadWorkerFileSystemErrors:
 
         mock_logger.error.assert_called()
         error_call = mock_logger.error.call_args[0][0]
-        assert "File system error downloading from" in error_call
+        assert test_url in error_call
 
 
 class TestDownloadWorkerFileCleanup:
