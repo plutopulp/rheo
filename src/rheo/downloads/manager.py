@@ -8,12 +8,13 @@ import asyncio
 import ssl
 import typing as t
 from pathlib import Path
+from types import TracebackType
 
 import aiofiles.os
 import aiohttp
 import certifi
 
-from ..domain.exceptions import ManagerNotInitializedError
+from ..domain.exceptions import ManagerNotInitializedError, PendingDownloadsError
 from ..domain.file_config import FileConfig
 from ..infrastructure.logging import get_logger
 from ..tracking.base import BaseTracker
@@ -164,13 +165,32 @@ class DownloadManager:
         await self.open()
         return self
 
-    async def __aexit__(self, *args: t.Any, **kwargs: t.Any) -> None:
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
         """Exit the async context manager.
 
-        Cleans up resources, particularly the HTTP client if we created it.
-        Uses immediate shutdown (wait_for_current=False) for context manager exit.
+        Validates that downloads were handled before exiting. Raises
+        PendingDownloadsError if there are pending downloads and we're
+        not already handling an exception. Resources are always cleaned up.
         """
+        # Capture state before close() changes it
+        pending = self.queue.pending_count
+        # If pool is still running, user didn't call close() or wait_until_complete().
+        # We check this to allow explicit close(wait_for_current=True) for graceful
+        # shutdown (letting in-progress downloads finish before stopping).
+        # Note that this is a bit implicit and could have used a flag to track this.
+        was_still_running = self._worker_pool.is_running
+
+        # Always clean up resources
         await self.close(wait_for_current=False)
+
+        # Raise if pool was active with pending work and not masking existing exception
+        if exc_type is None and pending > 0 and was_still_running:
+            raise PendingDownloadsError(pending_count=pending)
 
     @property
     def client(self) -> aiohttp.ClientSession:

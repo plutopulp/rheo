@@ -375,6 +375,51 @@ class TestQueueDeduplication:
         assert expected_warning_msg == warning_msg
 
 
+class TestQueuePendingCount:
+    """Test pending_count property."""
+
+    @pytest.mark.asyncio
+    async def test_pending_count_initially_zero(self, mock_logger: "Logger") -> None:
+        """Empty queue should have zero pending count."""
+        queue = PriorityDownloadQueue(logger=mock_logger)
+        assert queue.pending_count == 0
+
+    @pytest.mark.asyncio
+    async def test_pending_count_increases_on_add(self, mock_logger: "Logger") -> None:
+        """Adding items should increase pending count."""
+        queue = PriorityDownloadQueue(logger=mock_logger)
+        configs = [FileConfig(url=f"https://example.com/file{i}.txt") for i in range(3)]
+        await queue.add(configs)
+        assert queue.pending_count == 3
+
+    @pytest.mark.asyncio
+    async def test_pending_count_decreases_on_task_done(
+        self, mock_logger: "Logger"
+    ) -> None:
+        """Completing tasks should decrease pending count."""
+        queue = PriorityDownloadQueue(logger=mock_logger)
+        config = FileConfig(url="https://example.com/file.txt")
+        await queue.add([config])
+        assert queue.pending_count == 1
+
+        await queue.get_next()
+        queue.task_done(config.id)
+        assert queue.pending_count == 0
+
+    @pytest.mark.asyncio
+    async def test_pending_includes_in_progress_downloads(
+        self, mock_logger: "Logger"
+    ) -> None:
+        """Pending count includes items being downloaded (retrieved but not done)."""
+        queue = PriorityDownloadQueue(logger=mock_logger)
+        config = FileConfig(url="https://example.com/file.txt")
+        await queue.add([config])
+
+        await queue.get_next()  # Item retrieved, download "in progress"
+        # Still pending because task_done not called yet
+        assert queue.pending_count == 1
+
+
 class TestPriorityDownloadQueueEdgeCases:
     """Test edge cases and special scenarios."""
 

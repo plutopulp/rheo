@@ -113,6 +113,15 @@ class PriorityDownloadQueue:
         self._queued_ids.remove(download_id)
         self._queue.task_done()
 
+    @property
+    def pending_count(self) -> int:
+        """Number of downloads not yet completed.
+
+        Includes both items waiting in queue AND items currently being
+        downloaded (retrieved but not marked as done).
+        """
+        return len(self._queued_ids)
+
     def is_empty(self) -> bool:
         """Check if the queue is empty.
 

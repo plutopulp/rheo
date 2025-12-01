@@ -409,7 +409,7 @@ async with DownloadManager(download_dir=Path("./downloads")) as manager:
     await manager.close(wait_for_current=False)
 ```
 
-**Note**: The context manager (`async with`) automatically triggers immediate shutdown on exit, so explicit `close()` calls are only needed for early termination or graceful shutdown.
+**Note**: The context manager (`async with`) triggers immediate shutdown on exit. It will raise `PendingDownloadsError` if there are pending downloads that weren't handled. Call `wait_until_complete()` or `close()` explicitly to avoid this.
 
 ## Security Considerations
 

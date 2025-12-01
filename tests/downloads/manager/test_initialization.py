@@ -1,15 +1,22 @@
 """Tests for DownloadManager context manager and initialization."""
 
+import typing as t
+from pathlib import Path
+
 import pytest
 from aiohttp import ClientSession
+from aioresponses import aioresponses
 
-from rheo.domain.exceptions import ManagerNotInitializedError
+from rheo.domain.exceptions import ManagerNotInitializedError, PendingDownloadsError
 from rheo.domain.file_config import FileConfig
 from rheo.downloads import (
     DownloadManager,
     DownloadWorker,
     PriorityDownloadQueue,
 )
+
+if t.TYPE_CHECKING:
+    from loguru import Logger
 
 
 class TestDownloadManagerInitialization:
@@ -284,3 +291,70 @@ class TestDownloadManagerProperties:
             assert manager.is_active is True
 
         assert manager.is_active is False
+
+
+class TestDownloadManagerPendingDownloadsCheck:
+    """Test PendingDownloadsError behavior on context manager exit."""
+
+    @pytest.mark.asyncio
+    async def test_raises_error_when_exiting_with_pending_downloads(
+        self, mock_logger: "Logger"
+    ) -> None:
+        """Should raise PendingDownloadsError if exiting with work left."""
+        with pytest.raises(PendingDownloadsError) as exc_info:
+            async with DownloadManager(logger=mock_logger) as manager:
+                await manager.add([FileConfig(url="https://example.com/file.txt")])
+                # Exit without wait_until_complete() or close()
+
+        assert exc_info.value.pending_count == 1
+
+    @pytest.mark.asyncio
+    async def test_no_error_when_wait_until_complete_called(
+        self, mock_logger: "Logger", tmp_path: Path
+    ) -> None:
+        """Should not raise if wait_until_complete() was called."""
+        with aioresponses() as mock:
+            mock.get("https://example.com/file.txt", body=b"content")
+
+            async with DownloadManager(
+                logger=mock_logger, download_dir=tmp_path
+            ) as manager:
+                await manager.add([FileConfig(url="https://example.com/file.txt")])
+                await manager.wait_until_complete()
+        # No exception raised
+
+    @pytest.mark.asyncio
+    async def test_no_error_when_close_called_explicitly(
+        self, mock_logger: "Logger"
+    ) -> None:
+        """Should not raise if close() was called explicitly."""
+        async with DownloadManager(logger=mock_logger) as manager:
+            await manager.add([FileConfig(url="https://example.com/file.txt")])
+            await manager.close()  # Explicit cancellation
+        # No exception raised
+
+    @pytest.mark.asyncio
+    async def test_does_not_mask_existing_exception(
+        self, mock_logger: "Logger"
+    ) -> None:
+        """Should not raise PendingDownloadsError if already handling exception."""
+        with pytest.raises(ValueError, match="original error"):
+            async with DownloadManager(logger=mock_logger) as manager:
+                await manager.add([FileConfig(url="https://example.com/file.txt")])
+                raise ValueError("original error")
+        # ValueError propagates, not PendingDownloadsError
+
+    @pytest.mark.asyncio
+    async def test_resources_cleaned_up_before_raising(
+        self, mock_logger: "Logger"
+    ) -> None:
+        """Should close resources even when raising PendingDownloadsError."""
+        manager = DownloadManager(logger=mock_logger)
+        try:
+            async with manager:
+                await manager.add([FileConfig(url="https://example.com/file.txt")])
+        except PendingDownloadsError:
+            pass
+
+        assert not manager.is_active  # Pool stopped
+        assert manager._client is None or manager._client.closed  # Client cleaned up
