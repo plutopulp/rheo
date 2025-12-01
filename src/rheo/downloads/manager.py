@@ -161,19 +161,7 @@ class DownloadManager:
         Returns:
             Self for use in async with statements.
         """
-        # Ensure download directory exists (async to avoid blocking event loop)
-        await aiofiles.os.makedirs(self.download_dir, exist_ok=True)
-
-        if self._client is None:
-            # Create SSL context using certifi's certificate bundle for portable
-            # SSL certificate verification across all platforms and Python versions
-            # e.g. SSL certs not handled by default on macOS with Python 3.14
-            ssl_context = ssl.create_default_context(cafile=certifi.where())
-            connector = aiohttp.TCPConnector(ssl=ssl_context)
-            self._client = await aiohttp.ClientSession(connector=connector).__aenter__()
-            self._owns_client = True
-
-        await self._worker_pool.start(self.client)
+        await self.open()
         return self
 
     async def __aexit__(self, *args: t.Any, **kwargs: t.Any) -> None:
