@@ -247,18 +247,25 @@ class TestWorkerRetryOnPermanentErrors:
         assert not test_data.path.exists()
 
     @pytest.mark.asyncio
-    async def test_no_retry_on_file_not_found_error(
+    async def test_no_retry_on_filesystem_error(
         self, worker_with_retry: BaseWorker, test_data: DownloadTestData
     ) -> None:
-        """Worker does not retry on filesystem errors like FileNotFoundError."""
-        # Use a path with non-existent parent directory
-        test_data.path = test_data.path.parent / "nonexistent" / "path" / "file.txt"
+        """Worker does not retry on filesystem I/O errors.
+
+        Filesystem errors (PermissionError, IOError, etc.) are considered
+        permanent and should not trigger retry logic.
+        """
+        # Create a read-only directory to trigger PermissionError
+        readonly_dir = test_data.path.parent / "readonly"
+        readonly_dir.mkdir(mode=0o555)
+        readonly_file = readonly_dir / "file.txt"
+
         with aioresponses() as mock:
             mock.get(test_data.url, status=200, body=b"test")
 
-            with pytest.raises(FileNotFoundError):
+            with pytest.raises(PermissionError):
                 await worker_with_retry.download(
-                    test_data.url, test_data.path, download_id="test-id"
+                    test_data.url, readonly_file, download_id="test-id"
                 )
 
 

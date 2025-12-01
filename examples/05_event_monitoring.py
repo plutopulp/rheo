@@ -142,6 +142,7 @@ async def main() -> None:
         FileConfig(
             url="https://proof.ovh.net/files/10Mb.dat",
             filename="05-events-10Mb-valid.dat",
+            destination_subdir="example_05",
             priority=3,
             hash_config=HashConfig(
                 algorithm="sha256",
@@ -151,6 +152,7 @@ async def main() -> None:
         FileConfig(
             url="https://proof.ovh.net/files/1Mb.dat",
             filename="05-events-1Mb-invalid.dat",
+            destination_subdir="example_05",
             priority=2,
             hash_config=HashConfig(
                 algorithm="sha256",
@@ -160,6 +162,7 @@ async def main() -> None:
         FileConfig(
             url="https://proof.ovh.net/files/10Mb.dat",
             filename="05-events-10Mb-no-hash.dat",
+            destination_subdir="example_05",
             priority=1,
         ),
     ]

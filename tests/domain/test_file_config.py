@@ -225,7 +225,7 @@ class TestFileConfigPathResolution:
             url="https://example.com/file.txt", destination_subdir="docs"
         )
         base_dir = Path("/downloads")
-        result = config.get_destination_path(base_dir, create_dirs=False)
+        result = config.get_destination_path(base_dir)
         assert result == Path("/downloads/docs/example.com-file.txt")
 
     def test_path_with_nested_subdirectories(self):
@@ -234,7 +234,7 @@ class TestFileConfigPathResolution:
             url="https://example.com/file.txt", destination_subdir="docs/reports/2024"
         )
         base_dir = Path("/downloads")
-        result = config.get_destination_path(base_dir, create_dirs=False)
+        result = config.get_destination_path(base_dir)
         assert result == Path("/downloads/docs/reports/2024/example.com-file.txt")
 
     def test_path_with_custom_filename_and_subdir(self):
@@ -245,7 +245,7 @@ class TestFileConfigPathResolution:
             destination_subdir="reports",
         )
         base_dir = Path("/downloads")
-        result = config.get_destination_path(base_dir, create_dirs=False)
+        result = config.get_destination_path(base_dir)
         assert result == Path("/downloads/reports/report.pdf")
 
     def test_path_with_trailing_slashes_normalized(self):
@@ -254,7 +254,7 @@ class TestFileConfigPathResolution:
             url="https://example.com/file.txt", destination_subdir="docs/"
         )
         base_dir = Path("/downloads/")
-        result = config.get_destination_path(base_dir, create_dirs=False)
+        result = config.get_destination_path(base_dir)
         # Should normalize to standard path without double slashes
         assert result == Path("/downloads/docs/example.com-file.txt")
 
@@ -265,46 +265,20 @@ class TestFileConfigPathResolution:
         result = config.get_destination_path(base_dir)
         assert result == Path("downloads/example.com-file.txt")
 
-    def test_path_creates_parent_directories_intent(self):
-        """Test that path resolution indicates parent directory creation."""
-        # This test documents the intent - actual directory creation
-        # happens when create_dirs=True (default), but path should be correct
+    def test_path_with_deeply_nested_subdirectories(self):
+        """Test path resolution with deeply nested subdirectories.
+
+        Note: Directory creation is now handled by infrastructure (DownloadWorker),
+        not the domain model. This test verifies pure path computation.
+        """
         config = FileConfig(
             url="https://example.com/file.txt", destination_subdir="new/nested/dir"
         )
         base_dir = Path("/downloads")
-        result = config.get_destination_path(base_dir, create_dirs=False)
-        # Should return correct path even if directories don't exist yet
+        result = config.get_destination_path(base_dir)
+        # Should return correct path - directory creation is caller's responsibility
         assert result == Path("/downloads/new/nested/dir/example.com-file.txt")
         assert result.parent == Path("/downloads/new/nested/dir")
-
-    def test_path_with_subdirectory_creates_directories(self, tmp_path):
-        """Test that directories are actually created when create_dirs=True."""
-        config = FileConfig(
-            url="https://example.com/file.txt", destination_subdir="docs/reports"
-        )
-        base_dir = tmp_path / "downloads"
-        base_dir.mkdir()
-
-        # With create_dirs=True (default), subdirectories should be created
-        result = config.get_destination_path(base_dir, create_dirs=True)
-
-        assert result == base_dir / "docs" / "reports" / "example.com-file.txt"
-        # Verify the parent directories were created
-        assert result.parent.exists()
-        assert result.parent.is_dir()
-
-    def test_path_without_subdirectory_no_extra_dirs_created(self, tmp_path):
-        """Test that no extra directories are created when no subdirectory specified."""
-        config = FileConfig(url="https://example.com/file.txt")
-        base_dir = tmp_path / "downloads"
-        base_dir.mkdir()
-
-        result = config.get_destination_path(base_dir, create_dirs=True)
-
-        assert result == base_dir / "example.com-file.txt"
-        # Base dir should exist, but no subdirectories created
-        assert base_dir.exists()
 
 
 class TestFileConfigEdgeCases:

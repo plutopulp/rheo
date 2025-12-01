@@ -337,16 +337,17 @@ class FileConfig(BaseModel):
         # Generate from URL
         return _generate_filename_from_url(self.url)
 
-    def get_destination_path(self, base_dir: Path, create_dirs: bool = True) -> Path:
+    def get_destination_path(self, base_dir: Path) -> Path:
         """Get full destination path including subdirectory.
 
         Combines the base directory, optional subdirectory, and filename
         to create the complete path where the file should be saved.
 
+        Note: This method performs pure path computation only. Directory
+        creation is the caller's responsibility (infrastructure layer).
+
         Args:
             base_dir: Base download directory
-            create_dirs: If True, creates parent directories if they don't
-            exist (default: True)
 
         Returns:
             Full path where file should be saved
@@ -363,18 +364,8 @@ class FileConfig(BaseModel):
         filename = self.get_destination_filename()
 
         if self.destination_subdir:
-            # Combine base_dir with subdirectory and filename
-            # Path normalization handles trailing slashes automatically
-            destination_path = base_dir / self.destination_subdir / filename
-
-            # Create parent directories if subdirectory is specified
-            if create_dirs:
-                destination_path.parent.mkdir(parents=True, exist_ok=True)
-
-            return destination_path
-        else:
-            # Just base_dir and filename
-            return base_dir / filename
+            return base_dir / self.destination_subdir / filename
+        return base_dir / filename
 
     @computed_field  # type: ignore[prop-decorator]
     @property

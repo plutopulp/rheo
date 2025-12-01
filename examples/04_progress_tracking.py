@@ -86,6 +86,7 @@ async def main() -> None:
         FileConfig(
             url="https://proof.ovh.net/files/100Mb.dat",
             filename="04-progress-100Mb.dat",
+            destination_subdir="example_04",
             description="100MB file",
         ),
     ]

@@ -39,6 +39,7 @@ async def main() -> None:
         FileConfig(
             url="https://proof.ovh.net/files/1Mb.dat",
             filename="03-hash-valid-1Mb.dat",
+            destination_subdir="example_03",
             description="1MB file with correct SHA256 (will succeed)",
             hash_config=HashConfig(
                 algorithm="sha256",
@@ -49,6 +50,7 @@ async def main() -> None:
         FileConfig(
             url="https://proof.ovh.net/files/10Mb.dat",
             filename="03-hash-invalid-10Mb.dat",
+            destination_subdir="example_03",
             description="10MB file with WRONG hash (will fail)",
             hash_config=HashConfig(
                 algorithm="sha256",

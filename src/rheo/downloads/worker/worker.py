@@ -300,6 +300,11 @@ class DownloadWorker(BaseWorker):
         bytes_downloaded = 0
 
         try:
+            # Ensure parent directories exist before writing.
+            # Future: Consider a FileDestination/FileWriter abstraction if non-file
+            # destinations (S3, memory streams) are needed.
+            await aiofiles.os.makedirs(destination_path.parent, exist_ok=True)
+
             # Open destination file for binary writing (async to avoid blocking)
             async with aiofiles.open(destination_path, "wb") as file_handle:
                 # Create HTTP request with timeout context
