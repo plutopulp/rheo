@@ -63,14 +63,14 @@ class DownloadManager:
         finally:
             await manager.close()
 
-    Cancelling Downloads:
+    Closing with Options:
         async with DownloadManager() as manager:
             await manager.add(files)
-            # Cancel all pending downloads immediately
-            await manager.cancel_all()
+            # Close immediately (cancels in-progress downloads)
+            await manager.close()
 
             # Or wait for current downloads to finish first
-            await manager.cancel_all(wait_for_current=True)
+            await manager.close(wait_for_current=True)
     """
 
     def __init__(
@@ -180,10 +180,9 @@ class DownloadManager:
         """Exit the async context manager.
 
         Cleans up resources, particularly the HTTP client if we created it.
+        Uses immediate shutdown (wait_for_current=False) for context manager exit.
         """
-        await self._worker_pool.stop()
-        if self._owns_client and self._client is not None:
-            await self._client.__aexit__(*args, **kwargs)
+        await self.close(wait_for_current=False)
 
     @property
     def client(self) -> aiohttp.ClientSession:
@@ -280,28 +279,6 @@ class DownloadManager:
         else:
             await self.queue.join()
 
-    async def cancel_all(self, wait_for_current: bool = False) -> None:
-        """Cancel all pending downloads and stop workers.
-
-        Stops accepting new downloads and cancels pending items in the queue.
-        After calling this, you cannot add more files without restarting the
-        manager (exit and re-enter context manager, or call close() then open()).
-
-        Args:
-            wait_for_current: If True, waits for currently downloading files
-                            to finish before cancelling pending items.
-                            If False, cancels everything immediately including
-                            in-progress downloads.
-
-        Example:
-            # Graceful cancellation
-            await manager.cancel_all(wait_for_current=True)
-
-            # Immediate cancellation
-            await manager.cancel_all(wait_for_current=False)
-        """
-        await self._worker_pool.shutdown(wait_for_current=wait_for_current)
-
     async def open(self) -> None:
         """Manually initialize the manager.
 
@@ -355,10 +332,7 @@ class DownloadManager:
             finally:
                 await manager.close(wait_for_current=True)
         """
-        if wait_for_current:
-            await self._worker_pool.shutdown(wait_for_current=True)
-        else:
-            await self._worker_pool.stop()
+        await self._worker_pool.shutdown(wait_for_current=wait_for_current)
 
         if self._owns_client and self._client is not None:
             await self._client.close()
