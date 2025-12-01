@@ -278,6 +278,10 @@ class FileConfig(BaseModel):
         ge=0,
         description="Maximum retry attempts for this file",
     )
+    file_exists_strategy: FileExistsStrategy | None = Field(
+        default=None,
+        description="Strategy for existing files. None uses manager's default.",
+    )
 
     @field_validator("destination_subdir")
     @classmethod

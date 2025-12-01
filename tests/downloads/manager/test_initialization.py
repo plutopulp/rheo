@@ -8,7 +8,7 @@ from aiohttp import ClientSession
 from aioresponses import aioresponses
 
 from rheo.domain.exceptions import ManagerNotInitializedError, PendingDownloadsError
-from rheo.domain.file_config import FileConfig
+from rheo.domain.file_config import FileConfig, FileExistsStrategy
 from rheo.downloads import (
     DownloadManager,
     DownloadWorker,
@@ -358,3 +358,20 @@ class TestDownloadManagerPendingDownloadsCheck:
 
         assert not manager.is_active  # Pool stopped
         assert manager._client is None or manager._client.closed  # Client cleaned up
+
+
+class TestDownloadManagerFileExistsStrategy:
+    """Test DownloadManager file_exists_strategy configuration."""
+
+    def test_default_strategy_is_skip(self, mock_logger: "Logger") -> None:
+        """Manager should default to SKIP strategy."""
+        manager = DownloadManager(logger=mock_logger)
+        assert manager.file_exists_strategy == FileExistsStrategy.SKIP
+
+    def test_custom_strategy_can_be_set(self, mock_logger: "Logger") -> None:
+        """Manager should accept custom strategy."""
+        manager = DownloadManager(
+            logger=mock_logger,
+            file_exists_strategy=FileExistsStrategy.OVERWRITE,
+        )
+        assert manager.file_exists_strategy == FileExistsStrategy.OVERWRITE
