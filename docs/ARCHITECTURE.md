@@ -73,7 +73,7 @@ Key pieces:
 - `ValidationStatus`: Enum for validation states (not_requested, in_progress, succeeded, failed)
 - `SpeedMetrics`: Real-time speed and ETA snapshot
 - `SpeedCalculator`: Calculates instantaneous and moving average speeds with ETA estimation
-- Custom exceptions: `ValidationError`, `HashMismatchError`, `FileAccessError`, `ManagerNotInitializedError`, etc.
+- Custom exceptions: `ValidationError`, `HashMismatchError`, `FileAccessError`, `ManagerNotInitializedError`, `PendingDownloadsError`, etc.
 
 **Why**: Keeps business logic separate from infrastructure. These models can be used anywhere without importing heavy dependencies.
 
@@ -393,7 +393,8 @@ The system uses an event-based shutdown mechanism for clean termination:
 - No downloads are lost - items are requeued if shutdown during retrieval
 - Graceful shutdown allows current downloads to complete
 - Immediate cancellation available for urgent stops
-- Context manager (`async with`) automatically triggers graceful shutdown on exit
+- Context manager (`async with`) triggers immediate shutdown on exit
+- Raises `PendingDownloadsError` if exiting with unhandled pending downloads (to prevent silent data loss)
 - Pool encapsulates all shutdown complexity, keeping manager interface simple
 
 ## Design Patterns
