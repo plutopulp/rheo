@@ -5,6 +5,7 @@ from .exceptions import (
     DownloadError,
     DownloadManagerError,
     FileAccessError,
+    FileExistsError,
     FileValidationError,
     HashMismatchError,
     ManagerNotInitializedError,
@@ -49,5 +50,6 @@ __all__ = [
     "WorkerError",
     "FileValidationError",
     "FileAccessError",
+    "FileExistsError",
     "HashMismatchError",
 ]

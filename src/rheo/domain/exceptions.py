@@ -104,6 +104,14 @@ class FileAccessError(FileValidationError):
     pass
 
 
+class FileExistsError(DownloadError):
+    """Raised when destination file exists and strategy is ERROR."""
+
+    def __init__(self, path: Path) -> None:
+        self.path = path
+        super().__init__(f"File already exists: {path}")
+
+
 class HashMismatchError(FileValidationError):
     """Raised when calculated hash does not match expected value."""
 
