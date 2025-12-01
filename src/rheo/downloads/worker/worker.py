@@ -377,6 +377,15 @@ class DownloadWorker(BaseWorker):
                 ),
             )
 
+        except asyncio.CancelledError:
+            # CancelledError is a BaseException (not Exception), so needs explicit
+            # handling. We clean up but don't emit worker.failed, e.g. cancellation
+            # is not a failure.
+            await self._cleanup_partial_file(destination_path)
+            self.logger.debug(f"Download cancelled, cleaned up: {destination_path}")
+            # Must re-raise to propagate cancellation through task hierarchy
+            raise
+
         except Exception as download_error:
             # Clean up partial file to prevent corruption
             await self._cleanup_partial_file(destination_path)
