@@ -9,6 +9,8 @@ import typing as t
 from typing import TYPE_CHECKING
 
 from ..domain.file_config import FileConfig
+from ..events import DownloadQueuedEvent, NullEmitter
+from ..events.base import BaseEmitter
 from ..infrastructure.logging import get_logger
 
 if TYPE_CHECKING:
@@ -27,12 +29,14 @@ class PriorityDownloadQueue:
     - Thread-safe async operations
     - Automatic logging of queue operations
     - FIFO ordering for items with equal priority
+    - Event emission when items are added (download.queued)
     """
 
     def __init__(
         self,
         queue: asyncio.PriorityQueue[tuple[int, int, FileConfig]] | None = None,
         logger: t.Optional["loguru.Logger"] = None,
+        emitter: BaseEmitter | None = None,
     ) -> None:
         """Initialize the priority download queue.
 
@@ -41,9 +45,12 @@ class PriorityDownloadQueue:
                   This enables dependency injection for better testability.
             logger: Logger instance for recording queue events. If None,
                    a default logger will be created.
+            emitter: Event emitter for download.queued events. If None,
+                    a NullEmitter is used (no events emitted).
         """
         self._queue = queue or asyncio.PriorityQueue()
         self._logger = logger or get_logger(__name__)
+        self._emitter = emitter or NullEmitter()
         self._counter = 0  # Counter to maintain FIFO order for same priority items
         self._queued_ids: set[str] = set()  # Track IDs to prevent duplicates
 
@@ -77,6 +84,16 @@ class PriorityDownloadQueue:
             await self._queue.put((-file_config.priority, self._counter, file_config))
             self._queued_ids.add(download_id)
             self._counter += 1
+
+            # Emit queued event
+            await self._emitter.emit(
+                "download.queued",
+                DownloadQueuedEvent(
+                    download_id=download_id,
+                    url=str(file_config.url),
+                    priority=file_config.priority,
+                ),
+            )
 
     async def get_next(self) -> FileConfig:
         """Get the next highest priority item from the queue.
