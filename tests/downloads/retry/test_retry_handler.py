@@ -222,12 +222,12 @@ class TestRetryHandlerEventEmission:
         mock_emitter.emit.assert_called_once()
         event_name, event = mock_emitter.emit.call_args[0]
 
-        assert event_name == "worker.retry"
+        assert event_name == "download.retrying"
         assert event.url == "http://example.com/file.txt"
-        assert event.attempt == 1
-        assert event.max_retries == 2
-        assert "Timeout" in event.error_message
-        assert event.retry_delay == 0.01
+        assert event.retry == 1  # First retry (after first attempt failed)
+        assert event.max_retries == 2  # Matches config
+        assert "Timeout" in event.error.message
+        assert event.delay_seconds == 0.01
 
     @pytest.mark.asyncio
     async def test_no_events_on_first_success(

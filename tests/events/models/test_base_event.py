@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 import pytest
 from pydantic import ValidationError
 
-from rheo.events.base_event import BaseEvent
+from rheo.events.models import BaseEvent
 
 
 class TestBaseEventImmutability:

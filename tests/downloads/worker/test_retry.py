@@ -156,7 +156,7 @@ class TestWorkerRetryOnTransientErrors:
         retry_events = [
             call
             for call in mock_emitter.emit.call_args_list
-            if call[0][0] == "worker.retry"
+            if call[0][0] == "download.retrying"
         ]
         assert len(retry_events) >= 1
 
@@ -330,15 +330,15 @@ class TestWorkerRetryEvents:
         retry_events = [
             call
             for call in mock_emitter.emit.call_args_list
-            if call[0][0] == "worker.retry"
+            if call[0][0] == "download.retrying"
         ]
         assert len(retry_events) == 1
 
         # Verify retry event payload
         retry_event = retry_events[0][0][1]
         assert retry_event.url == test_data.url
-        assert retry_event.attempt == 1
-        assert retry_event.max_retries == 2
+        assert retry_event.retry == 1  # First retry (after first attempt failed)
+        assert retry_event.max_retries == 2  # Matches config
 
 
 class TestWorkerRetryWithCustomPolicy:
@@ -405,10 +405,11 @@ class TestWorkerRetryWithCustomPolicy:
         existing one.
         """
         test_data.content = b"a" * 5000  # 5KB for multiple chunks
-        # Collect speed events to verify calculator state
-        speed_events = []
+        # Collect progress events (which include speed metrics) to verify
+        # calculator state
+        progress_events = []
         worker_with_real_events.emitter.on(
-            "worker.speed_updated", lambda e: speed_events.append(e)
+            "download.progress", lambda e: progress_events.append(e)
         )
 
         with aioresponses() as mock:
@@ -430,17 +431,18 @@ class TestWorkerRetryWithCustomPolicy:
         assert test_data.path.exists()
         assert test_data.path.read_bytes() == test_data.content
 
-        # Verify we got speed events (should be from successful attempt only)
-        assert len(speed_events) > 0
+        # Verify we got progress events with speed metrics (from successful attempt only)
+        assert len(progress_events) > 0
 
-        # Critical check: First speed event of successful attempt should have
-        # elapsed_seconds starting near 0, not continuing from failed attempt
+        # Critical check: First progress event of successful attempt should have
+        # speed.elapsed_seconds starting near 0, not continuing from failed attempt
         # If calculator was reused, elapsed_seconds would be much higher
-        first_speed_event = speed_events[0]
+        first_progress_event = progress_events[0]
+        assert first_progress_event.speed is not None
 
         # First event should have very small elapsed time (< 1 second typically)
         # If calculator state was stale, this would be much larger
-        assert first_speed_event.elapsed_seconds < 1.0, (
+        assert first_progress_event.speed.elapsed_seconds < 1.0, (
             f"Speed calculator appears to have stale state from failed attempt. "
-            f"First event elapsed_seconds: {first_speed_event.elapsed_seconds}"
+            f"First event elapsed_seconds: {first_progress_event.speed.elapsed_seconds}"
         )

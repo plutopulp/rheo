@@ -9,10 +9,10 @@ from aioresponses import aioresponses
 
 from rheo.downloads.worker.base import BaseWorker
 from rheo.events import (
-    WorkerCompletedEvent,
-    WorkerFailedEvent,
-    WorkerProgressEvent,
-    WorkerStartedEvent,
+    DownloadCompletedEvent,
+    DownloadFailedEvent,
+    DownloadProgressEvent,
+    DownloadStartedEvent,
 )
 
 
@@ -49,8 +49,8 @@ class TestWorkerEventEmission:
         self, test_worker: BaseWorker, test_data: EventTestData
     ) -> None:
         """Test that worker emits started event when download begins."""
-        events_received = []
-        test_worker.emitter.on("worker.started", lambda e: events_received.append(e))
+        events_received: list[DownloadStartedEvent] = []
+        test_worker.emitter.on("download.started", lambda e: events_received.append(e))
 
         with aioresponses() as mock:
             mock.get(test_data.url, status=200, body=test_data.content)
@@ -59,7 +59,7 @@ class TestWorkerEventEmission:
             )
 
         assert len(events_received) == 1
-        assert isinstance(events_received[0], WorkerStartedEvent)
+        assert isinstance(events_received[0], DownloadStartedEvent)
         assert events_received[0].url == test_data.url
 
     @pytest.mark.asyncio
@@ -67,8 +67,8 @@ class TestWorkerEventEmission:
         self, test_worker: BaseWorker, test_data: EventTestData
     ) -> None:
         """Test that worker emits progress event after each chunk."""
-        events_received = []
-        test_worker.emitter.on("worker.progress", lambda e: events_received.append(e))
+        events_received: list[DownloadProgressEvent] = []
+        test_worker.emitter.on("download.progress", lambda e: events_received.append(e))
 
         # Create content that will be split into multiple chunks
         content = b"a" * 5000  # 5KB will be multiple chunks with 1KB chunk size
@@ -81,7 +81,7 @@ class TestWorkerEventEmission:
 
         # Should have multiple progress events (at least 5 for 5KB with 1KB chunks)
         assert len(events_received) >= 5
-        assert all(isinstance(e, WorkerProgressEvent) for e in events_received)
+        assert all(isinstance(e, DownloadProgressEvent) for e in events_received)
 
         # Verify bytes_downloaded is cumulative and reaches total
         assert events_received[-1].bytes_downloaded == len(content)
@@ -91,8 +91,8 @@ class TestWorkerEventEmission:
         self, test_worker: BaseWorker, test_data: EventTestData
     ) -> None:
         """Test that progress events include chunk size."""
-        events_received = []
-        test_worker.emitter.on("worker.progress", lambda e: events_received.append(e))
+        events_received: list[DownloadProgressEvent] = []
+        test_worker.emitter.on("download.progress", lambda e: events_received.append(e))
 
         with aioresponses() as mock:
             mock.get(test_data.url, status=200, body=b"test_chunk_data")
@@ -108,8 +108,10 @@ class TestWorkerEventEmission:
         self, test_worker: BaseWorker, test_data: EventTestData
     ) -> None:
         """Test that worker emits completed event on successful download."""
-        events_received = []
-        test_worker.emitter.on("worker.completed", lambda e: events_received.append(e))
+        events_received: list[DownloadCompletedEvent] = []
+        test_worker.emitter.on(
+            "download.completed", lambda e: events_received.append(e)
+        )
 
         with aioresponses() as mock:
             mock.get(test_data.url, status=200, body=test_data.content)
@@ -118,18 +120,22 @@ class TestWorkerEventEmission:
             )
 
         assert len(events_received) == 1
-        assert isinstance(events_received[0], WorkerCompletedEvent)
-        assert events_received[0].url == test_data.url
-        assert events_received[0].destination_path == str(test_data.path)
-        assert events_received[0].total_bytes == len(test_data.content)
+        event = events_received[0]
+        assert isinstance(event, DownloadCompletedEvent)
+        assert event.url == test_data.url
+        assert event.destination_path == str(test_data.path)
+        assert event.total_bytes == len(test_data.content)
+        # New fields in download.completed
+        assert event.elapsed_seconds >= 0
+        assert event.average_speed_bps >= 0
 
     @pytest.mark.asyncio
     async def test_worker_emits_failed_event_on_error(
         self, test_worker: BaseWorker, test_data: EventTestData
     ) -> None:
         """Test that worker emits failed event when download fails."""
-        events_received = []
-        test_worker.emitter.on("worker.failed", lambda e: events_received.append(e))
+        events_received: list[DownloadFailedEvent] = []
+        test_worker.emitter.on("download.failed", lambda e: events_received.append(e))
 
         with aioresponses() as mock:
             mock.get(test_data.url, status=404, body="Not Found")
@@ -139,19 +145,21 @@ class TestWorkerEventEmission:
                     test_data.url, test_data.path, download_id="test-id"
                 )
 
-        # Should have emitted failed event
+        # Should have emitted failed event with ErrorInfo
         assert len(events_received) == 1
-        assert isinstance(events_received[0], WorkerFailedEvent)
-        assert events_received[0].url == test_data.url
-        assert events_received[0].error_type == "ClientResponseError"
+        event = events_received[0]
+        assert isinstance(event, DownloadFailedEvent)
+        assert event.url == test_data.url
+        assert "ClientResponseError" in event.error.exc_type
+        assert event.error.message  # Has error message
 
     @pytest.mark.asyncio
     async def test_worker_emits_failed_event_on_network_error(
         self, test_worker: BaseWorker, test_data: EventTestData
     ) -> None:
         """Test that worker emits failed event on network errors."""
-        events_received = []
-        test_worker.emitter.on("worker.failed", lambda e: events_received.append(e))
+        events_received: list[DownloadFailedEvent] = []
+        test_worker.emitter.on("download.failed", lambda e: events_received.append(e))
 
         with aioresponses() as mock:
             # Simulate a server error
@@ -162,7 +170,8 @@ class TestWorkerEventEmission:
                     test_data.url, test_data.path, download_id="test-id"
                 )
 
-        # Should have emitted failed event
+        # Should have emitted failed event with ErrorInfo
         assert len(events_received) == 1
-        assert isinstance(events_received[0], WorkerFailedEvent)
-        assert events_received[0].error_type == "ClientResponseError"
+        event = events_received[0]
+        assert isinstance(event, DownloadFailedEvent)
+        assert "ClientResponseError" in event.error.exc_type

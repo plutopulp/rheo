@@ -1,21 +1,14 @@
 """Null object implementation of tracker."""
 
 from ..domain.downloads import DownloadInfo
-from ..events import BaseEmitter, NullEmitter
 from .base import BaseTracker
 
 
 class NullTracker(BaseTracker):
-    """Null object implementation of tracker that does nothing."""
+    """Null object implementation of tracker that does nothing.
 
-    def __init__(self) -> None:
-        """Initialize null tracker with null emitter."""
-        self._emitter = NullEmitter()
-
-    @property
-    def emitter(self) -> BaseEmitter:
-        """Returns no-op emitter."""
-        return self._emitter
+    Use when tracking is not needed but a tracker interface is required.
+    """
 
     def get_download_info(self, download_id: str) -> DownloadInfo | None:
         """No-op: always returns None."""

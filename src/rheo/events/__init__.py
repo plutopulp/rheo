@@ -1,28 +1,21 @@
 """Event infrastructure - event emitter and event types."""
 
 from .base import BaseEmitter
-from .base_event import BaseEvent
 from .emitter import EventEmitter
-from .null import NullEmitter
-from .tracker_events import (
+from .models import (
+    BaseEvent,
     DownloadCompletedEvent,
     DownloadEvent,
     DownloadFailedEvent,
     DownloadProgressEvent,
-    DownloadQueuedEvent,
+    DownloadRetryingEvent,
     DownloadStartedEvent,
-    DownloadValidationCompletedEvent,
-    DownloadValidationFailedEvent,
-    DownloadValidationStartedEvent,
+    ErrorInfo,
 )
+from .null import NullEmitter
+
+# Worker validation events - will be renamed to download.* in Issue #7
 from .worker_events import (
-    WorkerCompletedEvent,
-    WorkerEvent,
-    WorkerFailedEvent,
-    WorkerProgressEvent,
-    WorkerRetryEvent,
-    WorkerSpeedUpdatedEvent,
-    WorkerStartedEvent,
     WorkerValidationCompletedEvent,
     WorkerValidationFailedEvent,
     WorkerValidationStartedEvent,
@@ -32,26 +25,17 @@ __all__ = [
     # Base and implementations
     "BaseEmitter",
     "BaseEvent",
+    "ErrorInfo",
     "EventEmitter",
     "NullEmitter",
-    # Tracker Events
+    # Download Events (from models/)
     "DownloadEvent",
-    "DownloadQueuedEvent",
     "DownloadStartedEvent",
     "DownloadProgressEvent",
     "DownloadCompletedEvent",
     "DownloadFailedEvent",
-    "DownloadValidationStartedEvent",
-    "DownloadValidationCompletedEvent",
-    "DownloadValidationFailedEvent",
-    # Worker Events
-    "WorkerEvent",
-    "WorkerStartedEvent",
-    "WorkerProgressEvent",
-    "WorkerCompletedEvent",
-    "WorkerFailedEvent",
-    "WorkerRetryEvent",
-    "WorkerSpeedUpdatedEvent",
+    "DownloadRetryingEvent",
+    # Worker validation events (will be renamed in Issue #7)
     "WorkerValidationStartedEvent",
     "WorkerValidationCompletedEvent",
     "WorkerValidationFailedEvent",

@@ -1,4 +1,9 @@
-"""Progress display functions for CLI (event-driven)."""
+"""Progress display functions for CLI.
+
+Note: These functions are currently unused while event subscription
+is being redesigned. They will be restored when the manager exposes
+an event subscription interface.
+"""
 
 import typer
 
@@ -6,8 +11,8 @@ from ...events import (
     DownloadCompletedEvent,
     DownloadFailedEvent,
     DownloadStartedEvent,
-    DownloadValidationCompletedEvent,
-    DownloadValidationFailedEvent,
+    WorkerValidationCompletedEvent,
+    WorkerValidationFailedEvent,
 )
 
 
@@ -36,10 +41,10 @@ def display_download_failed(event: DownloadFailedEvent) -> None:
         event: Download failed event
     """
     typer.secho(f"✗ Failed: {event.url}", fg=typer.colors.RED)
-    typer.secho(f"  Error: {event.error_message}", fg=typer.colors.RED)
+    typer.secho(f"  Error: {event.error.message}", fg=typer.colors.RED)
 
 
-def display_validation_completed(event: DownloadValidationCompletedEvent) -> None:
+def display_validation_completed(event: WorkerValidationCompletedEvent) -> None:
     """Display successful validation from event.
 
     Args:
@@ -48,7 +53,7 @@ def display_validation_completed(event: DownloadValidationCompletedEvent) -> Non
     typer.secho("✓ Hash validation passed", fg=typer.colors.GREEN)
 
 
-def display_validation_failed(event: DownloadValidationFailedEvent) -> None:
+def display_validation_failed(event: WorkerValidationFailedEvent) -> None:
     """Display failed validation from event.
 
     Args:
