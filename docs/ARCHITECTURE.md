@@ -152,12 +152,13 @@ Key pieces:
 
 - Generic pub/sub system
 - Supports sync and async handlers
-- Typed events via dataclasses
+- Typed events via Pydantic models (immutable, validated)
 - Namespaced event names (e.g., `worker.started`)
 
 **Event Models**:
 
-- `WorkerEvent`: Base class with `url` and `timestamp`
+- `BaseEvent`: Common base with `occurred_at` (UTC timestamp)
+- `WorkerEvent`: Worker-specific base with `download_id`, `url`, and `event_type`
 - Specific events: `WorkerStartedEvent`, `WorkerProgressEvent`, `WorkerSpeedUpdatedEvent`, `WorkerCompletedEvent`, `WorkerFailedEvent`, `WorkerRetryEvent`, `WorkerValidationStartedEvent`, `WorkerValidationCompletedEvent`, `WorkerValidationFailedEvent`
 - Self-contained payloads (no external state needed)
 - Speed events include instantaneous speed, moving average, ETA, and elapsed time
@@ -548,7 +549,7 @@ Simple and effective:
 
 **Memory**: O(n) where n = number of tracked downloads. Completed downloads stay in memory (for now).
 
-**Event overhead**: Minimal. Events are just function calls with dataclass creation.
+**Event overhead**: Minimal. Events are just function calls with Pydantic model creation.
 
 **Thread safety**: Uses asyncio primitives (`Lock`, `Queue`). Safe for concurrent access within event loop.
 
