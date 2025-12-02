@@ -1,11 +1,11 @@
 """Events emitted by DownloadWorker during download operations."""
 
-from dataclasses import dataclass, field
-from datetime import datetime
+from pydantic import Field
+
+from .base_event import BaseEvent
 
 
-@dataclass
-class WorkerEvent:
+class WorkerEvent(BaseEvent):
     """Base class for worker lifecycle events.
 
     Worker events represent the actual download operation state,
@@ -15,124 +15,130 @@ class WorkerEvent:
     task the event relates to.
     """
 
-    download_id: str
-    url: str
-    timestamp: datetime = field(default_factory=datetime.now)
-    event_type: str = "worker.base"
+    download_id: str = Field(description="Unique identifier for this download")
+    url: str = Field(description="The URL being downloaded")
+    event_type: str = Field(default="worker.base", description="Event type identifier")
 
 
-@dataclass
 class WorkerStartedEvent(WorkerEvent):
-    """Emitted when worker begins downloading a file.
+    """Emitted when worker begins downloading a file."""
 
-    This event is fired after the HTTP connection is established
-    and download begins.
-    """
+    event_type: str = Field(default="worker.started")
+    total_bytes: int | None = Field(
+        default=None,
+        ge=0,
+        description="Total file size if known from Content-Length",
+    )
 
-    event_type: str = "worker.started"
-    total_bytes: int | None = None
 
-
-@dataclass
 class WorkerProgressEvent(WorkerEvent):
-    """Emitted when worker downloads a chunk of data.
+    """Emitted when worker downloads a chunk of data."""
 
-    This event is fired after each chunk is received from the server,
-    allowing for real-time progress tracking.
-    """
+    event_type: str = Field(default="worker.progress")
+    chunk_size: int = Field(default=0, ge=0, description="Size of last received chunk")
+    bytes_downloaded: int = Field(
+        default=0, ge=0, description="Cumulative bytes downloaded so far"
+    )
+    total_bytes: int | None = Field(
+        default=None, ge=0, description="Total file size if known"
+    )
 
-    event_type: str = "worker.progress"
-    chunk_size: int = 0
-    bytes_downloaded: int = 0  # Cumulative bytes downloaded so far
-    total_bytes: int | None = None
 
-
-@dataclass
 class WorkerCompletedEvent(WorkerEvent):
-    """Emitted when worker successfully completes a download.
+    """Emitted when worker successfully completes a download."""
 
-    This event is fired after the entire file has been downloaded
-    and written to disk.
-    """
-
-    event_type: str = "worker.completed"
-    destination_path: str = ""
-    total_bytes: int = 0
+    event_type: str = Field(default="worker.completed")
+    destination_path: str = Field(default="", description="Path where file was saved")
+    total_bytes: int = Field(default=0, ge=0, description="Total bytes downloaded")
 
 
-@dataclass
 class WorkerFailedEvent(WorkerEvent):
     """Emitted when worker download fails.
 
-    This event is fired when any error occurs during the download
-    process (network errors, timeouts, disk errors, etc.).
+    TODO: Replace error_message/error_type with ErrorInfo model
     """
 
-    event_type: str = "worker.failed"
-    error_message: str = ""
-    error_type: str = ""
+    event_type: str = Field(default="worker.failed")
+    error_message: str = Field(default="", description="Error message")
+    error_type: str = Field(default="", description="Exception type name")
 
 
-@dataclass
 class WorkerRetryEvent(WorkerEvent):
     """Emitted when a download is being retried.
 
-    This event is fired when a transient error occurs and the download
-    will be retried after a backoff delay.
+    TODO: Replace error_message with ErrorInfo model
     """
 
-    event_type: str = "worker.retry"
-    attempt: int = 0  # Current attempt number (1-indexed)
-    max_retries: int = 3
-    error_message: str = ""
-    retry_delay: float = 1.0
+    event_type: str = Field(default="worker.retry")
+    attempt: int = Field(ge=1, description="Current attempt number (1-indexed)")
+    max_retries: int = Field(ge=1, description="Maximum retry attempts")
+    error_message: str = Field(default="", description="Error that triggered retry")
+    retry_delay: float = Field(
+        default=1.0, ge=0, description="Delay before retry in seconds"
+    )
 
 
-@dataclass
 class WorkerSpeedUpdatedEvent(WorkerEvent):
-    """Emitted when download speed metrics are updated.
+    """Emitted when download speed metrics are updated."""
 
-    This event is fired after each chunk is downloaded, providing
-    real-time speed and ETA information.
-    """
+    event_type: str = Field(default="worker.speed_updated")
+    current_speed_bps: float = Field(
+        default=0.0, ge=0, description="Instantaneous speed in bytes/second"
+    )
+    average_speed_bps: float = Field(
+        default=0.0, ge=0, description="Moving average speed in bytes/second"
+    )
+    eta_seconds: float | None = Field(
+        default=None, ge=0, description="Estimated time to completion"
+    )
+    elapsed_seconds: float = Field(
+        default=0.0, ge=0, description="Time elapsed since download started"
+    )
+    bytes_downloaded: int = Field(
+        default=0, ge=0, description="Cumulative bytes downloaded"
+    )
+    total_bytes: int | None = Field(
+        default=None, ge=0, description="Total file size if known"
+    )
 
-    event_type: str = "worker.speed_updated"
-    current_speed_bps: float = 0.0  # Instantaneous speed in bytes/second
-    average_speed_bps: float = 0.0  # Moving average speed in bytes/second
-    eta_seconds: float | None = None  # Estimated time to completion
-    elapsed_seconds: float = 0.0  # Time elapsed since download started
-    bytes_downloaded: int = 0  # Cumulative bytes downloaded
-    total_bytes: int | None = None  # Total file size if known
 
-
-@dataclass
 class WorkerValidationStartedEvent(WorkerEvent):
     """Emitted when hash validation starts."""
 
-    event_type: str = "worker.validation_started"
-    algorithm: str = ""
-    file_path: str = ""
-    file_size_bytes: int | None = None
+    event_type: str = Field(default="worker.validation_started")
+    # TODO: Use HashAlgorithm enum from domain
+    algorithm: str = Field(default="", description="Hash algorithm used")
+    file_path: str = Field(default="", description="Path to file being validated")
+    file_size_bytes: int | None = Field(
+        default=None, ge=0, description="File size in bytes"
+    )
 
 
-@dataclass
 class WorkerValidationCompletedEvent(WorkerEvent):
     """Emitted when hash validation succeeds."""
 
-    event_type: str = "worker.validation_completed"
-    algorithm: str = ""
-    calculated_hash: str = ""
-    duration_ms: float = 0.0
-    file_path: str = ""
+    event_type: str = Field(default="worker.validation_completed")
+    # TODO: Use HashAlgorithm enum from domain
+    algorithm: str = Field(default="", description="Hash algorithm used")
+    calculated_hash: str = Field(default="", description="Computed hash value")
+    duration_ms: float = Field(
+        default=0.0, ge=0, description="Validation duration in ms"
+    )
+    file_path: str = Field(default="", description="Path to validated file")
 
 
-@dataclass
 class WorkerValidationFailedEvent(WorkerEvent):
-    """Emitted when hash validation fails."""
+    """Emitted when hash validation fails.
 
-    event_type: str = "worker.validation_failed"
-    algorithm: str = ""
-    expected_hash: str = ""
-    actual_hash: str | None = None
-    error_message: str = ""
-    file_path: str = ""
+    TODO: Replace error_message with ErrorInfo model.
+    """
+
+    event_type: str = Field(default="worker.validation_failed")
+    # TODO: Use HashAlgorithm enum from domain
+    algorithm: str = Field(default="", description="Hash algorithm used")
+    expected_hash: str = Field(default="", description="Expected hash value")
+    actual_hash: str | None = Field(default=None, description="Actual computed hash")
+    error_message: str = Field(default="", description="Error description")
+    file_path: str = Field(
+        default="", description="Path to file that failed validation"
+    )

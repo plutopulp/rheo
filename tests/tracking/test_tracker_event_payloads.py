@@ -1,6 +1,6 @@
 """Tests for DownloadTracker event payload contents."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 import pytest
 
@@ -73,11 +73,11 @@ class TestDownloadTrackerEventPayloads:
 
         tracker.on("tracker.queued", lambda e: events_received.append(e))
 
-        before = datetime.now()
+        before = datetime.now(timezone.utc)
         await tracker.track_queued(
             "https://example.com/file.txt", "https://example.com/file.txt"
         )
-        after = datetime.now()
+        after = datetime.now(timezone.utc)
 
         event = events_received[0]
-        assert before <= event.timestamp <= after
+        assert before <= event.occurred_at <= after
