@@ -1,6 +1,7 @@
 """Event infrastructure - event emitter and event types."""
 
 from .base import BaseEmitter
+from .base_event import BaseEvent
 from .emitter import EventEmitter
 from .null import NullEmitter
 from .tracker_events import (
@@ -30,6 +31,7 @@ from .worker_events import (
 __all__ = [
     # Base and implementations
     "BaseEmitter",
+    "BaseEvent",
     "EventEmitter",
     "NullEmitter",
     # Tracker Events
