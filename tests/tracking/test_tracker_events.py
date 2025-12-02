@@ -3,7 +3,9 @@
 import pytest
 
 from rheo.domain.downloads import DownloadStatus
-from rheo.events import (
+
+# Import legacy tracker events directly - tracker emits these until Step 6
+from rheo.events.tracker_events import (
     DownloadCompletedEvent,
     DownloadFailedEvent,
     DownloadProgressEvent,

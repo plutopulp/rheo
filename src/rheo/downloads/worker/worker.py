@@ -20,12 +20,12 @@ from ...domain.hash_validation import HashConfig
 from ...domain.speed import SpeedCalculator
 from ...events import (
     BaseEmitter,
+    DownloadCompletedEvent,
+    DownloadFailedEvent,
+    DownloadProgressEvent,
+    DownloadStartedEvent,
+    ErrorInfo,
     EventEmitter,
-    WorkerCompletedEvent,
-    WorkerFailedEvent,
-    WorkerProgressEvent,
-    WorkerSpeedUpdatedEvent,
-    WorkerStartedEvent,
     WorkerValidationCompletedEvent,
     WorkerValidationFailedEvent,
     WorkerValidationStartedEvent,
@@ -75,9 +75,9 @@ class DownloadWorker(BaseWorker):
     - Uses aiohttp's raise_for_status() for consistent HTTP error handling
 
     TODO: Performance Optimization
-        High-frequency events (progress, speed_updated) are emitted on every chunk
-        even when no listeners are subscribed. Consider adding emitter.has_listeners()
-        check before event creation to reduce overhead when events aren't needed.
+        High-frequency progress events are emitted on every chunk even when no
+        listeners are subscribed. Consider adding emitter.has_listeners() check
+        before event creation to reduce overhead when events aren't needed.
     """
 
     def __init__(
@@ -327,10 +327,13 @@ class DownloadWorker(BaseWorker):
                     # Get total bytes if available from Content-Length header
                     total_bytes = response.content_length
 
+                    # Track start time for elapsed_seconds in completed event
+                    download_start_time = time.monotonic()
+
                     # Emit started event
                     await self.emitter.emit(
-                        "worker.started",
-                        WorkerStartedEvent(
+                        "download.started",
+                        DownloadStartedEvent(
                             download_id=download_id, url=url, total_bytes=total_bytes
                         ),
                     )
@@ -348,30 +351,16 @@ class DownloadWorker(BaseWorker):
                             current_time=time.monotonic(),
                         )
 
-                        # Emit progress event after each chunk
+                        # Emit progress event after each chunk (includes speed metrics)
                         await self.emitter.emit(
-                            "worker.progress",
-                            WorkerProgressEvent(
+                            "download.progress",
+                            DownloadProgressEvent(
                                 download_id=download_id,
                                 url=url,
                                 chunk_size=len(chunk),
                                 bytes_downloaded=bytes_downloaded,
                                 total_bytes=total_bytes,
-                            ),
-                        )
-
-                        # Emit speed event after each chunk
-                        await self.emitter.emit(
-                            "worker.speed_updated",
-                            WorkerSpeedUpdatedEvent(
-                                download_id=download_id,
-                                url=url,
-                                current_speed_bps=speed_metrics.current_speed_bps,
-                                average_speed_bps=speed_metrics.average_speed_bps,
-                                eta_seconds=speed_metrics.eta_seconds,
-                                elapsed_seconds=speed_metrics.elapsed_seconds,
-                                bytes_downloaded=bytes_downloaded,
-                                total_bytes=total_bytes,
+                                speed=speed_metrics,
                             ),
                         )
 
@@ -383,14 +372,22 @@ class DownloadWorker(BaseWorker):
                     url, destination_path, download_id, hash_config
                 )
 
+            # Calculate final metrics
+            elapsed_seconds = time.monotonic() - download_start_time
+            average_speed = (
+                bytes_downloaded / elapsed_seconds if elapsed_seconds > 0 else 0.0
+            )
+
             # Emit completed event
             await self.emitter.emit(
-                "worker.completed",
-                WorkerCompletedEvent(
+                "download.completed",
+                DownloadCompletedEvent(
                     download_id=download_id,
                     url=url,
                     destination_path=str(destination_path),
                     total_bytes=bytes_downloaded,
+                    elapsed_seconds=elapsed_seconds,
+                    average_speed_bps=average_speed,
                 ),
             )
 
@@ -410,14 +407,13 @@ class DownloadWorker(BaseWorker):
             # Log the error with appropriate categorization
             self._log_and_categorize_error(download_error, url)
 
-            # Emit failed event
+            # Emit failed event with structured error info
             await self.emitter.emit(
-                "worker.failed",
-                WorkerFailedEvent(
+                "download.failed",
+                DownloadFailedEvent(
                     download_id=download_id,
                     url=url,
-                    error_message=str(download_error),
-                    error_type=type(download_error).__name__,
+                    error=ErrorInfo.from_exception(download_error),
                 ),
             )
 

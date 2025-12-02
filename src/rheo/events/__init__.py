@@ -2,19 +2,27 @@
 
 from .base import BaseEmitter
 from .emitter import EventEmitter
-from .models import BaseEvent, ErrorInfo
-from .null import NullEmitter
-from .tracker_events import (
+from .models import (
+    BaseEvent,
     DownloadCompletedEvent,
     DownloadEvent,
     DownloadFailedEvent,
     DownloadProgressEvent,
-    DownloadQueuedEvent,
+    DownloadRetryingEvent,
     DownloadStartedEvent,
+    ErrorInfo,
+)
+from .null import NullEmitter
+
+# Legacy tracker events - will be removed in future (Issue #6)
+from .tracker_events import (
+    DownloadQueuedEvent,
     DownloadValidationCompletedEvent,
     DownloadValidationFailedEvent,
     DownloadValidationStartedEvent,
 )
+
+# Legacy worker events - keeping validation events for now (Issue #7)
 from .worker_events import (
     WorkerCompletedEvent,
     WorkerEvent,
@@ -35,17 +43,19 @@ __all__ = [
     "ErrorInfo",
     "EventEmitter",
     "NullEmitter",
-    # Tracker Events
+    # Download Events (new - from models/)
     "DownloadEvent",
-    "DownloadQueuedEvent",
     "DownloadStartedEvent",
     "DownloadProgressEvent",
     "DownloadCompletedEvent",
     "DownloadFailedEvent",
+    "DownloadRetryingEvent",
+    # Legacy tracker events - to be removed (Issue #6)
+    "DownloadQueuedEvent",
     "DownloadValidationStartedEvent",
     "DownloadValidationCompletedEvent",
     "DownloadValidationFailedEvent",
-    # Worker Events
+    # Legacy worker events (Issue #7 - validation events remain)
     "WorkerEvent",
     "WorkerStartedEvent",
     "WorkerProgressEvent",

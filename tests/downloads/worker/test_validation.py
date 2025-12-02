@@ -286,14 +286,14 @@ class TestWorkerValidationFailures:
     async def test_download_completes_event_not_emitted_on_validation_failure(
         self, test_worker: BaseWorker, validation_test_data: ValidationTestData
     ) -> None:
-        """worker.completed event not emitted when validation fails."""
+        """download.completed event not emitted when validation fails."""
         hash_config = HashConfig(
             algorithm=HashAlgorithm.SHA256,
             expected_hash="0" * HashAlgorithm.SHA256.hex_length,
         )
 
         completed_events = []
-        test_worker.emitter.on("worker.completed", completed_events.append)
+        test_worker.emitter.on("download.completed", completed_events.append)
 
         with aioresponses() as mock:
             mock.get(

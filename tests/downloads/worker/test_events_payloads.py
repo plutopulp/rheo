@@ -27,7 +27,7 @@ def test_data(tmp_path):
 
 
 class TestWorkerEventPayloads:
-    """Test worker event payload contents."""
+    """Test download event payload contents."""
 
     @pytest.mark.asyncio
     async def test_started_event_includes_total_bytes_if_available(
@@ -35,7 +35,7 @@ class TestWorkerEventPayloads:
     ):
         """Test that started event includes content-length if available."""
         events_received = []
-        test_worker.emitter.on("worker.started", lambda e: events_received.append(e))
+        test_worker.emitter.on("download.started", lambda e: events_received.append(e))
 
         with aioresponses() as mock:
             mock.get(
@@ -58,7 +58,7 @@ class TestWorkerEventPayloads:
     ):
         """Test that progress events include total_bytes if known."""
         events_received = []
-        test_worker.emitter.on("worker.progress", lambda e: events_received.append(e))
+        test_worker.emitter.on("download.progress", lambda e: events_received.append(e))
 
         with aioresponses() as mock:
             mock.get(

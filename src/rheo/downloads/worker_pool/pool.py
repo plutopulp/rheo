@@ -24,25 +24,46 @@ if t.TYPE_CHECKING:
 WorkerEventHandler = t.Callable[[t.Any], t.Awaitable[None] | None]
 
 
+# TODO: Consolidate into single track_progress call with embedded speed
+async def _handle_progress_event(tracker: BaseTracker, e: t.Any) -> None:
+    """Handle download.progress event - updates both progress and speed."""
+    await tracker.track_progress(
+        e.download_id, e.url, e.bytes_downloaded, e.total_bytes
+    )
+    # Also track speed if present (merged into progress event)
+    if e.speed:
+        await tracker.track_speed_update(
+            e.download_id,
+            e.speed.current_speed_bps,
+            e.speed.average_speed_bps,
+            e.speed.eta_seconds,
+            e.speed.elapsed_seconds,
+        )
+
+
 def _create_event_wiring(
     tracker: BaseTracker,
 ) -> dict[str, WorkerEventHandler]:
-    """Create event wiring mapping from worker events to tracker methods."""
+    """Create event wiring mapping from download events to tracker methods.
 
+    Events use the download.* namespace (user-centric naming) and are emitted
+    by the worker. Speed metrics are now included in progress events.
+    """
     return {
-        "worker.started": lambda e: tracker.track_started(
+        # Download lifecycle events (from worker)
+        "download.started": lambda e: tracker.track_started(
             e.download_id, e.url, e.total_bytes
         ),
-        "worker.progress": lambda e: tracker.track_progress(
-            e.download_id, e.url, e.bytes_downloaded, e.total_bytes
+        "download.progress": lambda e: _handle_progress_event(tracker, e),
+        "download.completed": lambda e: tracker.track_completed(
+            e.download_id, e.url, e.total_bytes, e.destination_path
         ),
-        "worker.speed_updated": lambda e: tracker.track_speed_update(
+        "download.failed": lambda e: tracker.track_failed(
             e.download_id,
-            e.current_speed_bps,
-            e.average_speed_bps,
-            e.eta_seconds,
-            e.elapsed_seconds,
+            e.url,
+            Exception(f"{e.error.exc_type}: {e.error.message}"),
         ),
+        # Validation events (still use worker.* namespace - to be updated)
         "worker.validation_started": lambda e: tracker.track_validation_started(
             e.download_id, e.url, e.algorithm
         ),
@@ -56,12 +77,6 @@ def _create_event_wiring(
             e.expected_hash,
             e.actual_hash,
             e.error_message,
-        ),
-        "worker.completed": lambda e: tracker.track_completed(
-            e.download_id, e.url, e.total_bytes, e.destination_path
-        ),
-        "worker.failed": lambda e: tracker.track_failed(
-            e.download_id, e.url, Exception(f"{e.error_type}: {e.error_message}")
         ),
     }
 

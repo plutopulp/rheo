@@ -10,7 +10,11 @@ from collections import Counter
 from ..domain.downloads import DownloadInfo, DownloadStats, DownloadStatus
 from ..domain.hash_validation import ValidationState, ValidationStatus
 from ..domain.speed import SpeedMetrics
-from ..events import (
+from ..events import EventEmitter
+
+# Import legacy tracker events directly - these will be removed in Step 6 when
+# tracker becomes observe-only and stops emitting events
+from ..events.tracker_events import (
     DownloadCompletedEvent,
     DownloadEvent,
     DownloadFailedEvent,
@@ -20,7 +24,6 @@ from ..events import (
     DownloadValidationCompletedEvent,
     DownloadValidationFailedEvent,
     DownloadValidationStartedEvent,
-    EventEmitter,
 )
 from ..infrastructure.logging import get_logger
 from .base import BaseTracker

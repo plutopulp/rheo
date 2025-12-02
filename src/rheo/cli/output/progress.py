@@ -36,7 +36,7 @@ def display_download_failed(event: DownloadFailedEvent) -> None:
         event: Download failed event
     """
     typer.secho(f"✗ Failed: {event.url}", fg=typer.colors.RED)
-    typer.secho(f"  Error: {event.error_message}", fg=typer.colors.RED)
+    typer.secho(f"  Error: {event.error.message}", fg=typer.colors.RED)
 
 
 def display_validation_completed(event: DownloadValidationCompletedEvent) -> None:

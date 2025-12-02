@@ -46,7 +46,7 @@ class DownloadProgressEvent(DownloadEvent):
         description="Speed metrics snapshot, None if speed tracking disabled",
     )
 
-    @computed_field
+    @computed_field  # type: ignore [prop-decorator]
     @property
     def progress_percent(self) -> float | None:
         """Progress as percentage (0-100), None if total unknown."""
