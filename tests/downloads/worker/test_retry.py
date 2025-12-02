@@ -156,7 +156,7 @@ class TestWorkerRetryOnTransientErrors:
         retry_events = [
             call
             for call in mock_emitter.emit.call_args_list
-            if call[0][0] == "worker.retry"
+            if call[0][0] == "download.retrying"
         ]
         assert len(retry_events) >= 1
 
@@ -330,15 +330,15 @@ class TestWorkerRetryEvents:
         retry_events = [
             call
             for call in mock_emitter.emit.call_args_list
-            if call[0][0] == "worker.retry"
+            if call[0][0] == "download.retrying"
         ]
         assert len(retry_events) == 1
 
         # Verify retry event payload
         retry_event = retry_events[0][0][1]
         assert retry_event.url == test_data.url
-        assert retry_event.attempt == 1
-        assert retry_event.max_retries == 2
+        assert retry_event.retry == 1  # First retry (after first attempt failed)
+        assert retry_event.max_retries == 2  # Matches config
 
 
 class TestWorkerRetryWithCustomPolicy:

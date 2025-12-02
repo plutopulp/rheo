@@ -5,7 +5,7 @@ import typing as t
 
 from ...domain.exceptions import RetryError
 from ...domain.retry import ErrorCategory, RetryConfig
-from ...events import EventEmitter, WorkerRetryEvent
+from ...events import DownloadRetryingEvent, ErrorInfo, EventEmitter
 from ...infrastructure.logging import get_logger
 from .base import BaseRetryHandler
 from .categoriser import ErrorCategoriser
@@ -102,17 +102,19 @@ class RetryHandler(BaseRetryHandler):
                 # Calculate backoff delay
                 delay = self.config.calculate_delay(attempt)
 
-                # Emit retry event
+                # Emit retry event with structured error info
+                # attempt=0 is first try; if it fails, we're about to do retry 1
+                retry_number = attempt + 1
                 if self.emitter:
                     await self.emitter.emit(
-                        "worker.retry",
-                        WorkerRetryEvent(
+                        "download.retrying",
+                        DownloadRetryingEvent(
                             download_id=download_id,
                             url=url,
-                            attempt=attempt + 1,
+                            retry=retry_number,
                             max_retries=effective_max_retries,
-                            error_message=str(e),
-                            retry_delay=delay,
+                            delay_seconds=delay,
+                            error=ErrorInfo.from_exception(e),
                         ),
                     )
 

@@ -107,27 +107,27 @@ class TestDownloadFailedEvent:
 class TestDownloadRetryingEvent:
     """Test DownloadRetryingEvent."""
 
-    def test_attempt_must_be_positive(self) -> None:
-        """attempt must be >= 1."""
+    def test_retry_must_be_positive(self) -> None:
+        """retry must be >= 1."""
         error = ErrorInfo(exc_type="ValueError", message="test")
         with pytest.raises(ValidationError):
             DownloadRetryingEvent(
                 download_id="test",
                 url="http://x",
-                attempt=0,
-                max_attempts=3,
+                retry=0,
+                max_retries=2,
                 error=error,
             )
 
-    def test_max_attempts_must_be_positive(self) -> None:
-        """max_attempts must be >= 1."""
+    def test_max_retries_must_be_positive(self) -> None:
+        """max_retries must be >= 1."""
         error = ErrorInfo(exc_type="ValueError", message="test")
         with pytest.raises(ValidationError):
             DownloadRetryingEvent(
                 download_id="test",
                 url="http://x",
-                attempt=1,
-                max_attempts=0,
+                retry=1,
+                max_retries=0,
                 error=error,
             )
 
@@ -135,5 +135,5 @@ class TestDownloadRetryingEvent:
         """error field should be required."""
         with pytest.raises(ValidationError):
             DownloadRetryingEvent(
-                download_id="test", url="http://x", attempt=1, max_attempts=3
+                download_id="test", url="http://x", retry=1, max_retries=2
             )

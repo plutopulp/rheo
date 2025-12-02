@@ -77,11 +77,18 @@ class DownloadFailedEvent(DownloadEvent):
 
 
 class DownloadRetryingEvent(DownloadEvent):
-    """Emitted when retry attempt starts."""
+    """Emitted when about to retry a failed download.
+
+    Uses retry terminology (not attempt) for clarity:
+    - 1st attempt fails → retry=1 (about to make 1st retry)
+    - 2nd attempt fails → retry=2 (about to make 2nd retry)
+    """
 
     event_type: str = Field(default="download.retrying")
-    attempt: int = Field(ge=1, description="Current attempt number (1-indexed)")
-    max_attempts: int = Field(ge=1, description="Maximum retry attempts configured")
+    retry: int = Field(
+        ge=1, description="Retry number (1 = first retry, 2 = second retry)"
+    )
+    max_retries: int = Field(ge=1, description="Maximum retries configured")
     delay_seconds: float = Field(
         default=0.0, ge=0, description="Delay before this retry in seconds"
     )
