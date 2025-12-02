@@ -15,6 +15,13 @@ class DownloadEvent(BaseEvent):
     url: str = Field(description="The URL being downloaded")
 
 
+class DownloadQueuedEvent(DownloadEvent):
+    """Emitted when download is added to queue."""
+
+    event_type: str = Field(default="download.queued")
+    priority: int = Field(ge=1, description="Download priority (higher = more urgent)")
+
+
 class DownloadStartedEvent(DownloadEvent):
     """Emitted when download begins (HTTP request started)."""
 

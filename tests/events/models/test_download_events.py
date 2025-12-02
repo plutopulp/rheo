@@ -8,6 +8,7 @@ from rheo.events.models import (
     DownloadCompletedEvent,
     DownloadFailedEvent,
     DownloadProgressEvent,
+    DownloadQueuedEvent,
     DownloadRetryingEvent,
     ErrorInfo,
 )
@@ -137,3 +138,22 @@ class TestDownloadRetryingEvent:
             DownloadRetryingEvent(
                 download_id="test", url="http://x", retry=1, max_retries=2
             )
+
+
+class TestDownloadQueuedEvent:
+    """Test DownloadQueuedEvent."""
+
+    def test_priority_must_be_positive(self) -> None:
+        """priority must be >= 1."""
+        with pytest.raises(ValidationError):
+            DownloadQueuedEvent(download_id="test", url="http://x", priority=0)
+
+    def test_accepts_valid_priority(self) -> None:
+        """Should accept priority >= 1."""
+        event = DownloadQueuedEvent(download_id="test", url="http://x", priority=5)
+        assert event.priority == 5
+
+    def test_event_type_is_download_queued(self) -> None:
+        """event_type should be download.queued."""
+        event = DownloadQueuedEvent(download_id="test", url="http://x", priority=1)
+        assert event.event_type == "download.queued"
