@@ -2,7 +2,7 @@
 
 from pydantic import Field, computed_field
 
-from .base_event import BaseEvent
+from .models.base import BaseEvent
 
 
 class DownloadEvent(BaseEvent):

@@ -2,7 +2,7 @@
 
 from pydantic import Field
 
-from .base_event import BaseEvent
+from .models.base import BaseEvent
 
 
 class WorkerEvent(BaseEvent):

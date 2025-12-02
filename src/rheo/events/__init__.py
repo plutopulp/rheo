@@ -1,8 +1,8 @@
 """Event infrastructure - event emitter and event types."""
 
 from .base import BaseEmitter
-from .base_event import BaseEvent
 from .emitter import EventEmitter
+from .models import BaseEvent, ErrorInfo
 from .null import NullEmitter
 from .tracker_events import (
     DownloadCompletedEvent,
@@ -32,6 +32,7 @@ __all__ = [
     # Base and implementations
     "BaseEmitter",
     "BaseEvent",
+    "ErrorInfo",
     "EventEmitter",
     "NullEmitter",
     # Tracker Events
