@@ -100,63 +100,6 @@ python examples/02_multiple_with_priority.py
 python examples/03_hash_validation.py
 ```
 
-### 04_progress_tracking.py
-
-**Demonstrates:** Real-time download monitoring with event subscriptions
-
-**What it does:**
-
-- Downloads a large file (100MB) with live progress tracking
-- Shows real-time progress updates with percentage, speed, and ETA
-- Subscribes to tracker events for real-time notifications
-- Displays formatted output (human-readable bytes, speeds, time)
-- Shows overall statistics at completion
-
-**Key concepts:**
-
-- Event subscription with `tracker.on("event_type", handler)`
-- Accessing speed metrics with `tracker.get_speed_metrics(url)`
-- Progress events with percentage, bytes downloaded, and total size
-- Getting statistics with `tracker.get_stats()`
-- Real-time monitoring patterns for building progress bars or TUIs
-
-**Run it:**
-
-```bash
-python examples/04_progress_tracking.py
-```
-
-### 05_event_monitoring.py
-
-**Demonstrates:** Real-time aggregate statistics tracking
-
-**What it does:**
-
-- Downloads 3 files with different scenarios
-- Tracks aggregate statistics across all downloads
-- Updates a one-line status display after each significant event
-- Shows derived metrics like success rate
-- Demonstrates event-driven state management
-
-**Key concepts:**
-
-- **Aggregate statistics** - Track counts across all downloads, not per-file
-- **Simple state updates** - Each handler just increments/decrements counts
-- **One-line status display** - `display()` method formats all stats
-- **Event handlers:**
-  - `on_queued`: Increment queued count
-  - `on_started`: Increment in-progress count
-  - `on_completed`: Update completion stats and total bytes
-  - `on_failed`: Update failure stats
-  - `on_validation_*`: Track validation success/failure
-- **Complementary to example 04** - Example 04 shows per-file progress using synchronous handlers, this shows aggregate counts using async handlers.
-
-**Run it:**
-
-```bash
-python examples/05_event_monitoring.py
-```
-
 ## What to Expect
 
 Each example will:
