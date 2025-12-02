@@ -87,9 +87,9 @@ Key pieces:
 - Entry point for the library
 - Orchestrates high-level download operations
 - Initialises HTTP client
+- Wires queue events to tracker (owns this wiring)
 - Delegates worker lifecycle to `WorkerPool`
 - Context manager for resource cleanup
-- Manages queue and tracker wiring
 
 **WorkerPool**:
 
@@ -116,8 +116,10 @@ Key pieces:
 **PriorityDownloadQueue**:
 
 - Wraps `asyncio.PriorityQueue`
-- Sorts by priority (lower number = higher priority)
+- Sorts by priority (higher number = higher priority)
+- Emits `download.queued` event when items are added
 - Thread-safe via asyncio primitives
+- Exposes `emitter` property for event wiring
 
 **RetryHandler / ErrorCategoriser**:
 
@@ -153,16 +155,23 @@ Key pieces:
 - Generic pub/sub system
 - Supports sync and async handlers
 - Typed events via Pydantic models (immutable, validated)
-- Namespaced event names (e.g., `worker.started`)
+- Namespaced event names (e.g., `download.progress`)
 
 **Event Models**:
 
 - `BaseEvent`: Common base with `occurred_at` (UTC timestamp)
-- `WorkerEvent`: Worker-specific base with `download_id`, `url`, and `event_type`
-- Specific events: `WorkerStartedEvent`, `WorkerProgressEvent`, `WorkerSpeedUpdatedEvent`, `WorkerCompletedEvent`, `WorkerFailedEvent`, `WorkerRetryEvent`, `WorkerValidationStartedEvent`, `WorkerValidationCompletedEvent`, `WorkerValidationFailedEvent`
+- `DownloadEvent`: Download-specific base with `download_id`, `url`, and `event_type`
+- Download lifecycle events:
+  - `DownloadQueuedEvent` - When added to queue (with priority)
+  - `DownloadStartedEvent` - When download begins (with total_bytes if known)
+  - `DownloadProgressEvent` - Progress updates (includes embedded `SpeedMetrics`)
+  - `DownloadCompletedEvent` - Success (with elapsed_seconds, average_speed_bps)
+  - `DownloadFailedEvent` - Failure (with `ErrorInfo` model)
+  - `DownloadRetryingEvent` - Before retry (with retry count, delay, `ErrorInfo`)
+- Validation events (still using `worker.*` namespace, to be renamed):
+  - `WorkerValidationStartedEvent`, `WorkerValidationCompletedEvent`, `WorkerValidationFailedEvent`
+- `ErrorInfo`: Structured error model with `exc_type`, `message`, optional `traceback`
 - Self-contained payloads (no external state needed)
-- Speed events include instantaneous speed, moving average, ETA, and elapsed time
-- Validation events include algorithm, calculated hash (if available), and error details
 
 **Why events**: Loose coupling. Worker doesn't know tracker exists. Tracker doesn't know worker implementation. Easy to add new observers without modifying existing code.
 
@@ -172,13 +181,14 @@ Key pieces:
 
 **DownloadTracker**:
 
-- Observes worker events (including real-time speed and validation updates)
-- Maintains `DownloadInfo` for each URL
+- Pure observer/state store - receives events, stores state, provides queries
+- Does NOT emit events (workers and queue emit events directly)
+- Maintains `DownloadInfo` for each download
 - Tracks transient `SpeedMetrics` for active downloads
 - Tracks `ValidationState` for files with hash validation
 - Persists average speed and validation results in `DownloadInfo` upon completion/failure
 - Thread-safe via `asyncio.Lock`
-- Provides query methods (`get_download`, `get_all_downloads`, `get_stats`, `get_speed_metrics`)
+- Provides query methods (`get_download_info`, `get_all_downloads`, `get_stats`, `get_speed_metrics`)
 
 **BaseTracker / NullTracker**:
 
@@ -278,21 +288,24 @@ config4 = FileConfig(url="https://example.com/file.zip", destination_subdir="dir
 1. User creates FileConfig(url="...", priority=1)
 2. User calls manager.add([config])
 3. Manager adds to PriorityDownloadQueue
-4. Queue sorts by priority
+4. Queue emits download.queued event
+5. Tracker observes event, creates DownloadInfo with QUEUED status
+6. Queue sorts by priority
 ```
 
 ### Processing Downloads
 
 ```text
-1. Manager delegates to WorkerPool.start(client)
-2. Pool creates N isolated worker tasks, each with its own EventEmitter
-3. Pool wires each worker's emitter to tracker handlers
-4. Each worker calls queue.get_next() with timeout (blocks until available)
-5. Worker downloads file in chunks
-6. Worker emits events: started → progress + speed → progress + speed → ... → (validation if configured) → completed
-7. Tracker observes events, updates state (including real-time speed metrics and validation state)
-8. Worker marks queue task as done
-9. Worker loops back to step 4
+1. Manager.open() wires queue events to tracker
+2. Manager delegates to WorkerPool.start(client)
+3. Pool creates N isolated worker tasks, each with its own EventEmitter
+4. Pool wires each worker's emitter to tracker handlers
+5. Each worker calls queue.get_next() with timeout (blocks until available)
+6. Worker downloads file in chunks
+7. Worker emits events: download.started → download.progress (with speed) → ... → (validation if configured) → download.completed
+8. Tracker observes events, updates state (including real-time speed metrics and validation state)
+9. Worker marks queue task as done
+10. Worker loops back to step 5
 ```
 
 **Speed Tracking Flow**:
@@ -303,8 +316,8 @@ config4 = FileConfig(url="https://example.com/file.zip", destination_subdir="dir
    a. Worker calls speed_calculator.record_chunk(bytes, total, timestamp)
    b. Calculator updates instantaneous speed and moving average
    c. Calculator estimates ETA based on average speed
-   d. Worker emits WorkerSpeedUpdatedEvent with metrics
-3. Tracker receives speed event, stores transient SpeedMetrics
+   d. Worker emits download.progress with embedded SpeedMetrics
+3. Tracker receives progress event, stores transient SpeedMetrics
 4. On completion/failure:
    a. Tracker captures final average_speed_bps
    b. Tracker persists speed to DownloadInfo
@@ -314,7 +327,7 @@ config4 = FileConfig(url="https://example.com/file.zip", destination_subdir="dir
 ### Handling Events
 
 ```text
-1. Worker calls emitter.emit("worker.chunk_downloaded", ChunkDownloaded(...))
+1. Worker calls emitter.emit("download.progress", DownloadProgressEvent(...))
 2. Emitter finds all registered handlers for that event
 3. Emitter calls each handler (sync or async)
 4. If handler fails, logs error but continues
@@ -339,7 +352,7 @@ config4 = FileConfig(url="https://example.com/file.zip", destination_subdir="dir
    b. If permanent → raise immediately
    c. If transient and retries remaining:
       - Calculate backoff delay (exponential with jitter)
-      - Emit WorkerRetryEvent
+      - Emit download.retrying event (with ErrorInfo)
       - Sleep for delay
       - Retry operation
    d. If max retries exhausted → raise last exception
@@ -351,7 +364,7 @@ config4 = FileConfig(url="https://example.com/file.zip", destination_subdir="dir
 ```text
 1. Worker completes file download successfully
 2. If FileConfig has hash_config:
-   a. Worker emits WorkerValidationStartedEvent
+   a. Worker emits worker.validation_started event
    b. Worker calls validator.validate(file_path, hash_config)
    c. Validator calculates hash in thread pool (via asyncio.to_thread):
       - Opens file in binary mode
@@ -360,14 +373,16 @@ config4 = FileConfig(url="https://example.com/file.zip", destination_subdir="dir
       - Returns hexadecimal hash
    d. Validator compares hashes using hmac.compare_digest (constant-time)
    e. If hashes match:
-      - Worker emits WorkerValidationCompletedEvent
-      - Worker emits WorkerCompletedEvent
+      - Worker emits worker.validation_completed event
+      - Worker emits download.completed event
    f. If hashes don't match:
-      - Worker emits WorkerValidationFailedEvent
+      - Worker emits worker.validation_failed event
       - Worker deletes corrupted file
       - Worker raises HashMismatchError (not retried by default)
 3. Tracker observes validation events, updates DownloadInfo.validation
 ```
+
+Note: Validation events still use `worker.*` namespace and will be renamed to `download.*` in a future release.
 
 ### Shutdown Flow
 
@@ -449,14 +464,14 @@ async with DownloadManager(...) as manager:
 
 ### Observer Pattern
 
-Workers emit events, trackers observe:
+Workers emit events, trackers observe via pool wiring:
 
 ```python
 # Worker doesn't know about tracker
-worker.emitter.emit("worker.completed", ...)
+await worker.emitter.emit("download.completed", DownloadCompletedEvent(...))
 
-# Tracker registered to observe
-tracker.on_download_completed(event)
+# Pool wires worker emitter to tracker handlers
+worker.emitter.on("download.completed", lambda e: tracker.track_completed(...))
 ```
 
 **Why**: Decoupling. Easy to add new observers.
