@@ -1,6 +1,8 @@
-"""Download tracking system with event emission.
+"""Download tracking system for state management.
 
-This tracker stores download state and emits events for lifecycle changes.
+This tracker stores download state and provides query methods.
+It does NOT emit events. Events are emitted by the worker (download.* namespace).
+The tracker is an observer that receives state updates from the pool's event wiring.
 """
 
 import asyncio
@@ -10,21 +12,6 @@ from collections import Counter
 from ..domain.downloads import DownloadInfo, DownloadStats, DownloadStatus
 from ..domain.hash_validation import ValidationState, ValidationStatus
 from ..domain.speed import SpeedMetrics
-from ..events import EventEmitter
-
-# Import legacy tracker events directly - these will be removed in Step 6 when
-# tracker becomes observe-only and stops emitting events
-from ..events.tracker_events import (
-    DownloadCompletedEvent,
-    DownloadEvent,
-    DownloadFailedEvent,
-    DownloadProgressEvent,
-    DownloadQueuedEvent,
-    DownloadStartedEvent,
-    DownloadValidationCompletedEvent,
-    DownloadValidationFailedEvent,
-    DownloadValidationStartedEvent,
-)
 from ..infrastructure.logging import get_logger
 from .base import BaseTracker
 
@@ -32,116 +19,64 @@ from .base import BaseTracker
 if t.TYPE_CHECKING:
     import loguru
 
-# Type alias for event handlers
-EventHandler = t.Callable[[DownloadEvent], t.Any]
-
 
 class DownloadTracker(BaseTracker):
-    """Tracks download state and emits events for lifecycle changes.
+    """Tracks download state for query and aggregation.
 
-    Maintains a dictionary of DownloadInfo objects keyed by URL.
+    Maintains a dictionary of DownloadInfo objects keyed by download_id.
     Thread-safe for concurrent access from multiple workers.
-    Supports event subscription for observing download lifecycle.
+
+    This tracker is an observer. It receives state updates from the pool's
+    event wiring but does NOT emit events. Events are emitted by the worker
+    using the download.* namespace. Subscribe to events via the manager or
+    worker emitter directly.
 
     Usage:
         tracker = DownloadTracker()
 
-        # Subscribe to events (with namespaced event types)
-        tracker.on("tracker.progress", my_progress_handler)
-        tracker.on("tracker.completed", my_completion_handler)
-
-        # Update state (automatically emits events)
-        await tracker.track_queued("https://example.com/file.txt")
-        await tracker.track_started("https://example.com/file.txt", total_bytes=1024)
-        await tracker.track_progress("https://example.com/file.txt",
-                                     bytes_downloaded=512,
-                                     total_bytes=1024)
-        await tracker.track_completed("https://example.com/file.txt", total_bytes=1024)
+        # State is updated by pool event wiring (not directly by user)
+        # Pool wires: download.started -> tracker.track_started()
 
         # Query state
-        info = tracker.get_download_info("https://example.com/file.txt")
+        info = tracker.get_download_info(download_id)
         print(f"Status: {info.status}, Progress: {info.get_progress()}")
+
+        # Get statistics
+        stats = tracker.get_stats()
+        print(f"Completed: {stats.completed}, Failed: {stats.failed}")
     """
 
     def __init__(
         self,
         logger: "loguru.Logger" = get_logger(__name__),
-        emitter: EventEmitter | None = None,
     ):
         """Initialize empty tracker.
 
         Args:
             logger: Logger instance for debugging and error tracking.
                    Defaults to a module-specific logger if not provided.
-            emitter: Event emitter for broadcasting tracker events.
-                    If None, a new EventEmitter will be created.
         """
         self._downloads: dict[str, DownloadInfo] = {}
         self._speed_metrics: dict[str, SpeedMetrics] = {}
         self._lock = asyncio.Lock()
         self._logger = logger
-        self._emitter = emitter if emitter is not None else EventEmitter(logger)
 
         self._logger.debug("DownloadTracker initialized")
-
-    @property
-    def emitter(self) -> EventEmitter:
-        """Event emitter for tracker events."""
-        return self._emitter
-
-    def on(self, event_type: str, handler: EventHandler) -> None:
-        """Subscribe to download events.
-
-        Args:
-            event_type: Type of event to listen for (tracker.queued, tracker.started,
-                       tracker.progress, tracker.completed, tracker.failed)
-            handler: Callback function (can be sync or async)
-
-        Example:
-            def on_progress(event: DownloadProgressEvent):
-                print(f"Downloaded {event.progress_percent:.1f}%")
-
-            tracker.on("tracker.progress", on_progress)
-        """
-        self._emitter.on(event_type, handler)
-
-    def off(self, event_type: str, handler: EventHandler) -> None:
-        """Unsubscribe from download events.
-
-        Args:
-            event_type: Type of event to stop listening for
-            handler: The handler function to remove
-        """
-        self._emitter.off(event_type, handler)
-
-    async def _emit(self, event_type: str, event: DownloadEvent) -> None:
-        """Emit an event to all subscribed handlers via EventEmitter.
-
-        Args:
-            event_type: Namespaced event type (e.g., "tracker.queued")
-            event: The event data to emit
-        """
-        await self._emitter.emit(event_type, event)
 
     async def track_queued(self, download_id: str, url: str, priority: int = 1) -> None:
         """Record that a download was queued.
 
-        Creates a new DownloadInfo with QUEUED status and emits DownloadQueuedEvent.
+        Creates a new DownloadInfo with QUEUED status.
 
         Args:
             download_id: Unique identifier for this download task
             url: The URL being downloaded
-            priority: Priority level for the download
+            priority: Priority level for the download (stored for reference)
         """
         async with self._lock:
             self._downloads[download_id] = DownloadInfo(
                 id=download_id, url=url, status=DownloadStatus.QUEUED
             )
-
-        await self._emit(
-            "tracker.queued",
-            DownloadQueuedEvent(download_id=download_id, url=url, priority=priority),
-        )
 
     async def track_started(
         self, download_id: str, url: str, total_bytes: int | None = None
@@ -149,7 +84,6 @@ class DownloadTracker(BaseTracker):
         """Record that a download started.
 
         Updates status to IN_PROGRESS and sets total_bytes if known.
-        Emits DownloadStartedEvent.
 
         Args:
             download_id: Unique identifier for this download task
@@ -164,13 +98,6 @@ class DownloadTracker(BaseTracker):
             if total_bytes is not None:
                 self._downloads[download_id].total_bytes = total_bytes
 
-        await self._emit(
-            "tracker.started",
-            DownloadStartedEvent(
-                download_id=download_id, url=url, total_bytes=total_bytes
-            ),
-        )
-
     async def track_progress(
         self,
         download_id: str,
@@ -181,7 +108,6 @@ class DownloadTracker(BaseTracker):
         """Update download progress.
 
         Updates bytes_downloaded and optionally total_bytes.
-        Emits DownloadProgressEvent.
 
         Args:
             download_id: Unique identifier for this download task
@@ -196,16 +122,6 @@ class DownloadTracker(BaseTracker):
             self._downloads[download_id].bytes_downloaded = bytes_downloaded
             if total_bytes is not None:
                 self._downloads[download_id].total_bytes = total_bytes
-
-        await self._emit(
-            "tracker.progress",
-            DownloadProgressEvent(
-                download_id=download_id,
-                url=url,
-                bytes_downloaded=bytes_downloaded,
-                total_bytes=total_bytes,
-            ),
-        )
 
     async def track_speed_update(
         self,
@@ -292,13 +208,12 @@ class DownloadTracker(BaseTracker):
 
         Sets status to COMPLETED and updates final byte count.
         Persists average speed from final metrics, then clears transient metrics.
-        Emits DownloadCompletedEvent.
 
         Args:
             download_id: Unique identifier for this download task
             url: The URL that was downloaded
             total_bytes: Final size in bytes
-            destination_path: Where the file was saved
+            destination_path: Where the file was saved (stored for reference)
         """
         async with self._lock:
             self._ensure_download_exists(download_id, url)
@@ -309,23 +224,12 @@ class DownloadTracker(BaseTracker):
             self._downloads[download_id].total_bytes = total_bytes
             self._downloads[download_id].average_speed_bps = final_speed
 
-        await self._emit(
-            "tracker.completed",
-            DownloadCompletedEvent(
-                download_id=download_id,
-                url=url,
-                total_bytes=total_bytes,
-                destination_path=destination_path,
-            ),
-        )
-
     async def track_failed(self, download_id: str, url: str, error: Exception) -> None:
         """Record that a download failed.
 
         Sets status to FAILED and stores error message.
         Persists average speed from metrics if available (useful for failure analysis).
         Clears transient speed metrics.
-        Emits DownloadFailedEvent.
 
         Args:
             download_id: Unique identifier for this download task
@@ -340,16 +244,6 @@ class DownloadTracker(BaseTracker):
             self._downloads[download_id].error = str(error)
             self._downloads[download_id].average_speed_bps = final_speed
 
-        await self._emit(
-            "tracker.failed",
-            DownloadFailedEvent(
-                download_id=download_id,
-                url=url,
-                error_message=str(error),
-                error_type=type(error).__name__,
-            ),
-        )
-
     async def track_validation_started(
         self, download_id: str, url: str, algorithm: str
     ) -> None:
@@ -359,13 +253,6 @@ class DownloadTracker(BaseTracker):
             self._downloads[download_id].validation = ValidationState(
                 status=ValidationStatus.IN_PROGRESS,
             )
-
-        await self._emit(
-            "tracker.validation_started",
-            DownloadValidationStartedEvent(
-                download_id=download_id, url=url, algorithm=algorithm
-            ),
-        )
 
     async def track_validation_completed(
         self,
@@ -382,16 +269,6 @@ class DownloadTracker(BaseTracker):
                 validated_hash=calculated_hash,
                 error=None,
             )
-
-        await self._emit(
-            "tracker.validation_completed",
-            DownloadValidationCompletedEvent(
-                download_id=download_id,
-                url=url,
-                algorithm=algorithm,
-                calculated_hash=calculated_hash,
-            ),
-        )
 
     async def track_validation_failed(
         self,
@@ -410,18 +287,6 @@ class DownloadTracker(BaseTracker):
                 validated_hash=actual_hash,
                 error=error_message,
             )
-
-        await self._emit(
-            "tracker.validation_failed",
-            DownloadValidationFailedEvent(
-                download_id=download_id,
-                url=url,
-                algorithm=algorithm,
-                expected_hash=expected_hash,
-                actual_hash=actual_hash,
-                error_message=error_message,
-            ),
-        )
 
     def get_download_info(self, download_id: str) -> DownloadInfo | None:
         """Get current state of a download.

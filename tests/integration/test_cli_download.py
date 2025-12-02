@@ -7,7 +7,12 @@ from aioresponses import aioresponses
 
 
 class TestCLIDownloadIntegration:
-    """Integration tests for the download command end-to-end."""
+    """Integration tests for the download command end-to-end.
+
+    Note: Event display output (e.g. "Downloaded:") is temporarily disabled
+    while event subscription interface is being redesigned. Tests verify
+    functionality (exit code, file contents) without checking for output text.
+    """
 
     def test_download_file_with_mocked_response(
         self, cli_runner, default_app, tmp_path
@@ -28,7 +33,6 @@ class TestCLIDownloadIntegration:
             )
 
         assert result.exit_code == 0, f"Command failed with: {result.stdout}"
-        assert "Downloaded:" in result.stdout
 
         # Verify file was created with correct content
         downloaded_files = list(tmp_path.iterdir())
@@ -56,7 +60,6 @@ class TestCLIDownloadIntegration:
             )
 
         assert result.exit_code == 0
-        assert "Downloaded:" in result.stdout
 
         # Verify custom filename was used
         custom_file = tmp_path / "custom.bin"
@@ -87,10 +90,8 @@ class TestCLIDownloadIntegration:
             )
 
         assert result.exit_code == 0, f"Command failed with: {result.stdout}"
-        assert "Downloaded:" in result.stdout
-        assert "Hash validation passed" in result.stdout
 
-        # Verify file exists
+        # Verify file exists with correct content
         downloaded_files = list(tmp_path.iterdir())
         assert len(downloaded_files) == 1
         assert downloaded_files[0].read_bytes() == test_content
@@ -117,7 +118,6 @@ class TestCLIDownloadIntegration:
         )
 
         assert result.exit_code == 0, f"Command failed with: {result.stdout}"
-        assert "Downloaded:" in result.stdout
 
         # Verify file was created
         downloaded_files = list(tmp_path.iterdir())

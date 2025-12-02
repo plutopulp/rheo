@@ -1,26 +1,24 @@
-"""Abstract base class for download trackers."""
+"""Abstract base class for download trackers.
+
+Trackers are observers that store download state. They do NOT emit events.
+Events are emitted by the worker using the download.* namespace.
+Subscribe to events via the manager or worker emitter directly.
+"""
 
 from abc import ABC, abstractmethod
 
 from ..domain.downloads import DownloadInfo
-from ..events import BaseEmitter
 
 
 class BaseTracker(ABC):
-    """Abstract base class for download trackers."""
+    """Abstract base class for download trackers.
 
-    @property
-    @abstractmethod
-    def emitter(self) -> BaseEmitter:
-        """Event emitter for tracker events.
+    Trackers store state and provide query methods. They are observers that
+    receive state updates from the pool's event wiring. They do not emit events.
 
-        All tracker implementations must provide an emitter for event-driven
-        communication. Use NullEmitter for implementations that don't need events.
-
-        Returns:
-            BaseEmitter instance for subscribing to tracker events
-        """
-        pass
+    For event subscription, use the manager or worker emitter:
+        manager.worker.emitter.on("download.progress", handler)
+    """
 
     @abstractmethod
     def get_download_info(self, download_id: str) -> DownloadInfo | None:

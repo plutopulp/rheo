@@ -1,7 +1,6 @@
 """Download command implementation."""
 
 import asyncio
-import typing as t
 from pathlib import Path
 
 import typer
@@ -12,14 +11,16 @@ from ...domain.file_config import FileConfig
 from ...domain.hash_validation import HashConfig
 from ...downloads import DownloadManager
 from ...tracking.base import BaseTracker
-from ..output.progress import (
-    display_download_completed,
-    display_download_failed,
-    display_download_started,
-    display_validation_completed,
-    display_validation_failed,
-)
 from ..state import CLIState
+
+# TODO: Re-enable event display when manager exposes event subscription interface
+# from ..output.progress import (
+#     display_download_completed,
+#     display_download_failed,
+#     display_download_started,
+#     display_validation_completed,
+#     display_validation_failed,
+# )
 
 
 def validate_url(url_str: str) -> HttpUrl:
@@ -68,46 +69,30 @@ async def download_file(
     manager: DownloadManager,
     tracker: BaseTracker,
 ) -> None:
-    """Core download logic with event-driven display.
+    """Core download logic.
 
     Args:
         url: Pre-validated HTTP URL
         filename: Optional custom filename
         hash_config: Optional hash validation config
         manager: DownloadManager instance (already entered context)
-        tracker: BaseTracker instance with emitter
+        tracker: BaseTracker instance for state queries
 
     Raises:
         typer.Exit: On download failure
     """
-    # Define event handlers mapping (adding a new handler? just add it here!)
-    event_handlers: dict[str, t.Callable[[t.Any], None]] = {
-        "tracker.started": display_download_started,
-        "tracker.completed": display_download_completed,
-        "tracker.failed": display_download_failed,
-        "tracker.validation_completed": display_validation_completed,
-        "tracker.validation_failed": display_validation_failed,
-    }
+    # TODO: Re-enable real-time event display when manager exposes event subscription
+    # interface. For now, we query final state to determine success/failure.
 
-    # Subscribe to all events
-    for event_type, handler in event_handlers.items():
-        tracker.emitter.on(event_type, handler)
+    # Create and queue download
+    file_config = FileConfig(url=url, filename=filename, hash_config=hash_config)
+    await manager.add([file_config])
+    await manager.queue.join()
 
-    try:
-        # Create and queue download
-        file_config = FileConfig(url=url, filename=filename, hash_config=hash_config)
-        await manager.add([file_config])
-        await manager.queue.join()
-
-        # Query final state to determine exit code
-        info = tracker.get_download_info(file_config.id)
-        if info and info.status == DownloadStatus.FAILED:
-            raise typer.Exit(code=1)
-
-    finally:
-        # Cleanup: unsubscribe from all events automatically
-        for event_type, handler in event_handlers.items():
-            tracker.emitter.off(event_type, handler)
+    # Query final state to determine exit code
+    info = tracker.get_download_info(file_config.id)
+    if info and info.status == DownloadStatus.FAILED:
+        raise typer.Exit(code=1)
 
 
 def download(
