@@ -54,6 +54,11 @@ class PriorityDownloadQueue:
         self._counter = 0  # Counter to maintain FIFO order for same priority items
         self._queued_ids: set[str] = set()  # Track IDs to prevent duplicates
 
+    @property
+    def emitter(self) -> BaseEmitter:
+        """Event emitter for queue events (download.queued)."""
+        return self._emitter
+
     async def add(self, file_configs: t.Sequence[FileConfig]) -> None:
         """Add file configurations to the priority queue.
 

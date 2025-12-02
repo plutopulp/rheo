@@ -699,3 +699,24 @@ class TestWorkerPoolImplementationRationale:
 
         # Now join should complete immediately
         await asyncio.wait_for(real_priority_queue.join(), timeout=0.5)
+
+
+class TestWorkerPoolEventWiring:
+    """Test worker event wiring to tracker."""
+
+    def test_event_wiring_excludes_queue_events(
+        self, make_worker_pool: t.Callable[..., WorkerPool]
+    ) -> None:
+        """Pool's event wiring should NOT include download.queued (manager's job)."""
+        pool = make_worker_pool()
+        assert "download.queued" not in pool._event_wiring
+
+    def test_event_wiring_includes_worker_events(
+        self, make_worker_pool: t.Callable[..., WorkerPool]
+    ) -> None:
+        """Pool's event wiring should include worker lifecycle events."""
+        pool = make_worker_pool()
+        assert "download.started" in pool._event_wiring
+        assert "download.progress" in pool._event_wiring
+        assert "download.completed" in pool._event_wiring
+        assert "download.failed" in pool._event_wiring

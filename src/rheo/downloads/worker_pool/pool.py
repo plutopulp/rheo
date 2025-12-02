@@ -44,10 +44,16 @@ async def _handle_progress_event(tracker: BaseTracker, e: t.Any) -> None:
 def _create_event_wiring(
     tracker: BaseTracker,
 ) -> dict[str, WorkerEventHandler]:
-    """Create event wiring mapping from download events to tracker methods.
+    """Create event wiring mapping from worker events to tracker methods.
 
     Events use the download.* namespace (user-centric naming) and are emitted
-    by the worker. Speed metrics are now included in progress events.
+    by workers. Speed metrics are now included in progress events.
+
+    Note: Queue events (download.queued) are wired by Manager, not here.
+
+    TODO: Consider having Manager own all event wiring. Pool would receive
+    handlers dict instead of tracker, making it agnostic to what handlers do.
+    This would give cleaner separation: Manager orchestrates, Pool manages workers.
     """
     return {
         # Download lifecycle events (from worker)
@@ -133,7 +139,8 @@ class WorkerPool(BaseWorkerPool):
         """Initialise the worker pool.
 
         Args:
-            queue: Priority queue for retrieving download tasks
+            queue: Priority queue for retrieving download tasks. Queue's emitter
+                  is automatically wired to tracker for download.queued events.
             worker_factory: Factory function or class for creating worker instances.
                           Called with (client, logger, emitter) and must return
                           a BaseWorker instance.
