@@ -14,6 +14,7 @@ from rheo.downloads import (
     DownloadWorker,
     PriorityDownloadQueue,
 )
+from rheo.events import EventEmitter, NullEmitter
 
 if t.TYPE_CHECKING:
     from loguru import Logger
@@ -375,3 +376,60 @@ class TestDownloadManagerFileExistsStrategy:
             file_exists_strategy=FileExistsStrategy.OVERWRITE,
         )
         assert manager.file_exists_strategy == FileExistsStrategy.OVERWRITE
+
+
+class TestDownloadManagerQueueEmitter:
+    """Test queue emitter wiring in DownloadManager."""
+
+    def test_default_queue_uses_event_emitter(self, mock_logger: "Logger") -> None:
+        """Manager's default queue should use EventEmitter for automatic tracking."""
+
+        manager = DownloadManager(logger=mock_logger)
+        assert isinstance(manager.queue.emitter, EventEmitter)
+
+    def test_custom_queue_with_null_emitter_disables_events(
+        self, mock_logger: "Logger"
+    ) -> None:
+        """Passing queue with NullEmitter disables queue events."""
+
+        # Create queue with NullEmitter to disable events
+        custom_queue = PriorityDownloadQueue(
+            logger=mock_logger
+        )  # Defaults to NullEmitter
+
+        manager = DownloadManager(logger=mock_logger, queue=custom_queue)
+
+        assert isinstance(manager.queue.emitter, NullEmitter)
+
+    def test_custom_queue_with_emitter_is_used(self, mock_logger: "Logger") -> None:
+        """Manager should use custom queue's emitter."""
+
+        # Create queue with custom emitter
+        custom_emitter = EventEmitter(mock_logger)
+        custom_queue = PriorityDownloadQueue(logger=mock_logger, emitter=custom_emitter)
+
+        manager = DownloadManager(logger=mock_logger, queue=custom_queue)
+
+        # Queue's emitter should be used
+        assert manager.queue.emitter is custom_emitter
+
+    @pytest.mark.asyncio
+    async def test_queue_wired_to_tracker_on_open(
+        self, mock_logger: "Logger", tmp_path: Path
+    ) -> None:
+        """Manager.open() should wire queue events to tracker."""
+
+        custom_emitter = EventEmitter(mock_logger)
+        manager = DownloadManager(
+            logger=mock_logger,
+            download_dir=tmp_path,
+            queue=PriorityDownloadQueue(logger=mock_logger, emitter=custom_emitter),
+        )
+
+        await manager.open()
+
+        # Queue's emitter should have download.queued handler
+        assert "download.queued" in custom_emitter._handlers
+        assert len(custom_emitter._handlers["download.queued"]) == 1
+
+        await manager.close()

@@ -16,6 +16,7 @@ import certifi
 
 from ..domain.exceptions import ManagerNotInitializedError, PendingDownloadsError
 from ..domain.file_config import FileConfig, FileExistsStrategy
+from ..events import EventEmitter
 from ..infrastructure.logging import get_logger
 from ..tracking.base import BaseTracker
 from ..tracking.tracker import DownloadTracker
@@ -94,6 +95,7 @@ class DownloadManager:
             worker_factory: Factory function for creating workers. If None, defaults
                            to DownloadWorker constructor.
             queue: Priority download queue for tasks. If None, one will be created.
+                  To customise queue events, create a queue with your own emitter.
             tracker: Download tracker for observability. If None, a DownloadTracker
                     will be created automatically. Pass NullTracker() to
                     disable tracking.
@@ -115,7 +117,13 @@ class DownloadManager:
         self._tracker = (
             tracker if tracker is not None else DownloadTracker(logger=logger)
         )
-        self.queue = queue or PriorityDownloadQueue(logger=logger)
+
+        # Create queue with EventEmitter for automatic tracking.
+        # Pool wires queue.emitter to tracker automatically.
+        # To disable queue events, pass a queue with NullEmitter.
+        self.queue = queue or PriorityDownloadQueue(
+            logger=logger, emitter=EventEmitter(logger)
+        )
         self.timeout = timeout
         self.max_concurrent = max_concurrent
         self.download_dir = download_dir
@@ -316,6 +324,11 @@ class DownloadManager:
         # Ensure download directory exists
         await aiofiles.os.makedirs(self.download_dir, exist_ok=True)
 
+        # Wire queue events to tracker (manager owns this wiring)
+        # Nice-to-have: Unwire in close() for symmetry, though not strictly needed
+        # since manager owns queue and tracker (all garbage collected together)
+        self._wire_queue_to_tracker()
+
         if self._client is None:
             # Create SSL context using certifi's certificate bundle
             ssl_context = ssl.create_default_context(cafile=certifi.where())
@@ -349,3 +362,14 @@ class DownloadManager:
 
         if self._owns_client and self._client is not None:
             await self._client.close()
+
+    def _wire_queue_to_tracker(self) -> None:
+        """Wire queue events to tracker.
+
+        Manager owns this wiring because it owns both queue and tracker.
+        Pool handles worker event wiring separately.
+        """
+        self.queue.emitter.on(
+            "download.queued",
+            lambda e: self._tracker.track_queued(e.download_id, e.url, e.priority),
+        )

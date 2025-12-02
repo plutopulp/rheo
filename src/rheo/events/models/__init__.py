@@ -6,6 +6,7 @@ from .download import (
     DownloadEvent,
     DownloadFailedEvent,
     DownloadProgressEvent,
+    DownloadQueuedEvent,
     DownloadRetryingEvent,
     DownloadStartedEvent,
 )
@@ -15,6 +16,7 @@ __all__ = [
     "BaseEvent",
     "ErrorInfo",
     "DownloadEvent",
+    "DownloadQueuedEvent",
     "DownloadStartedEvent",
     "DownloadProgressEvent",
     "DownloadCompletedEvent",

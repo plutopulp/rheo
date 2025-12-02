@@ -166,3 +166,53 @@ class TestPublicTrackerProperty:
         null_tracker = NullTracker()
         manager = DownloadManager(client=aio_client, tracker=null_tracker)
         assert manager.tracker is null_tracker
+
+
+class TestQueueEventWiring:
+    """Test queue event wiring through manager to tracker."""
+
+    @pytest.mark.asyncio
+    async def test_queue_add_updates_tracker_via_event(
+        self, manager_with_tracker, tmp_path
+    ):
+        """Adding to queue should automatically track as QUEUED via event."""
+        test_url = "https://example.com/queued.txt"
+        file_config = FileConfig(url=test_url, priority=5)
+
+        async with manager_with_tracker as manager:
+            # Add to queue (triggers download.queued event)
+            await manager.add([file_config])
+
+            # Tracker should immediately have QUEUED status via event wiring
+            info = manager.tracker.get_download_info(file_config.id)
+            assert info is not None
+            assert info.status == DownloadStatus.QUEUED
+            assert info.url == test_url
+
+            # Clean up by closing (cancels pending)
+            await manager.close()
+
+    @pytest.mark.asyncio
+    async def test_queued_transitions_to_completed(
+        self, manager_with_tracker, tmp_path
+    ):
+        """Download should transition from QUEUED to COMPLETED."""
+        test_url = "https://example.com/file.txt"
+        file_config = FileConfig(url=test_url, priority=1)
+
+        with aioresponses() as mock:
+            mock.get(test_url, status=200, body=b"content")
+
+            async with manager_with_tracker as manager:
+                await manager.add([file_config])
+
+                # Initially QUEUED
+                info = manager.tracker.get_download_info(file_config.id)
+                assert info.status == DownloadStatus.QUEUED
+
+                # Wait for download to complete
+                await manager.wait_until_complete()
+
+        # Final state should be COMPLETED
+        info = manager_with_tracker.tracker.get_download_info(file_config.id)
+        assert info.status == DownloadStatus.COMPLETED

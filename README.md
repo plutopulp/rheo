@@ -83,8 +83,6 @@ Check [`examples/`](https://github.com/plutopulp/rheo/tree/main/examples) for wo
 - `01_basic_download.py` - Simple single file download
 - `02_multiple_with_priority.py` - Multiple files with priorities
 - `03_hash_validation.py` - File integrity verification
-- `04_progress_tracking.py` - Real-time progress monitoring
-- `05_event_monitoring.py` - Event-driven statistics
 
 ## Project Status
 

@@ -240,23 +240,20 @@ async with DownloadManager(
 - **ETA**: Estimated time to completion based on average speed
 - **Historical data**: Final average speed persisted for completed/failed downloads
 
-### React to Events
+### Event System
 
-```python
-from rheo.events import WorkerProgressEvent, WorkerSpeedUpdatedEvent
+The library uses event-driven architecture with `download.*` namespaced events:
 
-async def on_progress(event: WorkerProgressEvent):
-    print(f"Downloaded {event.bytes_downloaded} bytes from {event.url}")
+- `download.queued` - When download is added to queue
+- `download.started` - When download begins
+- `download.progress` - Progress updates (includes speed metrics)
+- `download.completed` - When download finishes successfully
+- `download.failed` - When download fails
+- `download.retrying` - Before retry attempt
 
-async def on_speed_update(event: WorkerSpeedUpdatedEvent):
-    print(f"{event.url}: {event.average_speed_bps / 1024:.2f} KB/s, ETA: {event.eta_seconds:.1f}s")
+Events are emitted by workers and queue, automatically wired to tracker for state updates.
 
-async with DownloadManager(download_dir=Path("./downloads")) as manager:
-    manager.worker.emitter.on("worker.progress", on_progress)
-    manager.worker.emitter.on("worker.speed_updated", on_speed_update)
-    await manager.add(files)
-    await manager.wait_until_complete()
-```
+**Note**: Direct event subscription API is being redesigned. Currently, use the tracker for state queries after downloads complete. Event subscription will be exposed through the manager in a future release.
 
 ### Hash Validation
 
@@ -524,12 +521,12 @@ poetry run python -m src.rheo.main
 
 The library is organised into bounded contexts:
 
-- **Domain**: Core models (`FileConfig`, `DownloadInfo`, `DownloadStatus`, `HashConfig`, `ValidationState`, `SpeedMetrics`, `SpeedCalculator`)
-- **Downloads**: Queue, manager, worker, and file validation implementations
-- **Events**: Event system and typed event models (including speed and validation events)
+- **Domain**: Core models (`FileConfig`, `DownloadInfo`, `DownloadStatus`, `HashConfig`, `ValidationState`, `SpeedMetrics`, `SpeedCalculator`, `ErrorInfo`)
+- **Downloads**: Queue, manager, worker pool, and file validation implementations
+- **Events**: Event system with Pydantic models (`download.*` events with embedded speed/error info)
 - **Tracking**: State tracking, statistics, real-time speed metrics, and validation state
 - **Infrastructure**: Logging, HTTP client setup
-- **CLI**: Command-line interface with Typer, event-driven display, and configuration management
+- **CLI**: Command-line interface with Typer and configuration management
 
 See `docs/ARCHITECTURE.md` for detailed design decisions.
 
