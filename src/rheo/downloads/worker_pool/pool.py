@@ -70,6 +70,10 @@ def _create_event_wiring(
             Exception(f"{e.error.exc_type}: {e.error.message}"),
             e.validation,
         ),
+        "download.skipped": lambda e: tracker.track_skipped(
+            e.download_id, e.url, e.reason, e.destination_path
+        ),
+        "download.cancelled": lambda e: tracker.track_cancelled(e.download_id, e.url),
     }
 
 
