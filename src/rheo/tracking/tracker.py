@@ -266,7 +266,7 @@ class DownloadTracker(BaseTracker):
             self._ensure_download_exists(download_id, url)
             self._downloads[download_id].validation = ValidationState(
                 status=ValidationStatus.SUCCEEDED,
-                validated_hash=calculated_hash,
+                calculated_hash=calculated_hash,
                 error=None,
             )
 
@@ -284,7 +284,7 @@ class DownloadTracker(BaseTracker):
             self._ensure_download_exists(download_id, url)
             self._downloads[download_id].validation = ValidationState(
                 status=ValidationStatus.FAILED,
-                validated_hash=actual_hash,
+                calculated_hash=actual_hash,
                 error=error_message,
             )
 

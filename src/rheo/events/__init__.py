@@ -1,5 +1,7 @@
 """Event infrastructure - event emitter and event types."""
 
+from rheo.domain.hash_validation import ValidationResult
+
 from .base import BaseEmitter
 from .emitter import EventEmitter
 from .models import (
@@ -11,6 +13,7 @@ from .models import (
     DownloadQueuedEvent,
     DownloadRetryingEvent,
     DownloadStartedEvent,
+    DownloadValidatingEvent,
     ErrorInfo,
 )
 from .null import NullEmitter
@@ -37,6 +40,8 @@ __all__ = [
     "DownloadCompletedEvent",
     "DownloadFailedEvent",
     "DownloadRetryingEvent",
+    "DownloadValidatingEvent",
+    "ValidationResult",
     # Worker validation events (will be renamed in Issue #7)
     "WorkerValidationStartedEvent",
     "WorkerValidationCompletedEvent",

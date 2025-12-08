@@ -82,20 +82,13 @@ class TestHashConfigHelpers:
 class TestValidationState:
     """ValidationState behaviour."""
 
-    def test_defaults_to_not_requested(self):
-        """ValidationState defaults to NOT_REQUESTED when no data provided."""
-        state = ValidationState()
-        assert state.status == ValidationStatus.NOT_REQUESTED
-        assert state.validated_hash is None
-        assert state.error is None
-
     def test_allows_customisation(self):
         """ValidationState stores provided values."""
         state = ValidationState(
             status=ValidationStatus.FAILED,
-            validated_hash="abc",
+            calculated_hash="abc",
             error="boom",
         )
         assert state.status == ValidationStatus.FAILED
-        assert state.validated_hash == "abc"
+        assert state.calculated_hash == "abc"
         assert state.error == "boom"

@@ -4,7 +4,7 @@ import enum
 import re
 from typing import Final
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 _HEX_PATTERN: Final = re.compile(r"^[0-9a-f]+$")
 
@@ -29,7 +29,6 @@ class HashAlgorithm(enum.StrEnum):
 class ValidationStatus(enum.StrEnum):
     """Hash validation lifecycle states."""
 
-    NOT_REQUESTED = "not_requested"
     IN_PROGRESS = "in_progress"
     SUCCEEDED = "succeeded"
     FAILED = "failed"
@@ -38,17 +37,37 @@ class ValidationStatus(enum.StrEnum):
 class ValidationState(BaseModel):
     """State container for download validation."""
 
-    status: ValidationStatus = Field(
-        default=ValidationStatus.NOT_REQUESTED,
-        description="Current validation status",
-    )
-    validated_hash: str | None = Field(
+    status: ValidationStatus = Field(description="Current validation status")
+    calculated_hash: str | None = Field(
         default=None,
-        description="Hash captured during validation if available",
+        description="Hash calculated during validation when available",
     )
     error: str | None = Field(
         default=None,
         description="Validation error message when validation fails",
+    )
+
+
+class ValidationResult(BaseModel):
+    """Hash validation result (success or failure).
+
+    On success: expected_hash == calculated_hash
+    On failure: they differ, giving full mismatch context
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    algorithm: HashAlgorithm = Field(description="Hash algorithm used")
+    expected_hash: str = Field(
+        min_length=1, description="Expected checksum in hexadecimal form"
+    )
+    calculated_hash: str = Field(
+        min_length=1, description="Calculated checksum in hexadecimal form"
+    )
+    duration_ms: float = Field(
+        default=0.0,
+        ge=0,
+        description="Validation duration in milliseconds",
     )
 
 

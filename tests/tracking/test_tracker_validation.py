@@ -40,7 +40,7 @@ async def test_track_validation_completed_updates_state(
     assert info is not None
     assert info.validation is not None
     assert info.validation.status == ValidationStatus.SUCCEEDED
-    assert info.validation.validated_hash == "abc123"
+    assert info.validation.calculated_hash == "abc123"
     assert info.validation.error is None
 
 
@@ -64,5 +64,5 @@ async def test_track_validation_failed_updates_state(tracker: DownloadTracker) -
     assert info is not None
     assert info.validation is not None
     assert info.validation.status == ValidationStatus.FAILED
-    assert info.validation.validated_hash == "actual"
+    assert info.validation.calculated_hash == "actual"
     assert info.validation.error == "hash mismatch"
