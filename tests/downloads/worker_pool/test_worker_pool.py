@@ -12,7 +12,7 @@ from rheo.domain.exceptions import WorkerPoolAlreadyStartedError
 from rheo.domain.file_config import FileConfig
 from rheo.downloads.queue import PriorityDownloadQueue
 from rheo.downloads.worker.worker import DownloadWorker
-from rheo.downloads.worker_pool.pool import WorkerPool
+from rheo.downloads.worker_pool.pool import EventSource, EventWiring, WorkerPool
 from rheo.tracking.tracker import DownloadTracker
 from tests.downloads.conftest import WorkerFactoryMaker
 
@@ -29,6 +29,42 @@ def make_worker_pool(
 ) -> t.Callable[..., WorkerPool]:
     """Factory fixture to create WorkerPool instances with sensible defaults."""
 
+    def _default_wiring() -> EventWiring:
+        return {
+            EventSource.QUEUE: {
+                "download.queued": lambda e: tracker._track_queued(
+                    e.download_id, e.url, e.priority
+                ),
+            },
+            EventSource.WORKER: {
+                "download.started": lambda e: tracker._track_started(
+                    e.download_id, e.url, e.total_bytes
+                ),
+                "download.progress": lambda e: tracker._track_progress(
+                    e.download_id, e.url, e.bytes_downloaded, e.total_bytes, e.speed
+                ),
+                "download.completed": lambda e: tracker._track_completed(
+                    e.download_id,
+                    e.url,
+                    e.total_bytes,
+                    e.destination_path,
+                    e.validation,
+                ),
+                "download.failed": lambda e: tracker._track_failed(
+                    e.download_id,
+                    e.url,
+                    Exception(f"{e.error.exc_type}: {e.error.message}"),
+                    e.validation,
+                ),
+                "download.skipped": lambda e: tracker._track_skipped(
+                    e.download_id, e.url, e.reason, e.destination_path
+                ),
+                "download.cancelled": lambda e: tracker._track_cancelled(
+                    e.download_id, e.url
+                ),
+            },
+        }
+
     def _make_pool(
         worker_factory=None,
         max_workers: int = 1,
@@ -38,11 +74,10 @@ def make_worker_pool(
         return WorkerPool(
             queue=queue or real_priority_queue,
             worker_factory=worker_factory or DownloadWorker,
-            tracker=tracker,
             logger=mock_logger,
             download_dir=tmp_path,
             max_workers=max_workers,
-            event_wiring=event_wiring,
+            event_wiring=event_wiring or _default_wiring(),
         )
 
     return _make_pool
@@ -702,23 +737,26 @@ class TestWorkerPoolImplementationRationale:
 
 
 class TestWorkerPoolEventWiring:
-    """Test worker event wiring to tracker."""
+    """Test worker event wiring structure."""
 
-    def test_event_wiring_excludes_queue_events(
+    def test_event_wiring_has_queue_category(
         self, make_worker_pool: t.Callable[..., WorkerPool]
     ) -> None:
-        """Pool's event wiring should NOT include download.queued (manager's job)."""
+        """Pool's event wiring should have queue category with queued event."""
         pool = make_worker_pool()
-        assert "download.queued" not in pool._event_wiring
+        assert EventSource.QUEUE in pool._event_wiring
+        assert "download.queued" in pool._event_wiring[EventSource.QUEUE]
 
-    def test_event_wiring_includes_worker_events(
+    def test_event_wiring_has_worker_category(
         self, make_worker_pool: t.Callable[..., WorkerPool]
     ) -> None:
-        """Pool's event wiring should include worker lifecycle events."""
+        """Pool's event wiring should have worker category with lifecycle events."""
         pool = make_worker_pool()
-        assert "download.started" in pool._event_wiring
-        assert "download.progress" in pool._event_wiring
-        assert "download.completed" in pool._event_wiring
-        assert "download.failed" in pool._event_wiring
-        assert "download.skipped" in pool._event_wiring
-        assert "download.cancelled" in pool._event_wiring
+        assert EventSource.WORKER in pool._event_wiring
+        worker_events = pool._event_wiring[EventSource.WORKER]
+        assert "download.started" in worker_events
+        assert "download.progress" in worker_events
+        assert "download.completed" in worker_events
+        assert "download.failed" in worker_events
+        assert "download.skipped" in worker_events
+        assert "download.cancelled" in worker_events

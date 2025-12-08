@@ -2,16 +2,14 @@
 
 import asyncio
 import typing as t
+from enum import StrEnum
 from pathlib import Path
 
 from aiohttp import ClientSession
 
-from ...domain.exceptions import (
-    WorkerPoolAlreadyStartedError,
-)
+from ...domain.exceptions import WorkerPoolAlreadyStartedError
 from ...domain.file_config import FileConfig, FileExistsStrategy
 from ...events import EventEmitter
-from ...tracking.base import BaseTracker
 from ..queue import PriorityDownloadQueue
 from ..worker.base import BaseWorker
 from ..worker.factory import WorkerFactory
@@ -21,58 +19,30 @@ from .base import BaseWorkerPool
 if t.TYPE_CHECKING:
     from loguru import Logger
 
-WorkerEventHandler = t.Callable[[t.Any], t.Awaitable[None] | None]
+
+class EventSource(StrEnum):
+    """Event source categories for wiring."""
+
+    QUEUE = "queue"
+    WORKER = "worker"
 
 
-def _create_event_wiring(
-    tracker: BaseTracker,
-) -> dict[str, WorkerEventHandler]:
-    """Create event wiring mapping from worker events to tracker methods.
-
-    Events use the download.* namespace (user-centric naming) and are emitted
-    by workers. Speed metrics are now included in progress events.
-
-    Note: Queue events (download.queued) are wired by Manager, not here.
-
-    TODO: Consider having Manager own all event wiring. Pool would receive
-    handlers dict instead of tracker, making it agnostic to what handlers do.
-    This would give cleaner separation: Manager orchestrates, Pool manages workers.
-    """
-    return {
-        # Download lifecycle events (from worker)
-        "download.started": lambda e: tracker._track_started(
-            e.download_id, e.url, e.total_bytes
-        ),
-        "download.progress": lambda e: tracker._track_progress(
-            e.download_id, e.url, e.bytes_downloaded, e.total_bytes, e.speed
-        ),
-        "download.completed": lambda e: tracker._track_completed(
-            e.download_id, e.url, e.total_bytes, e.destination_path, e.validation
-        ),
-        "download.failed": lambda e: tracker._track_failed(
-            e.download_id,
-            e.url,
-            Exception(f"{e.error.exc_type}: {e.error.message}"),
-            e.validation,
-        ),
-        "download.skipped": lambda e: tracker._track_skipped(
-            e.download_id, e.url, e.reason, e.destination_path
-        ),
-        "download.cancelled": lambda e: tracker._track_cancelled(e.download_id, e.url),
-    }
+# Type aliases for event wiring
+EventHandler = t.Callable[[t.Any], t.Awaitable[None] | None]
+EventWiring = dict[EventSource, dict[str, EventHandler]]
 
 
 class WorkerPool(BaseWorkerPool):
     """Manages worker task lifecycle, queue consumption, and graceful shutdown.
 
-    This pool encapsulates worker creation, event wiring to trackers, queue
-    processing with timeout-based polling, and shutdown coordination. It handles
-    both graceful shutdown (allowing in-flight downloads to complete) and
-    immediate cancellation.
+    This pool encapsulates worker creation, event wiring, queue processing with
+    timeout-based polling, and shutdown coordination. It handles both graceful
+    shutdown (allowing in-flight downloads to complete) and immediate
+    cancellation.
 
     Key responsibilities:
     - Creates one worker instance per task for isolation
-    - Wires each worker's emitter to tracker event handlers
+    - Wires each EventSource emitter (queue and/or worker) to provided event handlers
     - Processes queue items with timeout to remain responsive to shutdown
     - Re-queues unstarted downloads when shutdown is requested
     - Maintains task lifecycle and cleanup
@@ -104,42 +74,40 @@ class WorkerPool(BaseWorkerPool):
         self,
         queue: PriorityDownloadQueue,
         worker_factory: WorkerFactory | type[DownloadWorker],
-        tracker: BaseTracker,
         logger: "Logger",
         download_dir: Path,
         max_workers: int = 3,
-        event_wiring: dict[str, WorkerEventHandler] | None = None,
+        event_wiring: EventWiring | None = None,
         file_exists_strategy: FileExistsStrategy = FileExistsStrategy.SKIP,
     ) -> None:
         """Initialise the worker pool.
 
         Args:
-            queue: Priority queue for retrieving download tasks. Queue's emitter
-                  is automatically wired to tracker for download.queued events.
+            queue: Priority queue for retrieving download tasks.
             worker_factory: Factory function or class for creating worker instances.
                           Called with (client, logger, emitter) and must return
                           a BaseWorker instance.
-            tracker: Download tracker for observing worker events (started, progress,
-                    completed, failed, etc.)
             logger: Logger instance for recording pool events and worker activity
             download_dir: Directory where downloaded files will be saved
             max_workers: Maximum number of concurrent worker tasks. Defaults to 3.
-            event_wiring: Optional custom event wiring dict mapping event types to
-                         tracker handlers. If None, default wiring to tracker methods
-                         is created automatically.
+            event_wiring: Event handlers categorised by EventSource. Structure:
+                         {"queue": {...}, "worker": {...}}. If None, no events
+                         are wired.
             file_exists_strategy: Default strategy for handling existing files.
                          Per-file strategy in FileConfig overrides this.
         """
         self.queue = queue
         self._worker_factory = worker_factory
-        self._tracker = tracker
         self._logger = logger
         self._download_dir = download_dir
         self._max_workers = max_workers
         self._shutdown_event = asyncio.Event()
         self._worker_tasks: list[asyncio.Task[None]] = []
         self._is_running = False
-        self._event_wiring = event_wiring or _create_event_wiring(tracker)
+        self._event_wiring = event_wiring or {
+            EventSource.QUEUE: {},
+            EventSource.WORKER: {},
+        }
         self._file_exists_strategy = file_exists_strategy
 
     @property
@@ -172,6 +140,9 @@ class WorkerPool(BaseWorkerPool):
 
         self._shutdown_event.clear()
         self._is_running = True
+
+        # Wire queue events once at startup
+        self._wire_queue_events()
 
         for _ in range(self._max_workers):
             worker = self.create_worker(client)
@@ -223,16 +194,21 @@ class WorkerPool(BaseWorkerPool):
         # TODO: Change this so that event emitter is injected
         emitter = EventEmitter(self._logger)
         worker = self._worker_factory(client, self._logger, emitter)
-        self._wire_worker_to_tracker(worker)
+        self._wire_worker_events(worker)
         return worker
 
-    def _wire_worker_to_tracker(self, worker: BaseWorker) -> None:
-        """Wire worker events to tracker handlers.
+    def _wire_queue_events(self) -> None:
+        """Wire queue events to provided handlers."""
+        for event_type, handler in self._event_wiring.get(
+            EventSource.QUEUE, {}
+        ).items():
+            self.queue.emitter.on(event_type, handler)
 
-        Subscribes tracker methods to worker emitter events so download
-        lifecycle changes are automatically tracked.
-        """
-        for event_type, handler in self._event_wiring.items():
+    def _wire_worker_events(self, worker: BaseWorker) -> None:
+        """Wire worker events to provided handlers."""
+        for event_type, handler in self._event_wiring.get(
+            EventSource.WORKER, {}
+        ).items():
             worker.emitter.on(event_type, handler)
 
     async def _process_queue(self, worker: BaseWorker) -> None:
