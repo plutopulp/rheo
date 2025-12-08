@@ -471,8 +471,8 @@ Workers emit events, trackers observe via pool wiring:
 # Worker doesn't know about tracker
 await worker.emitter.emit("download.completed", DownloadCompletedEvent(...))
 
-# Pool wires worker emitter to tracker handlers
-worker.emitter.on("download.completed", lambda e: tracker.track_completed(...))
+# Pool wires worker emitter to tracker internal handlers
+worker.emitter.on("download.completed", lambda e: tracker._track_completed(...))
 ```
 
 **Why**: Decoupling. Easy to add new observers.
