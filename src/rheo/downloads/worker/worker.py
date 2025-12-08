@@ -21,9 +21,11 @@ from ...domain.hash_validation import HashConfig, ValidationResult
 from ...domain.speed import SpeedCalculator
 from ...events import (
     BaseEmitter,
+    DownloadCancelledEvent,
     DownloadCompletedEvent,
     DownloadFailedEvent,
     DownloadProgressEvent,
+    DownloadSkippedEvent,
     DownloadStartedEvent,
     DownloadValidatingEvent,
     ErrorInfo,
@@ -192,7 +194,7 @@ class DownloadWorker(BaseWorker):
         """
         # Check file exists strategy before starting download
         final_path = await self._handle_existing_file(
-            destination_path, file_exists_strategy
+            destination_path, file_exists_strategy, download_id, url
         )
         if final_path is None:
             return
@@ -267,6 +269,10 @@ class DownloadWorker(BaseWorker):
             # is not a failure.
             await self._cleanup_partial_file(destination_path)
             self.logger.debug(f"Download cancelled, cleaned up: {destination_path}")
+            await self.emitter.emit(
+                "download.cancelled",
+                DownloadCancelledEvent(download_id=download_id, url=url),
+            )
             # Must re-raise to propagate cancellation through task hierarchy
             raise
 
@@ -677,6 +683,8 @@ class DownloadWorker(BaseWorker):
         self,
         destination_path: Path,
         strategy: FileExistsStrategy,
+        download_id: str,
+        url: str,
     ) -> Path | None:
         """Check if file exists and handle according to strategy.
 
@@ -692,6 +700,15 @@ class DownloadWorker(BaseWorker):
         match strategy:
             case FileExistsStrategy.SKIP:
                 self.logger.debug(f"File exists, skipping: {destination_path}")
+                await self.emitter.emit(
+                    "download.skipped",
+                    DownloadSkippedEvent(
+                        download_id=download_id,
+                        url=url,
+                        reason="file_exists",
+                        destination_path=str(destination_path),
+                    ),
+                )
                 return None
             case FileExistsStrategy.ERROR:
                 raise FileExistsError(destination_path)

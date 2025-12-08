@@ -6,12 +6,14 @@ from .base import BaseEmitter
 from .emitter import EventEmitter
 from .models import (
     BaseEvent,
+    DownloadCancelledEvent,
     DownloadCompletedEvent,
     DownloadEvent,
     DownloadFailedEvent,
     DownloadProgressEvent,
     DownloadQueuedEvent,
     DownloadRetryingEvent,
+    DownloadSkippedEvent,
     DownloadStartedEvent,
     DownloadValidatingEvent,
     ErrorInfo,
@@ -35,6 +37,8 @@ __all__ = [
     # Download Events (from models/)
     "DownloadEvent",
     "DownloadQueuedEvent",
+    "DownloadSkippedEvent",
+    "DownloadCancelledEvent",
     "DownloadStartedEvent",
     "DownloadProgressEvent",
     "DownloadCompletedEvent",

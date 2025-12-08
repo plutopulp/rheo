@@ -37,7 +37,7 @@ class NullTracker(BaseTracker):
         download_id: str,
         url: str,
         total_bytes: int = 0,
-        destination_path: str = "",
+        destination_path: str | None = None,
         validation: ValidationResult | None = None,
     ) -> None:
         pass
@@ -60,4 +60,16 @@ class NullTracker(BaseTracker):
         error: Exception,
         validation: ValidationResult | None = None,
     ) -> None:
+        pass
+
+    async def track_skipped(
+        self,
+        download_id: str,
+        url: str,
+        reason: str,
+        destination_path: str | None = None,
+    ) -> None:
+        pass
+
+    async def track_cancelled(self, download_id: str, url: str) -> None:
         pass

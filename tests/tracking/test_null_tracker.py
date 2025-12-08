@@ -20,7 +20,9 @@ class TestNullTracker:
         assert isinstance(null_tracker, BaseTracker)
 
     @pytest.mark.asyncio
-    async def test_all_methods_do_nothing_without_error(self, null_tracker):
+    async def test_all_methods_do_nothing_without_error(
+        self, null_tracker: NullTracker
+    ):
         """Test that all tracker methods can be called without errors."""
         # Should not raise any exceptions
         await null_tracker.track_queued("id", "url", priority=1)
@@ -28,3 +30,5 @@ class TestNullTracker:
         await null_tracker.track_progress("id", "url", 50, 100)
         await null_tracker.track_completed("id", "url", 100, "/path")
         await null_tracker.track_failed("id", "url", Exception("test"))
+        await null_tracker.track_skipped("id", "url", "reason", "/path")
+        await null_tracker.track_cancelled("id", "url")

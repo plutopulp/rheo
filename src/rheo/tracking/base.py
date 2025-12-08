@@ -31,19 +31,19 @@ class BaseTracker(ABC):
         Returns:
             DownloadInfo if found, None otherwise
         """
-        pass
+        ...
 
     @abstractmethod
     async def track_queued(self, download_id: str, url: str, priority: int = 1) -> None:
         """Track when a download is queued."""
-        pass
+        ...
 
     @abstractmethod
     async def track_started(
         self, download_id: str, url: str, total_bytes: int | None = None
     ) -> None:
         """Track when a download starts."""
-        pass
+        ...
 
     @abstractmethod
     async def track_progress(
@@ -54,7 +54,7 @@ class BaseTracker(ABC):
         total_bytes: int | None = None,
     ) -> None:
         """Track download progress."""
-        pass
+        ...
 
     @abstractmethod
     async def track_completed(
@@ -62,7 +62,7 @@ class BaseTracker(ABC):
         download_id: str,
         url: str,
         total_bytes: int = 0,
-        destination_path: str = "",
+        destination_path: str | None = None,
         validation: ValidationResult | None = None,
     ) -> None:
         """Track when a download completes.
@@ -74,7 +74,7 @@ class BaseTracker(ABC):
             destination_path: Where the file was saved
             validation: Optional validation result from hash verification
         """
-        pass
+        ...
 
     @abstractmethod
     async def track_failed(
@@ -92,7 +92,23 @@ class BaseTracker(ABC):
             error: The exception that occurred
             validation: Optional validation result when failure is hash mismatch
         """
-        pass
+        ...
+
+    @abstractmethod
+    async def track_skipped(
+        self,
+        download_id: str,
+        url: str,
+        reason: str,
+        destination_path: str | None = None,
+    ) -> None:
+        """Track when a download is skipped."""
+        ...
+
+    @abstractmethod
+    async def track_cancelled(self, download_id: str, url: str) -> None:
+        """Track when a download is cancelled."""
+        ...
 
     @abstractmethod
     async def track_speed_update(
@@ -104,4 +120,4 @@ class BaseTracker(ABC):
         elapsed_seconds: float,
     ) -> None:
         """Track when a download speed is updated."""
-        pass
+        ...

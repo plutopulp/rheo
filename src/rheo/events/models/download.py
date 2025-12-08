@@ -97,6 +97,22 @@ class DownloadFailedEvent(DownloadEvent):
     )
 
 
+class DownloadSkippedEvent(DownloadEvent):
+    """Emitted when download is skipped (e.g., file already exists)."""
+
+    event_type: str = Field(default="download.skipped")
+    reason: str = Field(description="Why download was skipped (e.g., 'file_exists')")
+    destination_path: str | None = Field(
+        default=None, description="Path that was skipped"
+    )
+
+
+class DownloadCancelledEvent(DownloadEvent):
+    """Emitted when download is cancelled."""
+
+    event_type: str = Field(default="download.cancelled")
+
+
 class DownloadRetryingEvent(DownloadEvent):
     """Emitted when about to retry a failed download.
 

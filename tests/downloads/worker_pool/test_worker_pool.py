@@ -720,3 +720,5 @@ class TestWorkerPoolEventWiring:
         assert "download.progress" in pool._event_wiring
         assert "download.completed" in pool._event_wiring
         assert "download.failed" in pool._event_wiring
+        assert "download.skipped" in pool._event_wiring
+        assert "download.cancelled" in pool._event_wiring

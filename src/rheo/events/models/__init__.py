@@ -4,12 +4,14 @@ from rheo.domain.hash_validation import ValidationResult
 
 from .base import BaseEvent
 from .download import (
+    DownloadCancelledEvent,
     DownloadCompletedEvent,
     DownloadEvent,
     DownloadFailedEvent,
     DownloadProgressEvent,
     DownloadQueuedEvent,
     DownloadRetryingEvent,
+    DownloadSkippedEvent,
     DownloadStartedEvent,
     DownloadValidatingEvent,
 )
@@ -24,6 +26,8 @@ __all__ = [
     "DownloadProgressEvent",
     "DownloadCompletedEvent",
     "DownloadFailedEvent",
+    "DownloadSkippedEvent",
+    "DownloadCancelledEvent",
     "DownloadRetryingEvent",
     "DownloadValidatingEvent",
     "ValidationResult",

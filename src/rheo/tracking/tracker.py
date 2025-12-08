@@ -202,7 +202,7 @@ class DownloadTracker(BaseTracker):
         download_id: str,
         url: str,
         total_bytes: int = 0,
-        destination_path: str = "",
+        destination_path: str | None = None,
         validation: ValidationResult | None = None,
     ) -> None:
         """Record that a download completed successfully.
@@ -226,6 +226,7 @@ class DownloadTracker(BaseTracker):
             self._downloads[download_id].bytes_downloaded = total_bytes
             self._downloads[download_id].total_bytes = total_bytes
             self._downloads[download_id].average_speed_bps = final_speed
+            self._downloads[download_id].destination_path = destination_path
             self._downloads[download_id].validation = validation
 
     async def track_failed(
@@ -256,6 +257,29 @@ class DownloadTracker(BaseTracker):
             self._downloads[download_id].error = str(error)
             self._downloads[download_id].average_speed_bps = final_speed
             self._downloads[download_id].validation = validation
+
+    async def track_skipped(
+        self,
+        download_id: str,
+        url: str,
+        reason: str,
+        destination_path: str | None = None,
+    ) -> None:
+        """Record that a download was skipped."""
+        async with self._lock:
+            self._downloads[download_id] = DownloadInfo(
+                id=download_id,
+                url=url,
+                status=DownloadStatus.SKIPPED,
+                destination_path=destination_path,
+            )
+
+    async def track_cancelled(self, download_id: str, url: str) -> None:
+        """Record that a download was cancelled."""
+        async with self._lock:
+            self._ensure_download_exists(download_id, url)
+            self._downloads[download_id].status = DownloadStatus.CANCELLED
+            self._speed_metrics.pop(download_id, None)
 
     def get_download_info(self, download_id: str) -> DownloadInfo | None:
         """Get current state of a download.

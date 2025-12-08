@@ -71,19 +71,15 @@ class TestDownloadInfo:
 
         assert info.get_progress() == 1.0
 
-    def test_downloadinfo_is_terminal_for_completed(
-        self, make_download_info: t.Callable[..., DownloadInfo]
+    @pytest.mark.parametrize(
+        "status",
+        DownloadStatus.terminal_states(),
+    )
+    def test_downloadinfo_is_terminal_for_terminal_states(
+        self, make_download_info: t.Callable[..., DownloadInfo], status: DownloadStatus
     ) -> None:
-        """Test is_terminal() returns True for COMPLETED status."""
-        info = make_download_info(status=DownloadStatus.COMPLETED)
-
-        assert info.is_terminal()
-
-    def test_downloadinfo_is_terminal_for_failed(
-        self, make_download_info: t.Callable[..., DownloadInfo]
-    ) -> None:
-        """Test is_terminal() returns True for FAILED status."""
-        info = make_download_info(status=DownloadStatus.FAILED)
+        """Test is_terminal() returns True for terminal statuses."""
+        info = make_download_info(status=status)
 
         assert info.is_terminal()
 
@@ -122,3 +118,11 @@ class TestDownloadInfo:
         info = make_download_info(validation=result)
         assert info.validation == result
         assert info.validation.is_valid
+
+    def test_skipped_status_exists(self) -> None:
+        """SKIPPED status should exist."""
+        assert DownloadStatus.SKIPPED.value == "skipped"
+
+    def test_cancelled_status_exists(self) -> None:
+        """CANCELLED status should exist."""
+        assert DownloadStatus.CANCELLED.value == "cancelled"

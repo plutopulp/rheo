@@ -6,11 +6,13 @@ from pydantic import ValidationError
 from rheo.domain.hash_validation import HashAlgorithm, ValidationResult
 from rheo.domain.speed import SpeedMetrics
 from rheo.events.models import (
+    DownloadCancelledEvent,
     DownloadCompletedEvent,
     DownloadFailedEvent,
     DownloadProgressEvent,
     DownloadQueuedEvent,
     DownloadRetryingEvent,
+    DownloadSkippedEvent,
     DownloadValidatingEvent,
     ErrorInfo,
 )
@@ -216,3 +218,35 @@ class TestDownloadValidatingEvent:
             download_id="test", url="http://x", algorithm=HashAlgorithm.SHA512
         )
         assert event.algorithm == HashAlgorithm.SHA512
+
+
+class TestDownloadSkippedEvent:
+    """Test DownloadSkippedEvent."""
+
+    def test_default_event_type(self) -> None:
+        """Event type should be download.skipped."""
+        event = DownloadSkippedEvent(
+            download_id="test", url="http://x", reason="file_exists"
+        )
+        assert event.event_type == "download.skipped"
+
+    def test_reason_required(self) -> None:
+        """Reason field is required."""
+        with pytest.raises(ValidationError):
+            DownloadSkippedEvent(download_id="test", url="http://x")
+
+    def test_destination_path_optional(self) -> None:
+        """destination_path defaults to None."""
+        event = DownloadSkippedEvent(
+            download_id="test", url="http://x", reason="file_exists"
+        )
+        assert event.destination_path is None
+
+
+class TestDownloadCancelledEvent:
+    """Test DownloadCancelledEvent."""
+
+    def test_default_event_type(self) -> None:
+        """Event type should be download.cancelled."""
+        event = DownloadCancelledEvent(download_id="test", url="http://x")
+        assert event.event_type == "download.cancelled"

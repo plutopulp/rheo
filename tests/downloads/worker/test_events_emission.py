@@ -1,5 +1,6 @@
 """Tests for DownloadWorker event emission during download lifecycle."""
 
+import asyncio
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -7,11 +8,14 @@ import aiohttp
 import pytest
 from aioresponses import aioresponses
 
+from rheo.domain.file_config import FileExistsStrategy
 from rheo.downloads.worker.base import BaseWorker
 from rheo.events import (
+    DownloadCancelledEvent,
     DownloadCompletedEvent,
     DownloadFailedEvent,
     DownloadProgressEvent,
+    DownloadSkippedEvent,
     DownloadStartedEvent,
 )
 
@@ -175,3 +179,64 @@ class TestWorkerEventEmission:
         event = events_received[0]
         assert isinstance(event, DownloadFailedEvent)
         assert "ClientResponseError" in event.error.exc_type
+        assert event.error.message  # Has error message
+
+    @pytest.mark.asyncio
+    async def test_worker_emits_skipped_event_when_file_exists(
+        self, test_worker: BaseWorker, test_data: EventTestData
+    ) -> None:
+        """Skip strategy should emit download.skipped and not download."""
+        test_data.path.write_text("existing")
+        skipped_events: list[DownloadSkippedEvent] = []
+        test_worker.emitter.on("download.skipped", lambda e: skipped_events.append(e))
+
+        await test_worker.download(
+            test_data.url,
+            test_data.path,
+            download_id="skip-id",
+            file_exists_strategy=FileExistsStrategy.SKIP,
+        )
+
+        assert len(skipped_events) == 1
+        event = skipped_events[0]
+        assert isinstance(event, DownloadSkippedEvent)
+        assert event.download_id == "skip-id"
+        assert event.url == test_data.url
+        assert event.destination_path == str(test_data.path)
+
+    @pytest.mark.asyncio
+    async def test_worker_emits_cancelled_event(
+        self, test_worker: BaseWorker, test_data: EventTestData
+    ) -> None:
+        """Cancelling should emit download.cancelled."""
+        cancelled_events: list[DownloadCancelledEvent] = []
+        test_worker.emitter.on(
+            "download.cancelled", lambda e: cancelled_events.append(e)
+        )
+
+        # Slow writes to ensure cancellation happens mid-download
+        original_write = test_worker._write_chunk_to_file
+
+        async def slow_write(chunk, file_handle):
+            await asyncio.sleep(0.01)
+            await original_write(chunk, file_handle)
+
+        test_worker._write_chunk_to_file = slow_write
+
+        with aioresponses() as mock:
+            mock.get(test_data.url, status=200, body=b"x" * 10000)
+            task = asyncio.create_task(
+                test_worker.download(
+                    test_data.url, test_data.path, download_id="cancel"
+                )
+            )
+            await asyncio.sleep(0.01)
+            task.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await task
+
+        assert len(cancelled_events) == 1
+        event = cancelled_events[0]
+        assert isinstance(event, DownloadCancelledEvent)
+        assert event.download_id == "cancel"
+        assert event.url == test_data.url

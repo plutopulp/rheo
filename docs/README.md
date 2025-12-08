@@ -51,8 +51,8 @@ That's it. The manager handles worker pools, state tracking, and cleanup automat
 - **Speed & ETA tracking**: Real-time download speed with moving averages and estimated completion time
 - **Graceful shutdown**: Stop downloads cleanly or cancel immediately
 - **File exists handling**: Skip, overwrite, or error when destination exists (configurable per-file or globally)
-- **Event system**: React to download lifecycle events (started, progress, speed, completed, failed, retry, validation)
-- **Progress tracking**: Track bytes downloaded, completion status, errors, validation state, and final average speeds
+- **Event system**: React to download lifecycle events (queued, started, progress, speed, completed, failed, skipped, cancelled, retry, validation)
+- **Progress tracking**: Track bytes downloaded, completion status, errors, validation results, destination paths, and final average speeds
 - **Async/await**: Built on asyncio for efficient I/O
 - **Type hints**: Full type annotations throughout
 - **Dependency injection**: Easy to test and customise
@@ -247,11 +247,14 @@ The library uses event-driven architecture with `download.*` namespaced events:
 - `download.queued` - When download is added to queue
 - `download.started` - When download begins
 - `download.progress` - Progress updates (includes speed metrics)
-- `download.completed` - When download finishes successfully
-- `download.failed` - When download fails
+- `download.completed` - Success (includes destination_path, elapsed_seconds, average_speed_bps, optional ValidationResult)
+- `download.failed` - Failure (includes ErrorInfo and optional ValidationResult for hash mismatches)
+- `download.skipped` - Skipped due to file-exists strategy (includes reason and destination_path)
+- `download.cancelled` - Cancelled by caller
 - `download.retrying` - Before retry attempt
+- `download.validating` - When hash validation starts (if configured)
 
-Events are emitted by workers and queue, automatically wired to tracker for state updates.
+Events are emitted by queue and workers, automatically wired to the tracker for state updates. Validation outcomes are embedded in completed/failed events via `ValidationResult`, and the tracker stores `destination_path` and validation results directly on `DownloadInfo`.
 
 **Note**: Direct event subscription API is being redesigned. Currently, use the tracker for state queries after downloads complete. Event subscription will be exposed through the manager in a future release.
 
@@ -301,7 +304,7 @@ file_config = FileConfig(
 - Failed validation deletes corrupted file and raises `HashMismatchError`
 - Emits validation events: `validation_started`, `validation_completed`, `validation_failed`
 
-**Track validation state**:
+**Track validation results**:
 
 ```python
 tracker = DownloadTracker()
@@ -313,11 +316,9 @@ async with DownloadManager(download_dir=Path("./downloads"), tracker=tracker) as
 # Check validation results
 for url, info in tracker.get_all_downloads().items():
     if info.validation:
-        print(f"{url}: {info.validation.status}")
-        if info.validation.status == "succeeded":
-            print(f"  Hash: {info.validation.calculated_hash}")
-        elif info.validation.status == "failed":
-            print(f"  Error: {info.validation.error_message}")
+        print(f"{url}: valid={info.validation.is_valid}")
+        print(f"  expected={info.validation.expected_hash}")
+        print(f"  calculated={info.validation.calculated_hash}")
 ```
 
 ### File Exists Handling
