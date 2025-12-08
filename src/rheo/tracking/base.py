@@ -105,30 +105,3 @@ class BaseTracker(ABC):
     ) -> None:
         """Track when a download speed is updated."""
         pass
-
-    @abstractmethod
-    async def track_validation_started(
-        self, download_id: str, url: str, algorithm: str
-    ) -> None:
-        """Track when a validation starts."""
-        pass
-
-    @abstractmethod
-    async def track_validation_completed(
-        self, download_id: str, url: str, algorithm: str, calculated_hash: str
-    ) -> None:
-        """Track when a validation completes."""
-        pass
-
-    @abstractmethod
-    async def track_validation_failed(
-        self,
-        download_id: str,
-        url: str,
-        algorithm: str,
-        expected_hash: str,
-        actual_hash: str | None,
-        error_message: str,
-    ) -> None:
-        """Track when a validation fails."""
-        pass

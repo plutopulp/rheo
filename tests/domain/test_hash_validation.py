@@ -7,8 +7,6 @@ from rheo.domain.hash_validation import (
     HashAlgorithm,
     HashConfig,
     ValidationResult,
-    ValidationState,
-    ValidationStatus,
 )
 
 
@@ -78,21 +76,6 @@ class TestHashConfigHelpers:
         """Raises ValueError for unsupported hash algorithm."""
         with pytest.raises(ValueError, match="Unsupported hash algorithm"):
             HashConfig.from_checksum_string("invalid:abc123")
-
-
-class TestValidationState:
-    """ValidationState behaviour."""
-
-    def test_allows_customisation(self):
-        """ValidationState stores provided values."""
-        state = ValidationState(
-            status=ValidationStatus.FAILED,
-            calculated_hash="abc",
-            error="boom",
-        )
-        assert state.status == ValidationStatus.FAILED
-        assert state.calculated_hash == "abc"
-        assert state.error == "boom"
 
 
 class TestValidationResult:

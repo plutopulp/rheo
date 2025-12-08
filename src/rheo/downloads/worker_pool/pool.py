@@ -70,10 +70,6 @@ def _create_event_wiring(
             Exception(f"{e.error.exc_type}: {e.error.message}"),
             e.validation,
         ),
-        # Validation phase event (indicates validation in progress)
-        "download.validating": lambda e: tracker.track_validation_started(
-            e.download_id, e.url, e.algorithm
-        ),
     }
 
 

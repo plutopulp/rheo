@@ -5,10 +5,7 @@ import typing as t
 import pytest
 
 from rheo.domain.downloads import DownloadInfo, DownloadStatus
-from rheo.domain.hash_validation import (
-    ValidationState,
-    ValidationStatus,
-)
+from rheo.domain.hash_validation import HashAlgorithm, ValidationResult
 
 
 @pytest.fixture
@@ -113,12 +110,15 @@ class TestDownloadInfo:
         info = make_download_info()
         assert info.validation is None
 
-    def test_validation_field_stores_state(
+    def test_validation_field_stores_result(
         self, make_download_info: t.Callable[..., DownloadInfo]
     ) -> None:
-        """Validation info stores state when provided."""
-        state = ValidationState(
-            status=ValidationStatus.SUCCEEDED, validated_hash="abc123", error=None
+        """Validation result stored when provided."""
+        result = ValidationResult(
+            algorithm=HashAlgorithm.SHA256,
+            expected_hash="a" * 64,
+            calculated_hash="a" * 64,
         )
-        info = make_download_info(validation=state)
-        assert info.validation == state
+        info = make_download_info(validation=result)
+        assert info.validation == result
+        assert info.validation.is_valid

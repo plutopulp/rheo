@@ -70,8 +70,7 @@ Key pieces:
 - `DownloadStats`: Aggregated statistics
 - `HashConfig`: Hash validation configuration (algorithm and expected hash)
 - `HashAlgorithm`: Supported hash algorithms (MD5, SHA256, SHA512)
-- `ValidationState`: Current validation status and calculated hash
-- `ValidationStatus`: Enum for validation states (not_requested, in_progress, succeeded, failed)
+- `ValidationResult`: Hash validation result with `is_valid` property (algorithm, expected/calculated hash, duration)
 - `SpeedMetrics`: Real-time speed and ETA snapshot
 - `SpeedCalculator`: Calculates instantaneous and moving average speeds with ETA estimation
 - Custom exceptions: `ValidationError`, `HashMismatchError`, `FileAccessError`, `FileExistsError`, `ManagerNotInitializedError`, `PendingDownloadsError`, etc.
@@ -185,7 +184,7 @@ Key pieces:
 - Does NOT emit events (workers and queue emit events directly)
 - Maintains `DownloadInfo` for each download
 - Tracks transient `SpeedMetrics` for active downloads
-- Tracks `ValidationState` for files with hash validation
+- Stores `ValidationResult` from completion/failure events
 - Persists average speed and validation results in `DownloadInfo` upon completion/failure
 - Thread-safe via `asyncio.Lock`
 - Provides query methods (`get_download_info`, `get_all_downloads`, `get_stats`, `get_speed_metrics`)

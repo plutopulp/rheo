@@ -128,7 +128,7 @@ class DownloadWorker(BaseWorker):
         """Event emitter for broadcasting worker events."""
         return self._emitter
 
-    ### Public API
+    # Public API
 
     async def download(
         self,
@@ -214,7 +214,7 @@ class DownloadWorker(BaseWorker):
             download_id=download_id,
         )
 
-    ### Download Orchestration
+    # Download Orchestration
 
     async def _download_with_cleanup(
         self,
@@ -281,7 +281,7 @@ class DownloadWorker(BaseWorker):
             )
             raise
 
-    ### Download Phase
+    # Download Phase
 
     async def _perform_download(
         self,
@@ -401,7 +401,7 @@ class DownloadWorker(BaseWorker):
         """
         await file_handle.write(chunk)
 
-    ### Validation Phase
+    # Validation Phase
 
     async def _validate_if_configured(
         self,
@@ -544,7 +544,7 @@ class DownloadWorker(BaseWorker):
             file_path=destination_path,
         )
 
-    ### Event Emission
+    # Event Emission
 
     async def _emit_completed(
         self,
@@ -568,7 +568,7 @@ class DownloadWorker(BaseWorker):
             ),
         )
 
-    ### Error Handling
+    # Error Handling
 
     async def _handle_download_failure(
         self,
@@ -650,7 +650,7 @@ class DownloadWorker(BaseWorker):
         error_message = f"{error_category} {url}: {exception}"
         self.logger.error(error_message)
 
-    ### File Utilities
+    # File Utilities
 
     async def _cleanup_partial_file(self, file_path: Path) -> None:
         """Remove partially downloaded file if it exists.

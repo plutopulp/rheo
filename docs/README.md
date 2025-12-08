@@ -521,7 +521,7 @@ poetry run python -m src.rheo.main
 
 The library is organised into bounded contexts:
 
-- **Domain**: Core models (`FileConfig`, `DownloadInfo`, `DownloadStatus`, `HashConfig`, `ValidationState`, `SpeedMetrics`, `SpeedCalculator`, `ErrorInfo`)
+- **Domain**: Core models (`FileConfig`, `DownloadInfo`, `DownloadStatus`, `HashConfig`, `ValidationResult`, `SpeedMetrics`, `SpeedCalculator`, `ErrorInfo`)
 - **Downloads**: Queue, manager, worker pool, and file validation implementations
 - **Events**: Event system with Pydantic models (`download.*` events with embedded speed/error info)
 - **Tracking**: State tracking, statistics, real-time speed metrics, and validation state

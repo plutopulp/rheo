@@ -19,8 +19,7 @@ from .file_config import FileConfig, FileExistsStrategy
 from .hash_validation import (
     HashAlgorithm,
     HashConfig,
-    ValidationState,
-    ValidationStatus,
+    ValidationResult,
 )
 from .retry import ErrorCategory, RetryConfig, RetryPolicy
 
@@ -30,11 +29,10 @@ __all__ = [
     "FileExistsStrategy",
     "DownloadInfo",
     "DownloadStatus",
-    "ValidationStatus",
-    "ValidationState",
     "DownloadStats",
     "HashAlgorithm",
     "HashConfig",
+    "ValidationResult",
     # Retry Models
     "ErrorCategory",
     "RetryConfig",

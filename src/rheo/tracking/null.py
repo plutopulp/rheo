@@ -61,24 +61,3 @@ class NullTracker(BaseTracker):
         validation: ValidationResult | None = None,
     ) -> None:
         pass
-
-    async def track_validation_started(
-        self, download_id: str, url: str, algorithm: str
-    ) -> None:
-        pass
-
-    async def track_validation_completed(
-        self, download_id: str, url: str, algorithm: str, calculated_hash: str
-    ) -> None:
-        pass
-
-    async def track_validation_failed(
-        self,
-        download_id: str,
-        url: str,
-        algorithm: str,
-        expected_hash: str,
-        actual_hash: str | None,
-        error_message: str,
-    ) -> None:
-        pass

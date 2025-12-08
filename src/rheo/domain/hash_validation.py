@@ -33,28 +33,6 @@ class HashAlgorithm(enum.StrEnum):
         }[self]
 
 
-class ValidationStatus(enum.StrEnum):
-    """Hash validation lifecycle states."""
-
-    IN_PROGRESS = "in_progress"
-    SUCCEEDED = "succeeded"
-    FAILED = "failed"
-
-
-class ValidationState(BaseModel):
-    """State container for download validation."""
-
-    status: ValidationStatus = Field(description="Current validation status")
-    calculated_hash: str | None = Field(
-        default=None,
-        description="Hash calculated during validation when available",
-    )
-    error: str | None = Field(
-        default=None,
-        description="Validation error message when validation fails",
-    )
-
-
 class ValidationResult(BaseModel):
     """Hash validation result (success or failure).
 
