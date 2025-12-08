@@ -66,7 +66,7 @@ Key pieces:
 - `FileConfig`: Download configuration (URL, destination, priority, hash validation, file exists strategy, etc.). Includes path traversal protection on `destination_subdir`
 - `FileExistsStrategy`: Enum for handling existing files (SKIP, OVERWRITE, ERROR)
 - `DownloadInfo`: Current state of a download (includes final average speed and validation state)
-- `DownloadStatus`: Enum for states (pending, downloading, completed, failed)
+- `DownloadStatus`: Enum for states (queued, pending, in_progress, completed, failed, skipped, cancelled)
 - `DownloadStats`: Aggregated statistics
 - `HashConfig`: Hash validation configuration (algorithm and expected hash)
 - `HashAlgorithm`: Supported hash algorithms (MD5, SHA256, SHA512)
@@ -164,12 +164,14 @@ Key pieces:
   - `DownloadQueuedEvent` - When added to queue (with priority)
   - `DownloadStartedEvent` - When download begins (with total_bytes if known)
   - `DownloadProgressEvent` - Progress updates (includes embedded `SpeedMetrics`)
-  - `DownloadCompletedEvent` - Success (with elapsed_seconds, average_speed_bps)
-  - `DownloadFailedEvent` - Failure (with `ErrorInfo` model)
+  - `DownloadCompletedEvent` - Success (includes destination_path, elapsed_seconds, average_speed_bps, optional `ValidationResult`)
+  - `DownloadFailedEvent` - Failure (includes `ErrorInfo`, optional `ValidationResult` for hash mismatches)
+  - `DownloadSkippedEvent` - Skipped due to file-exists strategy (includes reason, destination_path)
+  - `DownloadCancelledEvent` - Cancelled by caller
   - `DownloadRetryingEvent` - Before retry (with retry count, delay, `ErrorInfo`)
-- Validation events (still using `worker.*` namespace, to be renamed):
-  - `WorkerValidationStartedEvent`, `WorkerValidationCompletedEvent`, `WorkerValidationFailedEvent`
+  - `DownloadValidatingEvent` - Validation started (algorithm)
 - `ErrorInfo`: Structured error model with `exc_type`, `message`, optional `traceback`
+- `ValidationResult`: Embedded in completed/failed to carry hash validation outcome (expected/calculated hash, is_valid, duration)
 - Self-contained payloads (no external state needed)
 
 **Why events**: Loose coupling. Worker doesn't know tracker exists. Tracker doesn't know worker implementation. Easy to add new observers without modifying existing code.
