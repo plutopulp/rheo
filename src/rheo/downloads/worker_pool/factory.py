@@ -3,10 +3,10 @@
 import typing as t
 from pathlib import Path
 
-from ...tracking.base import BaseTracker
 from ..queue import PriorityDownloadQueue
 from ..worker.factory import WorkerFactory
 from .base import BaseWorkerPool
+from .pool import EventWiring
 
 if t.TYPE_CHECKING:
     import loguru
@@ -24,10 +24,10 @@ class WorkerPoolFactory(t.Protocol):
         self,
         queue: PriorityDownloadQueue,
         worker_factory: WorkerFactory,
-        tracker: BaseTracker,
         logger: "loguru.Logger",
         download_dir: Path,
         max_workers: int,
+        event_wiring: EventWiring | None,
         **kwargs: t.Any,
     ) -> BaseWorkerPool:
         """Create a worker pool instance with the given dependencies.
@@ -35,11 +35,11 @@ class WorkerPoolFactory(t.Protocol):
         Args:
             queue: Priority queue for retrieving download tasks
             worker_factory: Factory for creating worker instances
-            tracker: Download tracker for observing worker events
             logger: Logger instance for recording pool events
             download_dir: Directory where downloaded files will be saved
             max_workers: Maximum number of concurrent worker tasks
-            **kwargs: Additional optional parameters (e.g., event_wiring)
+            event_wiring: Event handlers categorised by source ("queue", "worker")
+            **kwargs: Additional optional parameters
 
         Returns:
             A BaseWorkerPool instance ready to manage workers

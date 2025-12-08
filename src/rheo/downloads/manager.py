@@ -24,7 +24,7 @@ from .queue import PriorityDownloadQueue
 from .worker.factory import WorkerFactory
 from .worker.worker import DownloadWorker
 from .worker_pool.factory import WorkerPoolFactory
-from .worker_pool.pool import WorkerPool
+from .worker_pool.pool import EventSource, EventWiring, WorkerPool
 
 if t.TYPE_CHECKING:
     import loguru
@@ -87,6 +87,7 @@ class DownloadManager:
         download_dir: Path = Path("."),
         worker_pool_factory: WorkerPoolFactory | None = None,
         file_exists_strategy: FileExistsStrategy = FileExistsStrategy.SKIP,
+        event_wiring: EventWiring | None = None,
     ) -> None:
         """Initialise the download manager.
 
@@ -107,6 +108,8 @@ class DownloadManager:
                     defaults to WorkerPool constructor.
             file_exists_strategy: Default strategy for handling existing files.
                     Defaults to SKIP.
+            event_wiring: Optional wiring map for download events to tracker handlers.
+                    If None, defaults to internal wiring.
         """
         self._client = client
         self._owns_client = False  # Track if we created the client
@@ -128,15 +131,16 @@ class DownloadManager:
         self.max_concurrent = max_concurrent
         self.download_dir = download_dir
         self.file_exists_strategy = file_exists_strategy
+        self._event_wiring = event_wiring or self._create_event_wiring()
 
         pool_factory = worker_pool_factory or WorkerPool
         self._worker_pool = pool_factory(
             queue=self.queue,
             worker_factory=self._worker_factory,
-            tracker=self._tracker,
             logger=logger,
             download_dir=download_dir,
             max_workers=self.max_concurrent,
+            event_wiring=self._event_wiring,
             file_exists_strategy=self.file_exists_strategy,
         )
 
@@ -324,11 +328,6 @@ class DownloadManager:
         # Ensure download directory exists
         await aiofiles.os.makedirs(self.download_dir, exist_ok=True)
 
-        # Wire queue events to tracker (manager owns this wiring)
-        # Nice-to-have: Unwire in close() for symmetry, though not strictly needed
-        # since manager owns queue and tracker (all garbage collected together)
-        self._wire_queue_to_tracker()
-
         if self._client is None:
             # Create SSL context using certifi's certificate bundle
             ssl_context = ssl.create_default_context(cafile=certifi.where())
@@ -363,13 +362,39 @@ class DownloadManager:
         if self._owns_client and self._client is not None:
             await self._client.close()
 
-    def _wire_queue_to_tracker(self) -> None:
-        """Wire queue events to tracker.
-
-        Manager owns this wiring because it owns both queue and tracker.
-        Pool handles worker event wiring separately.
-        """
-        self.queue.emitter.on(
-            "download.queued",
-            lambda e: self._tracker._track_queued(e.download_id, e.url, e.priority),
-        )
+    def _create_event_wiring(self) -> EventWiring:
+        """Create event wiring for queue and worker events to tracker handlers."""
+        return {
+            EventSource.QUEUE: {
+                "download.queued": lambda e: self._tracker._track_queued(
+                    e.download_id, e.url, e.priority
+                ),
+            },
+            EventSource.WORKER: {
+                "download.started": lambda e: self._tracker._track_started(
+                    e.download_id, e.url, e.total_bytes
+                ),
+                "download.progress": lambda e: self._tracker._track_progress(
+                    e.download_id, e.url, e.bytes_downloaded, e.total_bytes, e.speed
+                ),
+                "download.completed": lambda e: self._tracker._track_completed(
+                    e.download_id,
+                    e.url,
+                    e.total_bytes,
+                    e.destination_path,
+                    e.validation,
+                ),
+                "download.failed": lambda e: self._tracker._track_failed(
+                    e.download_id,
+                    e.url,
+                    Exception(f"{e.error.exc_type}: {e.error.message}"),
+                    e.validation,
+                ),
+                "download.skipped": lambda e: self._tracker._track_skipped(
+                    e.download_id, e.url, e.reason, e.destination_path
+                ),
+                "download.cancelled": lambda e: self._tracker._track_cancelled(
+                    e.download_id, e.url
+                ),
+            },
+        }
