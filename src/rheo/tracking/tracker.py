@@ -10,7 +10,7 @@ import typing as t
 from collections import Counter
 
 from ..domain.downloads import DownloadInfo, DownloadStats, DownloadStatus
-from ..domain.hash_validation import ValidationState, ValidationStatus
+from ..domain.hash_validation import ValidationResult
 from ..domain.speed import SpeedMetrics
 from ..infrastructure.logging import get_logger
 from .base import BaseTracker
@@ -203,10 +203,12 @@ class DownloadTracker(BaseTracker):
         url: str,
         total_bytes: int = 0,
         destination_path: str = "",
+        validation: ValidationResult | None = None,
     ) -> None:
         """Record that a download completed successfully.
 
         Sets status to COMPLETED and updates final byte count.
+        Stores validation result directly if provided.
         Persists average speed from final metrics, then clears transient metrics.
 
         Args:
@@ -214,6 +216,7 @@ class DownloadTracker(BaseTracker):
             url: The URL that was downloaded
             total_bytes: Final size in bytes
             destination_path: Where the file was saved (stored for reference)
+            validation: Optional validation result from hash verification
         """
         async with self._lock:
             self._ensure_download_exists(download_id, url)
@@ -223,11 +226,19 @@ class DownloadTracker(BaseTracker):
             self._downloads[download_id].bytes_downloaded = total_bytes
             self._downloads[download_id].total_bytes = total_bytes
             self._downloads[download_id].average_speed_bps = final_speed
+            self._downloads[download_id].validation = validation
 
-    async def track_failed(self, download_id: str, url: str, error: Exception) -> None:
+    async def track_failed(
+        self,
+        download_id: str,
+        url: str,
+        error: Exception,
+        validation: ValidationResult | None = None,
+    ) -> None:
         """Record that a download failed.
 
         Sets status to FAILED and stores error message.
+        Stores validation result directly if provided (e.g., hash mismatch).
         Persists average speed from metrics if available (useful for failure analysis).
         Clears transient speed metrics.
 
@@ -235,6 +246,7 @@ class DownloadTracker(BaseTracker):
             download_id: Unique identifier for this download task
             url: The URL that failed
             error: The exception that occurred
+            validation: Optional validation result when failure is hash mismatch
         """
         async with self._lock:
             self._ensure_download_exists(download_id, url)
@@ -243,50 +255,7 @@ class DownloadTracker(BaseTracker):
             self._downloads[download_id].status = DownloadStatus.FAILED
             self._downloads[download_id].error = str(error)
             self._downloads[download_id].average_speed_bps = final_speed
-
-    async def track_validation_started(
-        self, download_id: str, url: str, algorithm: str
-    ) -> None:
-        """Record that validation has started for a download."""
-        async with self._lock:
-            self._ensure_download_exists(download_id, url)
-            self._downloads[download_id].validation = ValidationState(
-                status=ValidationStatus.IN_PROGRESS,
-            )
-
-    async def track_validation_completed(
-        self,
-        download_id: str,
-        url: str,
-        algorithm: str,
-        calculated_hash: str,
-    ) -> None:
-        """Record successful validation."""
-        async with self._lock:
-            self._ensure_download_exists(download_id, url)
-            self._downloads[download_id].validation = ValidationState(
-                status=ValidationStatus.SUCCEEDED,
-                validated_hash=calculated_hash,
-                error=None,
-            )
-
-    async def track_validation_failed(
-        self,
-        download_id: str,
-        url: str,
-        algorithm: str,
-        expected_hash: str,
-        actual_hash: str | None,
-        error_message: str,
-    ) -> None:
-        """Record failed validation attempt."""
-        async with self._lock:
-            self._ensure_download_exists(download_id, url)
-            self._downloads[download_id].validation = ValidationState(
-                status=ValidationStatus.FAILED,
-                validated_hash=actual_hash,
-                error=error_message,
-            )
+            self._downloads[download_id].validation = validation
 
     def get_download_info(self, download_id: str) -> DownloadInfo | None:
         """Get current state of a download.

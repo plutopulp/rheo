@@ -3,6 +3,7 @@
 import pytest
 from pydantic import ValidationError
 
+from rheo.domain.hash_validation import HashAlgorithm, ValidationResult
 from rheo.domain.speed import SpeedMetrics
 from rheo.events.models import (
     DownloadCompletedEvent,
@@ -10,6 +11,7 @@ from rheo.events.models import (
     DownloadProgressEvent,
     DownloadQueuedEvent,
     DownloadRetryingEvent,
+    DownloadValidatingEvent,
     ErrorInfo,
 )
 
@@ -89,6 +91,20 @@ class TestDownloadCompletedEvent:
                 download_id="test", url="http://x", average_speed_bps=-1.0
             )
 
+    def test_accepts_validation_result(self) -> None:
+        """Should accept optional validation result."""
+        validation = ValidationResult(
+            algorithm=HashAlgorithm.SHA256,
+            expected_hash="abc123",
+            calculated_hash="abc123",
+            duration_ms=12.5,
+        )
+        event = DownloadCompletedEvent(
+            download_id="test", url="http://x", validation=validation
+        )
+        assert event.validation is not None
+        assert event.validation == validation
+
 
 class TestDownloadFailedEvent:
     """Test DownloadFailedEvent."""
@@ -103,6 +119,31 @@ class TestDownloadFailedEvent:
         error = ErrorInfo(exc_type="ValueError", message="test")
         event = DownloadFailedEvent(download_id="test", url="http://x", error=error)
         assert event.error.exc_type == "ValueError"
+
+    def test_validation_defaults_to_none(self) -> None:
+        """validation should default to None."""
+        error = ErrorInfo(exc_type="ValueError", message="test")
+        event = DownloadFailedEvent(download_id="test", url="http://x", error=error)
+        assert event.validation is None
+
+    def test_accepts_validation_result_for_hash_mismatch(self) -> None:
+        """Should accept validation result with mismatch context."""
+        error = ErrorInfo(exc_type="HashMismatchError", message="mismatch")
+        validation = ValidationResult(
+            algorithm=HashAlgorithm.SHA256,
+            expected_hash="expected_hash_value",
+            calculated_hash="actual_hash_value",
+            duration_ms=15.0,
+        )
+        event = DownloadFailedEvent(
+            download_id="test",
+            url="http://x",
+            error=error,
+            validation=validation,
+        )
+        assert event.validation is not None
+        assert event.validation == validation
+        assert event.error == error
 
 
 class TestDownloadRetryingEvent:
@@ -157,3 +198,21 @@ class TestDownloadQueuedEvent:
         """event_type should be download.queued."""
         event = DownloadQueuedEvent(download_id="test", url="http://x", priority=1)
         assert event.event_type == "download.queued"
+
+
+class TestDownloadValidatingEvent:
+    """Test DownloadValidatingEvent."""
+
+    def test_event_type_is_download_validating(self) -> None:
+        """event_type should be download.validating."""
+        event = DownloadValidatingEvent(
+            download_id="test", url="http://x", algorithm=HashAlgorithm.SHA256
+        )
+        assert event.event_type == "download.validating"
+
+    def test_algorithm_accepts_enum(self) -> None:
+        """Should accept provided HashAlgorithm enum."""
+        event = DownloadValidatingEvent(
+            download_id="test", url="http://x", algorithm=HashAlgorithm.SHA512
+        )
+        assert event.algorithm == HashAlgorithm.SHA512

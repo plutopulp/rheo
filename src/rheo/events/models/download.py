@@ -2,6 +2,7 @@
 
 from pydantic import Field, computed_field
 
+from rheo.domain.hash_validation import HashAlgorithm, ValidationResult
 from rheo.domain.speed import SpeedMetrics
 
 from .base import BaseEvent
@@ -74,13 +75,26 @@ class DownloadCompletedEvent(DownloadEvent):
     average_speed_bps: float = Field(
         default=0.0, ge=0, description="Final average speed in bytes/second"
     )
+    validation: ValidationResult | None = Field(
+        default=None,
+        description="Validation result when hash verification is configured",
+    )
 
 
 class DownloadFailedEvent(DownloadEvent):
-    """Emitted when download fails."""
+    """Emitted when download fails.
+
+    For validation failures, check validation field:
+    - validation.expected_hash vs validation.calculated_hash shows mismatch
+    - error.exc_type will be "HashMismatchError"
+    """
 
     event_type: str = Field(default="download.failed")
     error: ErrorInfo = Field(description="Structured error information")
+    validation: ValidationResult | None = Field(
+        default=None,
+        description="Validation result when hash validation was attempted",
+    )
 
 
 class DownloadRetryingEvent(DownloadEvent):
@@ -100,3 +114,12 @@ class DownloadRetryingEvent(DownloadEvent):
         default=0.0, ge=0, description="Delay before this retry in seconds"
     )
     error: ErrorInfo = Field(description="Error that triggered this retry")
+
+
+class DownloadValidatingEvent(DownloadEvent):
+    """Emitted when hash validation starts."""
+
+    event_type: str = Field(default="download.validating")
+    algorithm: HashAlgorithm = Field(
+        description="Hash algorithm used for validation",
+    )

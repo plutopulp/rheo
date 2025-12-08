@@ -11,9 +11,9 @@ from rheo.domain.exceptions import HashMismatchError
 from rheo.domain.hash_validation import HashAlgorithm, HashConfig
 from rheo.downloads.worker.base import BaseWorker
 from rheo.events import (
-    WorkerValidationCompletedEvent,
-    WorkerValidationFailedEvent,
-    WorkerValidationStartedEvent,
+    DownloadCompletedEvent,
+    DownloadFailedEvent,
+    DownloadValidatingEvent,
 )
 
 
@@ -77,8 +77,8 @@ class TestWorkerValidationSuccess:
         self, test_worker: BaseWorker, validation_test_data: ValidationTestData
     ) -> None:
         """Download without hash_config skips validation entirely."""
-        validation_events = []
-        test_worker.emitter.on("worker.validation_started", validation_events.append)
+        validating_events: list[DownloadValidatingEvent] = []
+        test_worker.emitter.on("download.validating", validating_events.append)
 
         with aioresponses() as mock:
             mock.get(
@@ -91,21 +91,20 @@ class TestWorkerValidationSuccess:
             )
 
         assert validation_test_data.path.exists()
-        assert len(validation_events) == 0
+        assert len(validating_events) == 0
 
 
 class TestWorkerValidationEvents:
     """Test validation event emission."""
 
     @pytest.mark.asyncio
-    async def test_emits_validation_started_event(
+    async def test_emits_validating_event(
         self,
         test_worker: BaseWorker,
         calculate_hash: t.Callable[[bytes, str], str],
         validation_test_data: ValidationTestData,
     ) -> None:
-        """Worker emits validation_started event when validating."""
-
+        """Worker emits download.validating event when validation starts."""
         hash_config = HashConfig(
             algorithm=HashAlgorithm.MD5,
             expected_hash=calculate_hash(
@@ -113,8 +112,8 @@ class TestWorkerValidationEvents:
             ),
         )
 
-        events = []
-        test_worker.emitter.on("worker.validation_started", events.append)
+        events: list[DownloadValidatingEvent] = []
+        test_worker.emitter.on("download.validating", events.append)
 
         with aioresponses() as mock:
             mock.get(
@@ -128,18 +127,18 @@ class TestWorkerValidationEvents:
             )
 
         assert len(events) == 1
-        assert isinstance(events[0], WorkerValidationStartedEvent)
+        assert isinstance(events[0], DownloadValidatingEvent)
         assert events[0].url == validation_test_data.url
         assert events[0].algorithm == HashAlgorithm.MD5
 
     @pytest.mark.asyncio
-    async def test_emits_validation_completed_event(
+    async def test_completed_event_includes_validation_result(
         self,
         test_worker: BaseWorker,
         calculate_hash: t.Callable[[bytes, str], str],
         validation_test_data: ValidationTestData,
     ) -> None:
-        """Worker emits validation_completed event on success."""
+        """On success, download.completed includes validation result."""
         expected_hash = calculate_hash(
             validation_test_data.content, HashAlgorithm.SHA256
         )
@@ -148,8 +147,8 @@ class TestWorkerValidationEvents:
             expected_hash=expected_hash,
         )
 
-        events = []
-        test_worker.emitter.on("worker.validation_completed", events.append)
+        events: list[DownloadCompletedEvent] = []
+        test_worker.emitter.on("download.completed", events.append)
 
         with aioresponses() as mock:
             mock.get(
@@ -163,20 +162,22 @@ class TestWorkerValidationEvents:
             )
 
         assert len(events) == 1
-        assert isinstance(events[0], WorkerValidationCompletedEvent)
-        assert events[0].url == validation_test_data.url
-        assert events[0].algorithm == HashAlgorithm.SHA256
-        assert events[0].calculated_hash == expected_hash
-        assert events[0].duration_ms >= 0
+        event = events[0]
+        assert isinstance(event, DownloadCompletedEvent)
+        assert event.validation is not None
+        assert event.validation.algorithm == HashAlgorithm.SHA256
+        assert event.validation.expected_hash == expected_hash
+        assert event.validation.calculated_hash == expected_hash
+        assert event.validation.duration_ms >= 0
 
     @pytest.mark.asyncio
-    async def test_emits_actual_calculated_hash_not_expected_hash(
+    async def test_validation_result_has_actual_calculated_hash(
         self,
         test_worker: BaseWorker,
         calculate_hash: t.Callable[[bytes, str], str],
         validation_test_data: ValidationTestData,
     ) -> None:
-        """Worker emits the ACTUAL calculated hash, not just expected hash.
+        """ValidationResult.calculated_hash is derived from file content.
 
         This test verifies that calculated_hash in the event is derived from
         the file content, not just echoed from hash_config.expected_hash.
@@ -190,8 +191,8 @@ class TestWorkerValidationEvents:
             expected_hash=expected_hash,
         )
 
-        events = []
-        test_worker.emitter.on("worker.validation_completed", events.append)
+        events: list[DownloadCompletedEvent] = []
+        test_worker.emitter.on("download.completed", events.append)
 
         with aioresponses() as mock:
             mock.get(
@@ -211,27 +212,26 @@ class TestWorkerValidationEvents:
         actual_file_content = validation_test_data.path.read_bytes()
         actual_file_hash = calculate_hash(actual_file_content, HashAlgorithm.SHA256)
 
-        # The event's calculated_hash should match what we compute from the file,
-        # proving it's the actual calculated value, not just the expected value
+        # The event's calculated_hash should match what we compute from the file
         assert len(events) == 1
-        assert events[0].calculated_hash == actual_file_hash
-
-        # This should also equal expected_hash since validation passed,
-        # but the key is that it's derived from actual computation
-        assert events[0].calculated_hash == expected_hash
+        event = events[0]
+        assert isinstance(event, DownloadCompletedEvent)
+        assert event.validation is not None
+        assert event.validation.calculated_hash == actual_file_hash
+        assert event.validation.calculated_hash == expected_hash
 
     @pytest.mark.asyncio
-    async def test_emits_validation_failed_event_on_mismatch(
+    async def test_failed_event_includes_validation_on_mismatch(
         self, test_worker: BaseWorker, validation_test_data: ValidationTestData
     ) -> None:
-        """Worker emits validation_failed event on hash mismatch."""
+        """On hash mismatch, download.failed includes validation result."""
         hash_config = HashConfig(
             algorithm=HashAlgorithm.SHA512,
             expected_hash="a" * HashAlgorithm.SHA512.hex_length,
         )
 
-        events = []
-        test_worker.emitter.on("worker.validation_failed", events.append)
+        events: list[DownloadFailedEvent] = []
+        test_worker.emitter.on("download.failed", events.append)
 
         with aioresponses() as mock:
             mock.get(
@@ -246,11 +246,13 @@ class TestWorkerValidationEvents:
                 )
 
         assert len(events) == 1
-        assert isinstance(events[0], WorkerValidationFailedEvent)
-        assert events[0].url == validation_test_data.url
-        assert events[0].algorithm == HashAlgorithm.SHA512
-        assert events[0].expected_hash == hash_config.expected_hash
-        assert events[0].actual_hash is not None
+        assert isinstance(events[0], DownloadFailedEvent)
+        assert events[0].validation is not None
+        assert events[0].validation.algorithm == HashAlgorithm.SHA512
+        assert events[0].validation.expected_hash == hash_config.expected_hash
+        assert events[0].validation.calculated_hash is not None
+        # Verify error info indicates hash mismatch
+        assert "HashMismatchError" in events[0].error.exc_type
 
 
 class TestWorkerValidationFailures:
@@ -279,7 +281,7 @@ class TestWorkerValidationFailures:
                 )
 
         assert exc_info.value.expected_hash == hash_config.expected_hash
-        assert exc_info.value.actual_hash is not None
+        assert exc_info.value.calculated_hash is not None
         assert not validation_test_data.path.exists()  # File should be cleaned up
 
     @pytest.mark.asyncio
@@ -330,9 +332,9 @@ class TestWorkerValidationWithRetry:
             expected_hash="1" * HashAlgorithm.SHA256.hex_length,
         )
 
-        validation_attempts = []
+        validation_attempts: list[DownloadValidatingEvent] = []
         test_worker_with_retry.emitter.on(
-            "worker.validation_started", validation_attempts.append
+            "download.validating", validation_attempts.append
         )
 
         with aioresponses() as mock:

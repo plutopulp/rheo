@@ -2,17 +2,21 @@
 
 from pathlib import Path
 
-from ...domain.hash_validation import HashConfig
+from ...domain.hash_validation import HashConfig, ValidationResult
 from .base import BaseFileValidator
 
 
 class NullFileValidator(BaseFileValidator):
     """No-op validator used when hash validation is disabled."""
 
-    async def validate(self, file_path: Path, config: HashConfig) -> str:
+    async def validate(self, file_path: Path, config: HashConfig) -> ValidationResult:
         """No-op validation that always succeeds.
 
         Returns:
-            The expected hash (since no actual validation is performed).
+            ValidationResult with matching hashes (always valid).
         """
-        return config.expected_hash
+        return ValidationResult(
+            algorithm=config.algorithm,
+            expected_hash=config.expected_hash,
+            calculated_hash=config.expected_hash,  # Always matches
+        )

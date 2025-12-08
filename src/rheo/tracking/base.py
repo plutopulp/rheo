@@ -8,6 +8,7 @@ Subscribe to events via the manager or worker emitter directly.
 from abc import ABC, abstractmethod
 
 from ..domain.downloads import DownloadInfo
+from ..domain.hash_validation import ValidationResult
 
 
 class BaseTracker(ABC):
@@ -62,13 +63,35 @@ class BaseTracker(ABC):
         url: str,
         total_bytes: int = 0,
         destination_path: str = "",
+        validation: ValidationResult | None = None,
     ) -> None:
-        """Track when a download completes."""
+        """Track when a download completes.
+
+        Args:
+            download_id: Unique identifier for this download
+            url: The URL that was downloaded
+            total_bytes: Final file size in bytes
+            destination_path: Where the file was saved
+            validation: Optional validation result from hash verification
+        """
         pass
 
     @abstractmethod
-    async def track_failed(self, download_id: str, url: str, error: Exception) -> None:
-        """Track when a download fails."""
+    async def track_failed(
+        self,
+        download_id: str,
+        url: str,
+        error: Exception,
+        validation: ValidationResult | None = None,
+    ) -> None:
+        """Track when a download fails.
+
+        Args:
+            download_id: Unique identifier for this download
+            url: The URL that failed
+            error: The exception that occurred
+            validation: Optional validation result when failure is hash mismatch
+        """
         pass
 
     @abstractmethod
@@ -81,31 +104,4 @@ class BaseTracker(ABC):
         elapsed_seconds: float,
     ) -> None:
         """Track when a download speed is updated."""
-        pass
-
-    @abstractmethod
-    async def track_validation_started(
-        self, download_id: str, url: str, algorithm: str
-    ) -> None:
-        """Track when a validation starts."""
-        pass
-
-    @abstractmethod
-    async def track_validation_completed(
-        self, download_id: str, url: str, algorithm: str, calculated_hash: str
-    ) -> None:
-        """Track when a validation completes."""
-        pass
-
-    @abstractmethod
-    async def track_validation_failed(
-        self,
-        download_id: str,
-        url: str,
-        algorithm: str,
-        expected_hash: str,
-        actual_hash: str | None,
-        error_message: str,
-    ) -> None:
-        """Track when a validation fails."""
         pass

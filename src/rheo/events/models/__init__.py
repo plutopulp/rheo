@@ -1,5 +1,7 @@
 """Event data models."""
 
+from rheo.domain.hash_validation import ValidationResult
+
 from .base import BaseEvent
 from .download import (
     DownloadCompletedEvent,
@@ -9,6 +11,7 @@ from .download import (
     DownloadQueuedEvent,
     DownloadRetryingEvent,
     DownloadStartedEvent,
+    DownloadValidatingEvent,
 )
 from .error_info import ErrorInfo
 
@@ -22,4 +25,6 @@ __all__ = [
     "DownloadCompletedEvent",
     "DownloadFailedEvent",
     "DownloadRetryingEvent",
+    "DownloadValidatingEvent",
+    "ValidationResult",
 ]
