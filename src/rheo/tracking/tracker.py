@@ -106,16 +106,20 @@ class DownloadTracker(BaseTracker):
         url: str,
         bytes_downloaded: int,
         total_bytes: int | None = None,
+        speed: SpeedMetrics | None = None,
     ) -> None:
-        """Update download progress.
+        """Update download progress with optional speed metrics.
 
-        Updates bytes_downloaded and optionally total_bytes.
+        Updates bytes_downloaded and optionally total_bytes, and stores speed
+        metrics snapshot when provided. Speed metrics are cleared on completion
+        or failure.
 
         Args:
             download_id: Unique identifier for this download task
             url: The URL being downloaded
             bytes_downloaded: Bytes downloaded so far
             total_bytes: Total size in bytes (optional)
+            speed: Speed metrics snapshot (optional)
         """
         async with self._lock:
             if download_id not in self._downloads:
@@ -125,33 +129,8 @@ class DownloadTracker(BaseTracker):
             if total_bytes is not None:
                 self._downloads[download_id].total_bytes = total_bytes
 
-    async def _track_speed_update(
-        self,
-        download_id: str,
-        current_speed_bps: float,
-        average_speed_bps: float,
-        eta_seconds: float | None,
-        elapsed_seconds: float,
-    ) -> None:
-        """Update speed metrics for a download.
-
-        Stores the latest speed and ETA information for active downloads.
-        Speed metrics are cleared when download completes or fails.
-
-        Args:
-            download_id: Unique identifier for this download task
-            current_speed_bps: Instantaneous speed in bytes per second
-            average_speed_bps: Moving average speed in bytes per second
-            eta_seconds: Estimated time to completion in seconds (None if unknown)
-            elapsed_seconds: Time elapsed since download started in seconds
-        """
-        async with self._lock:
-            self._speed_metrics[download_id] = SpeedMetrics(
-                current_speed_bps=current_speed_bps,
-                average_speed_bps=average_speed_bps,
-                eta_seconds=eta_seconds,
-                elapsed_seconds=elapsed_seconds,
-            )
+            if speed is not None:
+                self._speed_metrics[download_id] = speed
 
     def get_speed_metrics(self, download_id: str) -> SpeedMetrics | None:
         """Get current speed metrics for a download.

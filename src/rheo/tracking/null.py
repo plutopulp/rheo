@@ -2,6 +2,7 @@
 
 from ..domain.downloads import DownloadInfo
 from ..domain.hash_validation import ValidationResult
+from ..domain.speed import SpeedMetrics
 from .base import BaseTracker
 
 
@@ -31,6 +32,7 @@ class NullTracker(BaseTracker):
         url: str,
         bytes_downloaded: int,
         total_bytes: int | None = None,
+        speed: SpeedMetrics | None = None,
     ) -> None:
         pass
 
@@ -42,17 +44,6 @@ class NullTracker(BaseTracker):
         destination_path: str | None = None,
         validation: ValidationResult | None = None,
     ) -> None:
-        pass
-
-    async def _track_speed_update(
-        self,
-        download_id: str,
-        current_speed_bps: float,
-        average_speed_bps: float,
-        eta_seconds: float | None,
-        elapsed_seconds: float,
-    ) -> None:
-        """No-op speed tracking."""
         pass
 
     async def _track_failed(

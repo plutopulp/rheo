@@ -24,23 +24,6 @@ if t.TYPE_CHECKING:
 WorkerEventHandler = t.Callable[[t.Any], t.Awaitable[None] | None]
 
 
-# TODO: Consolidate into single track_progress call with embedded speed
-async def _handle_progress_event(tracker: BaseTracker, e: t.Any) -> None:
-    """Handle download.progress event - updates both progress and speed."""
-    await tracker._track_progress(
-        e.download_id, e.url, e.bytes_downloaded, e.total_bytes
-    )
-    # Also track speed if present (merged into progress event)
-    if e.speed:
-        await tracker._track_speed_update(
-            e.download_id,
-            e.speed.current_speed_bps,
-            e.speed.average_speed_bps,
-            e.speed.eta_seconds,
-            e.speed.elapsed_seconds,
-        )
-
-
 def _create_event_wiring(
     tracker: BaseTracker,
 ) -> dict[str, WorkerEventHandler]:
@@ -60,7 +43,9 @@ def _create_event_wiring(
         "download.started": lambda e: tracker._track_started(
             e.download_id, e.url, e.total_bytes
         ),
-        "download.progress": lambda e: _handle_progress_event(tracker, e),
+        "download.progress": lambda e: tracker._track_progress(
+            e.download_id, e.url, e.bytes_downloaded, e.total_bytes, e.speed
+        ),
         "download.completed": lambda e: tracker._track_completed(
             e.download_id, e.url, e.total_bytes, e.destination_path, e.validation
         ),
