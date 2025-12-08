@@ -35,7 +35,7 @@ class DownloadTracker(BaseTracker):
         tracker = DownloadTracker()
 
         # State is updated by pool event wiring (not directly by user)
-        # Pool wires: download.started -> tracker.track_started()
+        # Pool wires: download.started -> tracker._track_started()
 
         # Query state
         info = tracker.get_download_info(download_id)
@@ -63,7 +63,9 @@ class DownloadTracker(BaseTracker):
 
         self._logger.debug("DownloadTracker initialized")
 
-    async def track_queued(self, download_id: str, url: str, priority: int = 1) -> None:
+    async def _track_queued(
+        self, download_id: str, url: str, priority: int = 1
+    ) -> None:
         """Record that a download was queued.
 
         Creates a new DownloadInfo with QUEUED status.
@@ -78,7 +80,7 @@ class DownloadTracker(BaseTracker):
                 id=download_id, url=url, status=DownloadStatus.QUEUED
             )
 
-    async def track_started(
+    async def _track_started(
         self, download_id: str, url: str, total_bytes: int | None = None
     ) -> None:
         """Record that a download started.
@@ -98,7 +100,7 @@ class DownloadTracker(BaseTracker):
             if total_bytes is not None:
                 self._downloads[download_id].total_bytes = total_bytes
 
-    async def track_progress(
+    async def _track_progress(
         self,
         download_id: str,
         url: str,
@@ -123,7 +125,7 @@ class DownloadTracker(BaseTracker):
             if total_bytes is not None:
                 self._downloads[download_id].total_bytes = total_bytes
 
-    async def track_speed_update(
+    async def _track_speed_update(
         self,
         download_id: str,
         current_speed_bps: float,
@@ -197,7 +199,7 @@ class DownloadTracker(BaseTracker):
 
         return final_speed
 
-    async def track_completed(
+    async def _track_completed(
         self,
         download_id: str,
         url: str,
@@ -229,7 +231,7 @@ class DownloadTracker(BaseTracker):
             self._downloads[download_id].destination_path = destination_path
             self._downloads[download_id].validation = validation
 
-    async def track_failed(
+    async def _track_failed(
         self,
         download_id: str,
         url: str,
@@ -258,7 +260,7 @@ class DownloadTracker(BaseTracker):
             self._downloads[download_id].average_speed_bps = final_speed
             self._downloads[download_id].validation = validation
 
-    async def track_skipped(
+    async def _track_skipped(
         self,
         download_id: str,
         url: str,
@@ -274,7 +276,7 @@ class DownloadTracker(BaseTracker):
                 destination_path=destination_path,
             )
 
-    async def track_cancelled(self, download_id: str, url: str) -> None:
+    async def _track_cancelled(self, download_id: str, url: str) -> None:
         """Record that a download was cancelled."""
         async with self._lock:
             self._ensure_download_exists(download_id, url)

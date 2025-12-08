@@ -26,7 +26,7 @@ class TestDownloadTrackerStateUpdates:
         url = "https://example.com/file.txt"
         download_id = url  # Use URL as ID for simplicity in tests
 
-        await tracker.track_queued(download_id, url)
+        await tracker._track_queued(download_id, url)
 
         info = tracker.get_download_info(download_id)
         assert info is not None
@@ -41,8 +41,8 @@ class TestDownloadTrackerStateUpdates:
         """Test that track_started updates status to IN_PROGRESS."""
         url = "https://example.com/file.txt"
 
-        await tracker.track_queued(url, url)
-        await tracker.track_started(url, url, total_bytes=1024)
+        await tracker._track_queued(url, url)
+        await tracker._track_started(url, url, total_bytes=1024)
 
         info = tracker.get_download_info(url)
         assert info.status == DownloadStatus.IN_PROGRESS
@@ -54,7 +54,7 @@ class TestDownloadTrackerStateUpdates:
         url = "https://example.com/file.txt"
 
         # Start without queuing first
-        await tracker.track_started(url, url, total_bytes=2048)
+        await tracker._track_started(url, url, total_bytes=2048)
 
         info = tracker.get_download_info(url)
         assert info is not None
@@ -68,8 +68,8 @@ class TestDownloadTrackerStateUpdates:
         """Test that track_progress updates bytes_downloaded."""
         url = "https://example.com/file.txt"
 
-        await tracker.track_started(url, url, total_bytes=1000)
-        await tracker.track_progress(url, url, bytes_downloaded=250)
+        await tracker._track_started(url, url, total_bytes=1000)
+        await tracker._track_progress(url, url, bytes_downloaded=250)
 
         info = tracker.get_download_info(url)
         assert info.bytes_downloaded == 250
@@ -80,10 +80,10 @@ class TestDownloadTrackerStateUpdates:
         """Test multiple progress updates."""
         url = "https://example.com/file.txt"
 
-        await tracker.track_started(url, url, total_bytes=1000)
-        await tracker.track_progress(url, url, bytes_downloaded=100)
-        await tracker.track_progress(url, url, bytes_downloaded=500)
-        await tracker.track_progress(url, url, bytes_downloaded=1000)
+        await tracker._track_started(url, url, total_bytes=1000)
+        await tracker._track_progress(url, url, bytes_downloaded=100)
+        await tracker._track_progress(url, url, bytes_downloaded=500)
+        await tracker._track_progress(url, url, bytes_downloaded=1000)
 
         info = tracker.get_download_info(url)
         assert info.bytes_downloaded == 1000
@@ -96,8 +96,8 @@ class TestDownloadTrackerStateUpdates:
         """Test that track_progress can update total_bytes."""
         url = "https://example.com/file.txt"
 
-        await tracker.track_started(url, url)
-        await tracker.track_progress(url, url, bytes_downloaded=500, total_bytes=2000)
+        await tracker._track_started(url, url)
+        await tracker._track_progress(url, url, bytes_downloaded=500, total_bytes=2000)
 
         info = tracker.get_download_info(url)
         assert info.bytes_downloaded == 500
@@ -110,7 +110,7 @@ class TestDownloadTrackerStateUpdates:
         url = "https://example.com/file.txt"
 
         # Update progress without starting first
-        await tracker.track_progress(url, url, bytes_downloaded=100, total_bytes=1000)
+        await tracker._track_progress(url, url, bytes_downloaded=100, total_bytes=1000)
 
         info = tracker.get_download_info(url)
         assert info is not None
@@ -124,8 +124,8 @@ class TestDownloadTrackerStateUpdates:
         """Test that track_completed sets COMPLETED status."""
         url = "https://example.com/file.txt"
 
-        await tracker.track_started(url, url, total_bytes=1024)
-        await tracker.track_completed(
+        await tracker._track_started(url, url, total_bytes=1024)
+        await tracker._track_completed(
             url, url, total_bytes=1024, destination_path="/tmp/file.txt"
         )
 
@@ -143,8 +143,8 @@ class TestDownloadTrackerStateUpdates:
         """Test that track_completed updates both bytes_downloaded and total_bytes."""
         url = "https://example.com/file.txt"
 
-        await tracker.track_started(url, url)
-        await tracker.track_completed(url, url, total_bytes=5000)
+        await tracker._track_started(url, url)
+        await tracker._track_completed(url, url, total_bytes=5000)
 
         info = tracker.get_download_info(url)
         assert info.bytes_downloaded == 5000
@@ -157,7 +157,7 @@ class TestDownloadTrackerStateUpdates:
         """Test that track_completed can create DownloadInfo if it doesn't exist."""
         url = "https://example.com/file.txt"
 
-        await tracker.track_completed(url, url, total_bytes=1024)
+        await tracker._track_completed(url, url, total_bytes=1024)
 
         info = tracker.get_download_info(url)
         assert info is not None
@@ -171,8 +171,8 @@ class TestDownloadTrackerStateUpdates:
         url = "https://example.com/file.txt"
         error = ValueError("Connection failed")
 
-        await tracker.track_started(url, url)
-        await tracker.track_failed(url, url, error)
+        await tracker._track_started(url, url)
+        await tracker._track_failed(url, url, error)
 
         info = tracker.get_download_info(url)
         assert info.status == DownloadStatus.FAILED
@@ -185,7 +185,7 @@ class TestDownloadTrackerStateUpdates:
         url = "https://example.com/file.txt"
         error = RuntimeError("Unexpected error")
 
-        await tracker.track_failed(url, url, error)
+        await tracker._track_failed(url, url, error)
 
         info = tracker.get_download_info(url)
         assert info is not None
@@ -201,15 +201,15 @@ class TestDownloadTrackerStateUpdates:
         url1, url2 = "https://example.com/file1.txt", "https://example.com/file2.txt"
 
         # Set up two downloads
-        await tracker.track_queued(url1, url1, priority=1)
-        await tracker.track_started(url2, url2, total_bytes=1000)
+        await tracker._track_queued(url1, url1, priority=1)
+        await tracker._track_started(url2, url2, total_bytes=1000)
 
         # Capture initial state of url1
         initial_info1 = tracker.get_download_info(url1)
 
         # Update url2 only
-        await tracker.track_progress(url2, url2, bytes_downloaded=750)
-        await tracker.track_completed(url2, url2, total_bytes=1000)
+        await tracker._track_progress(url2, url2, bytes_downloaded=750)
+        await tracker._track_completed(url2, url2, total_bytes=1000)
 
         # Verify url1 completely unchanged
         info1 = tracker.get_download_info(url1)
@@ -229,8 +229,8 @@ class TestDownloadTrackerStateUpdates:
         download_id_2 = "def456"  # Represents URL + destination2
 
         # Track two downloads of same URL (different destinations)
-        await tracker.track_queued(download_id_1, url, priority=1)
-        await tracker.track_queued(download_id_2, url, priority=5)
+        await tracker._track_queued(download_id_1, url, priority=1)
+        await tracker._track_queued(download_id_2, url, priority=5)
 
         # Both should exist independently
         info1 = tracker.get_download_info(download_id_1)
@@ -244,8 +244,8 @@ class TestDownloadTrackerStateUpdates:
         assert info2.url == url
 
         # Update one shouldn't affect the other
-        await tracker.track_started(download_id_1, url, total_bytes=1024)
-        await tracker.track_progress(
+        await tracker._track_started(download_id_1, url, total_bytes=1024)
+        await tracker._track_progress(
             download_id_2, url, bytes_downloaded=512, total_bytes=2048
         )
 
@@ -280,7 +280,7 @@ class TestDownloadTrackerQueries:
         """Test that get_download_info returns correct DownloadInfo."""
         url = "https://example.com/file.txt"
 
-        await tracker.track_queued(url, url)
+        await tracker._track_queued(url, url)
 
         info = tracker.get_download_info(url)
         assert info is not None
@@ -293,13 +293,13 @@ class TestDownloadTrackerQueries:
     ):
         """Test that get_all_downloads returns all downloads."""
 
-        await tracker.track_queued(
+        await tracker._track_queued(
             "https://example.com/file1.txt", "https://example.com/file1.txt"
         )
-        await tracker.track_queued(
+        await tracker._track_queued(
             "https://example.com/file2.txt", "https://example.com/file2.txt"
         )
-        await tracker.track_queued(
+        await tracker._track_queued(
             "https://example.com/file3.txt", "https://example.com/file3.txt"
         )
 
@@ -314,7 +314,7 @@ class TestDownloadTrackerQueries:
         """Test that get_all_downloads returns a copy, not reference."""
         url = "https://example.com/file.txt"
 
-        await tracker.track_queued(url, url)
+        await tracker._track_queued(url, url)
 
         all_downloads = tracker.get_all_downloads()
         # Modify the returned dict
@@ -329,16 +329,16 @@ class TestDownloadTrackerQueries:
     ):
         """Test that get_active_downloads returns only IN_PROGRESS downloads."""
 
-        await tracker.track_queued(
+        await tracker._track_queued(
             "https://example.com/file1.txt", "https://example.com/file1.txt"
         )
-        await tracker.track_started(
+        await tracker._track_started(
             "https://example.com/file2.txt", "https://example.com/file2.txt"
         )
-        await tracker.track_started(
+        await tracker._track_started(
             "https://example.com/file3.txt", "https://example.com/file3.txt"
         )
-        await tracker.track_completed(
+        await tracker._track_completed(
             "https://example.com/file4.txt",
             "https://example.com/file4.txt",
             total_bytes=100,
@@ -355,18 +355,18 @@ class TestDownloadTrackerQueries:
     ):
         """Test that get_active_downloads excludes QUEUED, COMPLETED, FAILED."""
 
-        await tracker.track_queued(
+        await tracker._track_queued(
             "https://example.com/queued.txt", "https://example.com/queued.txt"
         )
-        await tracker.track_started(
+        await tracker._track_started(
             "https://example.com/active.txt", "https://example.com/active.txt"
         )
-        await tracker.track_completed(
+        await tracker._track_completed(
             "https://example.com/completed.txt",
             "https://example.com/completed.txt",
             total_bytes=100,
         )
-        await tracker.track_failed(
+        await tracker._track_failed(
             "https://example.com/failed.txt",
             "https://example.com/failed.txt",
             ValueError("Error"),
@@ -382,13 +382,13 @@ class TestDownloadTrackerQueries:
     ):
         """Test that get_stats returns accurate total count."""
 
-        await tracker.track_queued(
+        await tracker._track_queued(
             "https://example.com/file1.txt", "https://example.com/file1.txt"
         )
-        await tracker.track_queued(
+        await tracker._track_queued(
             "https://example.com/file2.txt", "https://example.com/file2.txt"
         )
-        await tracker.track_started(
+        await tracker._track_started(
             "https://example.com/file3.txt", "https://example.com/file3.txt"
         )
 
@@ -402,30 +402,30 @@ class TestDownloadTrackerQueries:
         """Test that get_stats returns correct counts by status."""
 
         # Queue 2
-        await tracker.track_queued(
+        await tracker._track_queued(
             "https://example.com/file1.txt", "https://example.com/file1.txt"
         )
-        await tracker.track_queued(
+        await tracker._track_queued(
             "https://example.com/file2.txt", "https://example.com/file2.txt"
         )
 
         # Start 2
-        await tracker.track_started(
+        await tracker._track_started(
             "https://example.com/file3.txt", "https://example.com/file3.txt"
         )
-        await tracker.track_started(
+        await tracker._track_started(
             "https://example.com/file4.txt", "https://example.com/file4.txt"
         )
 
         # Complete 1
-        await tracker.track_completed(
+        await tracker._track_completed(
             "https://example.com/file5.txt",
             "https://example.com/file5.txt",
             total_bytes=1024,
         )
 
         # Fail 1
-        await tracker.track_failed(
+        await tracker._track_failed(
             "https://example.com/file6.txt",
             "https://example.com/file6.txt",
             ValueError("Error"),
@@ -444,23 +444,23 @@ class TestDownloadTrackerQueries:
     ):
         """Test that get_stats calculates completed_bytes correctly."""
 
-        await tracker.track_completed(
+        await tracker._track_completed(
             "https://example.com/file1.txt",
             "https://example.com/file1.txt",
             total_bytes=1024,
         )
-        await tracker.track_completed(
+        await tracker._track_completed(
             "https://example.com/file2.txt",
             "https://example.com/file2.txt",
             total_bytes=2048,
         )
-        await tracker.track_completed(
+        await tracker._track_completed(
             "https://example.com/file3.txt",
             "https://example.com/file3.txt",
             total_bytes=512,
         )
         # In progress shouldn't count
-        await tracker.track_started(
+        await tracker._track_started(
             "https://example.com/file4.txt",
             "https://example.com/file4.txt",
             total_bytes=5000,
@@ -481,10 +481,10 @@ class TestDownloadTrackerThreadSafety:
 
         # Simulate multiple workers updating progress concurrently
         async def update_progress(bytes_count):
-            await tracker.track_progress(url, url, bytes_downloaded=bytes_count)
+            await tracker._track_progress(url, url, bytes_downloaded=bytes_count)
 
         # Start with a download
-        await tracker.track_started(url, url, total_bytes=1000)
+        await tracker._track_started(url, url, total_bytes=1000)
 
         # Update progress from multiple "workers" concurrently
         await asyncio.gather(
@@ -504,9 +504,9 @@ class TestDownloadTrackerThreadSafety:
         """Test that multiple workers can update different URLs simultaneously."""
 
         async def download_file(url, size):
-            await tracker.track_started(url, url, total_bytes=size)
-            await tracker.track_progress(url, url, bytes_downloaded=size // 2)
-            await tracker.track_completed(url, url, total_bytes=size)
+            await tracker._track_started(url, url, total_bytes=size)
+            await tracker._track_progress(url, url, bytes_downloaded=size // 2)
+            await tracker._track_completed(url, url, total_bytes=size)
 
         # Download multiple files concurrently
         await asyncio.gather(
@@ -524,12 +524,12 @@ class TestDownloadTrackerThreadSafety:
 
         url = "https://example.com/file.txt"
 
-        await tracker.track_started(url, url, total_bytes=1000)
+        await tracker._track_started(url, url, total_bytes=1000)
 
         # Rapidly update progress many times
         async def rapid_updates():
             for i in range(10):
-                await tracker.track_progress(url, url, bytes_downloaded=i * 100)
+                await tracker._track_progress(url, url, bytes_downloaded=i * 100)
 
         # Multiple workers doing rapid updates
         await asyncio.gather(

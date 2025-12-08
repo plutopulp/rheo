@@ -12,7 +12,7 @@ class TestTrackerSkippedCancelled:
     @pytest.mark.asyncio
     async def test_track_skipped_sets_status(self, tracker: DownloadTracker) -> None:
         """track_skipped sets status to SKIPPED."""
-        await tracker.track_skipped("id", "http://x", "file_exists", "/path/to/file")
+        await tracker._track_skipped("id", "http://x", "file_exists", "/path/to/file")
         info = tracker.get_download_info("id")
 
         assert info is not None
@@ -22,8 +22,8 @@ class TestTrackerSkippedCancelled:
     @pytest.mark.asyncio
     async def test_track_cancelled_sets_status(self, tracker: DownloadTracker) -> None:
         """track_cancelled sets status to CANCELLED."""
-        await tracker.track_started("id", "http://x")
-        await tracker.track_cancelled("id", "http://x")
+        await tracker._track_started("id", "http://x")
+        await tracker._track_cancelled("id", "http://x")
 
         info = tracker.get_download_info("id")
 

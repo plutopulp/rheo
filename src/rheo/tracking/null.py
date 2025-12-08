@@ -15,15 +15,17 @@ class NullTracker(BaseTracker):
         """No-op: always returns None."""
         return None
 
-    async def track_queued(self, download_id: str, url: str, priority: int = 1) -> None:
+    async def _track_queued(
+        self, download_id: str, url: str, priority: int = 1
+    ) -> None:
         pass
 
-    async def track_started(
+    async def _track_started(
         self, download_id: str, url: str, total_bytes: int | None = None
     ) -> None:
         pass
 
-    async def track_progress(
+    async def _track_progress(
         self,
         download_id: str,
         url: str,
@@ -32,7 +34,7 @@ class NullTracker(BaseTracker):
     ) -> None:
         pass
 
-    async def track_completed(
+    async def _track_completed(
         self,
         download_id: str,
         url: str,
@@ -42,7 +44,7 @@ class NullTracker(BaseTracker):
     ) -> None:
         pass
 
-    async def track_speed_update(
+    async def _track_speed_update(
         self,
         download_id: str,
         current_speed_bps: float,
@@ -53,7 +55,7 @@ class NullTracker(BaseTracker):
         """No-op speed tracking."""
         pass
 
-    async def track_failed(
+    async def _track_failed(
         self,
         download_id: str,
         url: str,
@@ -62,7 +64,7 @@ class NullTracker(BaseTracker):
     ) -> None:
         pass
 
-    async def track_skipped(
+    async def _track_skipped(
         self,
         download_id: str,
         url: str,
@@ -71,5 +73,5 @@ class NullTracker(BaseTracker):
     ) -> None:
         pass
 
-    async def track_cancelled(self, download_id: str, url: str) -> None:
+    async def _track_cancelled(self, download_id: str, url: str) -> None:
         pass

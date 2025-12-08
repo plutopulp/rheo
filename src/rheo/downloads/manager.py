@@ -371,5 +371,5 @@ class DownloadManager:
         """
         self.queue.emitter.on(
             "download.queued",
-            lambda e: self._tracker.track_queued(e.download_id, e.url, e.priority),
+            lambda e: self._tracker._track_queued(e.download_id, e.url, e.priority),
         )
