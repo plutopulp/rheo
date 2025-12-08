@@ -27,12 +27,12 @@ WorkerEventHandler = t.Callable[[t.Any], t.Awaitable[None] | None]
 # TODO: Consolidate into single track_progress call with embedded speed
 async def _handle_progress_event(tracker: BaseTracker, e: t.Any) -> None:
     """Handle download.progress event - updates both progress and speed."""
-    await tracker.track_progress(
+    await tracker._track_progress(
         e.download_id, e.url, e.bytes_downloaded, e.total_bytes
     )
     # Also track speed if present (merged into progress event)
     if e.speed:
-        await tracker.track_speed_update(
+        await tracker._track_speed_update(
             e.download_id,
             e.speed.current_speed_bps,
             e.speed.average_speed_bps,
@@ -57,23 +57,23 @@ def _create_event_wiring(
     """
     return {
         # Download lifecycle events (from worker)
-        "download.started": lambda e: tracker.track_started(
+        "download.started": lambda e: tracker._track_started(
             e.download_id, e.url, e.total_bytes
         ),
         "download.progress": lambda e: _handle_progress_event(tracker, e),
-        "download.completed": lambda e: tracker.track_completed(
+        "download.completed": lambda e: tracker._track_completed(
             e.download_id, e.url, e.total_bytes, e.destination_path, e.validation
         ),
-        "download.failed": lambda e: tracker.track_failed(
+        "download.failed": lambda e: tracker._track_failed(
             e.download_id,
             e.url,
             Exception(f"{e.error.exc_type}: {e.error.message}"),
             e.validation,
         ),
-        "download.skipped": lambda e: tracker.track_skipped(
+        "download.skipped": lambda e: tracker._track_skipped(
             e.download_id, e.url, e.reason, e.destination_path
         ),
-        "download.cancelled": lambda e: tracker.track_cancelled(e.download_id, e.url),
+        "download.cancelled": lambda e: tracker._track_cancelled(e.download_id, e.url),
     }
 
 

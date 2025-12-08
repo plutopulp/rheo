@@ -13,8 +13,8 @@ class TestTrackerSpeedTracking:
         """Test that track_speed_update stores speed metrics for a download."""
         url = "https://example.com/file.txt"
 
-        await tracker.track_started(url, url, total_bytes=10000)
-        await tracker.track_speed_update(
+        await tracker._track_started(url, url, total_bytes=10000)
+        await tracker._track_speed_update(
             download_id=url,
             current_speed_bps=1024.0,
             average_speed_bps=1000.0,
@@ -36,10 +36,10 @@ class TestTrackerSpeedTracking:
         """Test that subsequent speed updates replace previous metrics."""
         url = "https://example.com/file.txt"
 
-        await tracker.track_started(url, url, total_bytes=10000)
+        await tracker._track_started(url, url, total_bytes=10000)
 
         # First update
-        await tracker.track_speed_update(
+        await tracker._track_speed_update(
             download_id=url,
             current_speed_bps=1024.0,
             average_speed_bps=1000.0,
@@ -48,7 +48,7 @@ class TestTrackerSpeedTracking:
         )
 
         # Second update
-        await tracker.track_speed_update(
+        await tracker._track_speed_update(
             download_id=url,
             current_speed_bps=2048.0,
             average_speed_bps=1500.0,
@@ -77,7 +77,7 @@ class TestTrackerSpeedTracking:
         """Test that get_speed_metrics returns None before any speed updates."""
         url = "https://example.com/file.txt"
 
-        await tracker.track_started(url, url, total_bytes=10000)
+        await tracker._track_started(url, url, total_bytes=10000)
 
         # No speed update yet
         metrics = tracker.get_speed_metrics(url)
@@ -88,9 +88,9 @@ class TestTrackerSpeedTracking:
         """Test that track_speed_update handles None ETA (unknown total size)."""
         url = "https://example.com/file.txt"
 
-        await tracker.track_started(url, url)  # No total_bytes
+        await tracker._track_started(url, url)  # No total_bytes
 
-        await tracker.track_speed_update(
+        await tracker._track_speed_update(
             download_id=url,
             current_speed_bps=1024.0,
             average_speed_bps=1000.0,
@@ -106,9 +106,9 @@ class TestTrackerSpeedTracking:
         """Test that track_speed_update handles zero speeds (first chunk)."""
         url = "https://example.com/file.txt"
 
-        await tracker.track_started(url, url, total_bytes=10000)
+        await tracker._track_started(url, url, total_bytes=10000)
 
-        await tracker.track_speed_update(
+        await tracker._track_speed_update(
             download_id=url,
             current_speed_bps=0.0,
             average_speed_bps=0.0,
@@ -129,8 +129,8 @@ class TestTrackerSpeedTracking:
         """Test that speed metrics persist when progress is updated."""
         url = "https://example.com/file.txt"
 
-        await tracker.track_started(url, url, total_bytes=10000)
-        await tracker.track_speed_update(
+        await tracker._track_started(url, url, total_bytes=10000)
+        await tracker._track_speed_update(
             download_id=url,
             current_speed_bps=1024.0,
             average_speed_bps=1000.0,
@@ -139,7 +139,7 @@ class TestTrackerSpeedTracking:
         )
 
         # Update progress
-        await tracker.track_progress(url, url, bytes_downloaded=1000)
+        await tracker._track_progress(url, url, bytes_downloaded=1000)
 
         # Speed metrics should still be available
         metrics = tracker.get_speed_metrics(url)
@@ -151,8 +151,8 @@ class TestTrackerSpeedTracking:
         """Test that transient speed metrics are cleared when download completes."""
         url = "https://example.com/file.txt"
 
-        await tracker.track_started(url, url, total_bytes=10000)
-        await tracker.track_speed_update(
+        await tracker._track_started(url, url, total_bytes=10000)
+        await tracker._track_speed_update(
             download_id=url,
             current_speed_bps=1024.0,
             average_speed_bps=1000.0,
@@ -161,7 +161,7 @@ class TestTrackerSpeedTracking:
         )
 
         # Complete the download
-        await tracker.track_completed(url, url, total_bytes=10000)
+        await tracker._track_completed(url, url, total_bytes=10000)
 
         # Transient speed metrics should be cleared
         metrics = tracker.get_speed_metrics(url)
@@ -175,8 +175,8 @@ class TestTrackerSpeedTracking:
         download completes."""
         url = "https://example.com/file.txt"
 
-        await tracker.track_started(url, url, total_bytes=10000)
-        await tracker.track_speed_update(
+        await tracker._track_started(url, url, total_bytes=10000)
+        await tracker._track_speed_update(
             download_id=url,
             current_speed_bps=1024.0,
             average_speed_bps=1000.0,
@@ -185,7 +185,7 @@ class TestTrackerSpeedTracking:
         )
 
         # Complete the download
-        await tracker.track_completed(url, url, total_bytes=10000)
+        await tracker._track_completed(url, url, total_bytes=10000)
 
         # Average speed should be persisted in DownloadInfo
         info = tracker.get_download_info(url)
@@ -197,8 +197,8 @@ class TestTrackerSpeedTracking:
         """Test that transient speed metrics are cleared when download fails."""
         url = "https://example.com/file.txt"
 
-        await tracker.track_started(url, url, total_bytes=10000)
-        await tracker.track_speed_update(
+        await tracker._track_started(url, url, total_bytes=10000)
+        await tracker._track_speed_update(
             download_id=url,
             current_speed_bps=1024.0,
             average_speed_bps=1000.0,
@@ -207,7 +207,7 @@ class TestTrackerSpeedTracking:
         )
 
         # Fail the download
-        await tracker.track_failed(url, url, ValueError("Network error"))
+        await tracker._track_failed(url, url, ValueError("Network error"))
 
         # Transient speed metrics should be cleared
         metrics = tracker.get_speed_metrics(url)
@@ -220,8 +220,8 @@ class TestTrackerSpeedTracking:
         """Test that average speed is persisted in DownloadInfo when download fails."""
         url = "https://example.com/file.txt"
 
-        await tracker.track_started(url, url, total_bytes=10000)
-        await tracker.track_speed_update(
+        await tracker._track_started(url, url, total_bytes=10000)
+        await tracker._track_speed_update(
             download_id=url,
             current_speed_bps=1024.0,
             average_speed_bps=900.0,
@@ -230,7 +230,7 @@ class TestTrackerSpeedTracking:
         )
 
         # Fail the download
-        await tracker.track_failed(url, url, ValueError("Network error"))
+        await tracker._track_failed(url, url, ValueError("Network error"))
 
         # Average speed should be persisted in DownloadInfo (useful for analysis)
         info = tracker.get_download_info(url)
@@ -245,9 +245,9 @@ class TestTrackerSpeedTracking:
         as None."""
         url = "https://example.com/file.txt"
 
-        await tracker.track_started(url, url, total_bytes=10000)
+        await tracker._track_started(url, url, total_bytes=10000)
         # No speed update
-        await tracker.track_completed(url, url, total_bytes=10000)
+        await tracker._track_completed(url, url, total_bytes=10000)
 
         info = tracker.get_download_info(url)
         assert info is not None
@@ -261,11 +261,11 @@ class TestTrackerSpeedTracking:
         import asyncio
 
         url = "https://example.com/file.txt"
-        await tracker.track_started(url, url, total_bytes=100000)
+        await tracker._track_started(url, url, total_bytes=100000)
 
         # Simulate multiple concurrent speed updates
         async def update_speed(speed_value):
-            await tracker.track_speed_update(
+            await tracker._track_speed_update(
                 download_id=url,
                 current_speed_bps=speed_value,
                 average_speed_bps=speed_value * 0.9,

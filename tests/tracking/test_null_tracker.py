@@ -25,10 +25,10 @@ class TestNullTracker:
     ):
         """Test that all tracker methods can be called without errors."""
         # Should not raise any exceptions
-        await null_tracker.track_queued("id", "url", priority=1)
-        await null_tracker.track_started("id", "url", total_bytes=100)
-        await null_tracker.track_progress("id", "url", 50, 100)
-        await null_tracker.track_completed("id", "url", 100, "/path")
-        await null_tracker.track_failed("id", "url", Exception("test"))
-        await null_tracker.track_skipped("id", "url", "reason", "/path")
-        await null_tracker.track_cancelled("id", "url")
+        await null_tracker._track_queued("id", "url", priority=1)
+        await null_tracker._track_started("id", "url", total_bytes=100)
+        await null_tracker._track_progress("id", "url", 50, 100)
+        await null_tracker._track_completed("id", "url", 100, "/path")
+        await null_tracker._track_failed("id", "url", Exception("test"))
+        await null_tracker._track_skipped("id", "url", "reason", "/path")
+        await null_tracker._track_cancelled("id", "url")

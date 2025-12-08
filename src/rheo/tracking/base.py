@@ -34,19 +34,21 @@ class BaseTracker(ABC):
         ...
 
     @abstractmethod
-    async def track_queued(self, download_id: str, url: str, priority: int = 1) -> None:
+    async def _track_queued(
+        self, download_id: str, url: str, priority: int = 1
+    ) -> None:
         """Track when a download is queued."""
         ...
 
     @abstractmethod
-    async def track_started(
+    async def _track_started(
         self, download_id: str, url: str, total_bytes: int | None = None
     ) -> None:
         """Track when a download starts."""
         ...
 
     @abstractmethod
-    async def track_progress(
+    async def _track_progress(
         self,
         download_id: str,
         url: str,
@@ -57,7 +59,7 @@ class BaseTracker(ABC):
         ...
 
     @abstractmethod
-    async def track_completed(
+    async def _track_completed(
         self,
         download_id: str,
         url: str,
@@ -77,7 +79,7 @@ class BaseTracker(ABC):
         ...
 
     @abstractmethod
-    async def track_failed(
+    async def _track_failed(
         self,
         download_id: str,
         url: str,
@@ -95,7 +97,7 @@ class BaseTracker(ABC):
         ...
 
     @abstractmethod
-    async def track_skipped(
+    async def _track_skipped(
         self,
         download_id: str,
         url: str,
@@ -106,12 +108,12 @@ class BaseTracker(ABC):
         ...
 
     @abstractmethod
-    async def track_cancelled(self, download_id: str, url: str) -> None:
+    async def _track_cancelled(self, download_id: str, url: str) -> None:
         """Track when a download is cancelled."""
         ...
 
     @abstractmethod
-    async def track_speed_update(
+    async def _track_speed_update(
         self,
         download_id: str,
         current_speed_bps: float,
