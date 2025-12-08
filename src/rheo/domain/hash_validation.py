@@ -4,7 +4,14 @@ import enum
 import re
 from typing import Final
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    computed_field,
+    field_validator,
+    model_validator,
+)
 
 _HEX_PATTERN: Final = re.compile(r"^[0-9a-f]+$")
 
@@ -51,8 +58,8 @@ class ValidationState(BaseModel):
 class ValidationResult(BaseModel):
     """Hash validation result (success or failure).
 
-    On success: expected_hash == calculated_hash
-    On failure: they differ, giving full mismatch context
+    On success: expected_hash == calculated_hash (is_valid=True)
+    On failure: they differ (is_valid=False), giving full mismatch context
     """
 
     model_config = ConfigDict(frozen=True)
@@ -69,6 +76,12 @@ class ValidationResult(BaseModel):
         ge=0,
         description="Validation duration in milliseconds",
     )
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def is_valid(self) -> bool:
+        """True if expected and calculated hashes match."""
+        return self.expected_hash == self.calculated_hash
 
 
 class HashConfig(BaseModel):

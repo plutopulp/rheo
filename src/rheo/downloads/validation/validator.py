@@ -2,15 +2,14 @@
 
 import asyncio
 import hashlib
-import hmac
 import typing as t
 from pathlib import Path
 
 import aiofiles
 import aiofiles.os
 
-from ...domain.exceptions import FileAccessError, HashMismatchError
-from ...domain.hash_validation import HashConfig
+from ...domain.exceptions import FileAccessError
+from ...domain.hash_validation import HashConfig, ValidationResult
 from ...infrastructure.logging import get_logger
 from .base import BaseFileValidator
 
@@ -30,14 +29,14 @@ class FileValidator(BaseFileValidator):
         self._chunk_size = chunk_size
         self._logger = logger or get_logger(__name__)
 
-    async def validate(self, file_path: Path, config: HashConfig) -> str:
+    async def validate(self, file_path: Path, config: HashConfig) -> ValidationResult:
         """Validate file using configured hash.
 
         Returns:
-            The calculated hash value (hex string).
+            ValidationResult with expected/calculated hashes. Check is_valid
+            property to determine if validation passed.
 
         Raises:
-            HashMismatchError: If calculated hash doesn't match expected hash.
             FileAccessError: If file cannot be accessed or read.
         """
         if not await aiofiles.os.path.exists(file_path):
@@ -46,26 +45,17 @@ class FileValidator(BaseFileValidator):
             raise FileAccessError(f"Path is not a file: {file_path}")
 
         try:
-            actual_hash = await self._calculate_hash(file_path, config)
+            calculated_hash = await self._calculate_hash(file_path, config)
         except OSError as exc:
             raise FileAccessError(
                 f"Unable to read file for validation: {file_path}"
             ) from exc
 
-        if not hmac.compare_digest(actual_hash, config.expected_hash):
-            raise HashMismatchError(
-                expected_hash=config.expected_hash,
-                actual_hash=actual_hash,
-                file_path=file_path,
-            )
-
-        self._logger.debug(
-            "File validated successfully",
-            file=str(file_path),
-            algorithm=str(config.algorithm),
+        return ValidationResult(
+            algorithm=config.algorithm,
+            expected_hash=config.expected_hash,
+            calculated_hash=calculated_hash,
         )
-
-        return actual_hash
 
     async def _calculate_hash(self, file_path: Path, config: HashConfig) -> str:
         return await asyncio.to_thread(

@@ -62,27 +62,17 @@ def _create_event_wiring(
         ),
         "download.progress": lambda e: _handle_progress_event(tracker, e),
         "download.completed": lambda e: tracker.track_completed(
-            e.download_id, e.url, e.total_bytes, e.destination_path
+            e.download_id, e.url, e.total_bytes, e.destination_path, e.validation
         ),
         "download.failed": lambda e: tracker.track_failed(
             e.download_id,
             e.url,
             Exception(f"{e.error.exc_type}: {e.error.message}"),
+            e.validation,
         ),
-        # Validation events (still use worker.* namespace - to be updated)
-        "worker.validation_started": lambda e: tracker.track_validation_started(
+        # Validation phase event (indicates validation in progress)
+        "download.validating": lambda e: tracker.track_validation_started(
             e.download_id, e.url, e.algorithm
-        ),
-        "worker.validation_completed": lambda e: tracker.track_validation_completed(
-            e.download_id, e.url, e.algorithm, e.calculated_hash
-        ),
-        "worker.validation_failed": lambda e: tracker.track_validation_failed(
-            e.download_id,
-            e.url,
-            e.algorithm,
-            e.expected_hash,
-            e.actual_hash,
-            e.error_message,
         ),
     }
 

@@ -1,6 +1,7 @@
 """Null object implementation of tracker."""
 
 from ..domain.downloads import DownloadInfo
+from ..domain.hash_validation import ValidationResult
 from .base import BaseTracker
 
 
@@ -37,6 +38,7 @@ class NullTracker(BaseTracker):
         url: str,
         total_bytes: int = 0,
         destination_path: str = "",
+        validation: ValidationResult | None = None,
     ) -> None:
         pass
 
@@ -51,7 +53,13 @@ class NullTracker(BaseTracker):
         """No-op speed tracking."""
         pass
 
-    async def track_failed(self, download_id: str, url: str, error: Exception) -> None:
+    async def track_failed(
+        self,
+        download_id: str,
+        url: str,
+        error: Exception,
+        validation: ValidationResult | None = None,
+    ) -> None:
         pass
 
     async def track_validation_started(

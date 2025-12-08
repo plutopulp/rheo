@@ -6,6 +6,7 @@ from pydantic import ValidationError
 from rheo.domain.hash_validation import (
     HashAlgorithm,
     HashConfig,
+    ValidationResult,
     ValidationState,
     ValidationStatus,
 )
@@ -92,3 +93,37 @@ class TestValidationState:
         assert state.status == ValidationStatus.FAILED
         assert state.calculated_hash == "abc"
         assert state.error == "boom"
+
+
+class TestValidationResult:
+    """ValidationResult behaviour."""
+
+    def test_is_valid_when_hashes_match(self):
+        """is_valid returns True when expected equals calculated."""
+        result = ValidationResult(
+            algorithm=HashAlgorithm.SHA256,
+            expected_hash="a" * 64,
+            calculated_hash="a" * 64,
+            duration_ms=10.5,
+        )
+        assert result.is_valid is True
+
+    def test_is_valid_when_hashes_differ(self):
+        """is_valid returns False when expected differs from calculated."""
+        result = ValidationResult(
+            algorithm=HashAlgorithm.SHA256,
+            expected_hash="a" * 64,
+            calculated_hash="b" * 64,
+            duration_ms=10.5,
+        )
+        assert result.is_valid is False
+
+    def test_frozen_model(self):
+        """ValidationResult is immutable."""
+        result = ValidationResult(
+            algorithm=HashAlgorithm.SHA256,
+            expected_hash="a" * 64,
+            calculated_hash="a" * 64,
+        )
+        with pytest.raises(Exception):
+            result.expected_hash = "b" * 64
