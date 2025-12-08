@@ -1,13 +1,13 @@
 """Core domain models for download operations."""
 
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
 from .hash_validation import ValidationResult
 
 
-class DownloadStatus(Enum):
+class DownloadStatus(StrEnum):
     """Download lifecycle states.
 
     Flow: QUEUED -> PENDING -> IN_PROGRESS -> (COMPLETED | FAILED)
@@ -18,6 +18,18 @@ class DownloadStatus(Enum):
     IN_PROGRESS = "in_progress"  # Actively downloading
     COMPLETED = "completed"  # Successfully finished
     FAILED = "failed"  # Error occurred
+    SKIPPED = "skipped"  # Skipped (e.g., file exists and strategy is SKIP)
+    CANCELLED = "cancelled"  # Cancelled by user
+
+    @classmethod
+    def terminal_states(cls) -> set["DownloadStatus"]:
+        """Set of terminal states for downloads."""
+        return {cls.COMPLETED, cls.FAILED, cls.SKIPPED, cls.CANCELLED}
+
+    @property
+    def is_terminal(self) -> bool:
+        """Whether the status is terminal."""
+        return self in self.terminal_states()
 
 
 class DownloadInfo(BaseModel):
@@ -73,7 +85,7 @@ class DownloadInfo(BaseModel):
 
     def is_terminal(self) -> bool:
         """Check if download is in a terminal state."""
-        return self.status in (DownloadStatus.COMPLETED, DownloadStatus.FAILED)
+        return self.status.is_terminal
 
 
 class DownloadStats(BaseModel):
