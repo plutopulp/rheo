@@ -86,7 +86,7 @@ Key pieces:
 - Entry point for the library
 - Orchestrates high-level download operations
 - Initialises HTTP client
-- Wires queue events to tracker (owns this wiring)
+- Creates and owns all event wiring (queue and worker events to tracker)
 - Delegates worker lifecycle to `WorkerPool`
 - Context manager for resource cleanup
 
@@ -94,7 +94,7 @@ Key pieces:
 
 - Encapsulates worker lifecycle management
 - Creates one isolated worker per task
-- Wires worker event emitters to tracker handlers
+- Applies event wiring (tracker-agnostic, receives `EventWiring` from Manager)
 - Processes queue with timeout-based polling for shutdown responsiveness
 - Handles graceful vs immediate shutdown semantics
 - Re-queues unstarted downloads during shutdown
@@ -297,10 +297,10 @@ config4 = FileConfig(url="https://example.com/file.zip", destination_subdir="dir
 ### Processing Downloads
 
 ```text
-1. Manager.open() wires queue events to tracker
+1. Manager creates EventWiring (maps EventSource.QUEUE and EventSource.WORKER to handlers)
 2. Manager delegates to WorkerPool.start(client)
-3. Pool creates N isolated worker tasks, each with its own EventEmitter
-4. Pool wires each worker's emitter to tracker handlers
+3. Pool wires queue emitter to queue handlers, creates N isolated worker tasks
+4. Pool wires each worker's emitter to worker handlers
 5. Each worker calls queue.get_next() with timeout (blocks until available)
 6. Worker downloads file in chunks
 7. Worker emits events: download.started → download.progress (with speed) → ... → (validation if configured) → download.completed
@@ -465,17 +465,22 @@ async with DownloadManager(...) as manager:
 
 ### Observer Pattern
 
-Workers emit events, trackers observe via pool wiring:
+Workers emit events, trackers observe via manager-owned wiring:
 
 ```python
 # Worker doesn't know about tracker
 await worker.emitter.emit("download.completed", DownloadCompletedEvent(...))
 
-# Pool wires worker emitter to tracker internal handlers
-worker.emitter.on("download.completed", lambda e: tracker._track_completed(...))
+# Manager creates wiring, Pool applies it (Pool is tracker-agnostic)
+event_wiring = {
+    EventSource.WORKER: {
+        "download.completed": lambda e: tracker._track_completed(...)
+    }
+}
+worker.emitter.on("download.completed", event_wiring[EventSource.WORKER]["download.completed"])
 ```
 
-**Why**: Decoupling. Easy to add new observers.
+**Why**: Decoupling. Pool doesn't depend on tracker. Easy to add new observers.
 
 ### Composition Over Inheritance
 
