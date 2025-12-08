@@ -125,12 +125,15 @@ class TestDownloadTrackerStateUpdates:
         url = "https://example.com/file.txt"
 
         await tracker.track_started(url, url, total_bytes=1024)
-        await tracker.track_completed(url, url, total_bytes=1024)
+        await tracker.track_completed(
+            url, url, total_bytes=1024, destination_path="/tmp/file.txt"
+        )
 
         info = tracker.get_download_info(url)
         assert info.status == DownloadStatus.COMPLETED
         assert info.bytes_downloaded == 1024
         assert info.total_bytes == 1024
+        assert info.destination_path == "/tmp/file.txt"
         assert info.is_terminal()
 
     @pytest.mark.asyncio

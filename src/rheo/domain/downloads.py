@@ -72,6 +72,10 @@ class DownloadInfo(BaseModel):
         ge=0.0,
         description="Average download speed in bytes/second (set at completion)",
     )
+    destination_path: str | None = Field(
+        default=None,
+        description="Final destination path of the download, if known",
+    )
     validation: ValidationResult | None = Field(
         default=None,
         description="Validation result if hash validation was performed",
