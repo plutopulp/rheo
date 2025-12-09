@@ -19,6 +19,7 @@ from ..domain.exceptions import ManagerNotInitializedError, PendingDownloadsErro
 from ..domain.file_config import FileConfig, FileExistsStrategy
 from ..events import EventEmitter
 from ..events.base import BaseEmitter
+from ..events.emitter import EventHandler
 from ..infrastructure.logging import get_logger
 from ..tracking.base import BaseTracker
 from ..tracking.tracker import DownloadTracker
@@ -204,6 +205,24 @@ class DownloadManager:
             print(f"Completed: {stats.completed}/{stats.total}")
         """
         return self._tracker.get_stats()
+
+    def on(self, event_type: str, handler: EventHandler) -> None:
+        """Subscribe to download events.
+
+        Args:
+            event_type: Event to listen for. Use "*" for all events.
+            handler: Callback function (sync or async)
+        """
+        self._emitter.on(event_type, handler)
+
+    def off(self, event_type: str, handler: EventHandler) -> None:
+        """Unsubscribe from download events.
+
+        Args:
+            event_type: Event to stop listening for
+            handler: The handler function to remove
+        """
+        self._emitter.off(event_type, handler)
 
     async def __aenter__(self) -> "DownloadManager":
         """Enter the async context manager.

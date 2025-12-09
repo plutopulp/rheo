@@ -17,6 +17,11 @@ from rheo.downloads import (
     PriorityDownloadQueue,
 )
 from rheo.events import BaseEmitter, EventEmitter, NullEmitter
+from rheo.events.models import (
+    DownloadCompletedEvent,
+    DownloadQueuedEvent,
+    DownloadStartedEvent,
+)
 from rheo.tracking import BaseTracker
 
 if t.TYPE_CHECKING:
@@ -132,6 +137,75 @@ class TestDownloadManagerInitialization:
         manager = DownloadManager(worker_factory=custom_factory, logger=mock_logger)
 
         assert manager._worker_factory is custom_factory
+
+
+class TestDownloadManagerEvents:
+    """Test DownloadManager event subscription helpers."""
+
+    @pytest.mark.asyncio
+    async def test_on_subscribes_to_emitter(self, mock_logger: "Logger") -> None:
+        """manager.on() should subscribe handler to emitter."""
+        manager = DownloadManager(logger=mock_logger)
+        events: list[dict[str, t.Any]] = []
+
+        manager.on("download.completed", lambda e: events.append(e))
+
+        event_data = DownloadCompletedEvent(
+            download_id="test-id",
+            url="https://example.com/file.txt",
+            total_bytes=100,
+            destination_path="test-path",
+        )
+
+        await manager._emitter.emit("download.completed", event_data)
+
+        assert events == [event_data]
+
+    @pytest.mark.asyncio
+    async def test_off_unsubscribes_from_emitter(self, mock_logger: "Logger") -> None:
+        """manager.off() should unsubscribe handler from emitter."""
+        manager = DownloadManager(logger=mock_logger)
+        events: list[dict[str, t.Any]] = []
+
+        def handler(e: t.Any) -> None:
+            events.append(e)
+
+        manager.on("download.completed", handler)
+        manager.off("download.completed", handler)
+        event_data = DownloadCompletedEvent(
+            download_id="test-id",
+            url="https://example.com/file.txt",
+            total_bytes=100,
+            destination_path="test-path",
+        )
+        await manager._emitter.emit("download.completed", event_data)
+
+        assert events == []
+
+    @pytest.mark.asyncio
+    async def test_wildcard_subscription(self, mock_logger: "Logger") -> None:
+        """manager.on('*', ...) should receive all events."""
+        manager = DownloadManager(logger=mock_logger)
+        events: list[dict[str, t.Any]] = []
+
+        manager.on("*", lambda e: events.append(e))
+        started_event = DownloadStartedEvent(
+            download_id="test-id", url="https://example.com/file.txt", total_bytes=100
+        )
+        completed_event = DownloadCompletedEvent(
+            download_id="test-id",
+            url="https://example.com/file.txt",
+            total_bytes=100,
+            destination_path="test-path",
+        )
+        queued_event = DownloadQueuedEvent(
+            download_id="test-id", url="https://example.com/file.txt", priority=1
+        )
+        await manager._emitter.emit("download.queued", queued_event)
+        await manager._emitter.emit("download.started", started_event)
+        await manager._emitter.emit("download.completed", completed_event)
+
+        assert events == [queued_event, started_event, completed_event]
 
     @pytest.mark.asyncio
     async def test_worker_factory_exception_propagates(

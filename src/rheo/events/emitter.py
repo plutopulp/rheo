@@ -10,7 +10,7 @@ if t.TYPE_CHECKING:
     import loguru
 
 # Any used for event data flexibility - events can carry any payload type
-EventHandler = t.Callable[[t.Any], t.Any]
+EventHandler = t.Callable[[t.Any], t.Union[None, t.Awaitable[None]]]
 
 
 class EventEmitter(BaseEmitter):
