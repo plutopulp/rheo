@@ -9,7 +9,7 @@ import asyncio
 from pathlib import Path
 
 from rheo import DownloadManager
-from rheo.domain import FileConfig
+from rheo.domain import FileConfig, FileExistsStrategy
 
 
 async def main() -> None:
@@ -75,6 +75,7 @@ async def main() -> None:
     async with DownloadManager(
         download_dir=Path("./downloads"),
         max_concurrent=max_concurrent,
+        file_exists_strategy=FileExistsStrategy.OVERWRITE,
     ) as manager:
         await manager.add(files)
         await manager.wait_until_complete()

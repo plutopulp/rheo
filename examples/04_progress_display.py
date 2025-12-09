@@ -15,7 +15,7 @@ import sys
 from pathlib import Path
 
 from rheo import DownloadManager
-from rheo.domain import FileConfig
+from rheo.domain import FileConfig, FileExistsStrategy
 from rheo.events.models import DownloadCompletedEvent, DownloadProgressEvent
 
 
@@ -77,7 +77,10 @@ async def main() -> None:
         destination_subdir="example_04",
     )
 
-    async with DownloadManager(download_dir=Path("./downloads")) as manager:
+    async with DownloadManager(
+        download_dir=Path("./downloads"),
+        file_exists_strategy=FileExistsStrategy.OVERWRITE,
+    ) as manager:
         manager.on("download.progress", on_progress)
         manager.on("download.completed", on_completed)
 

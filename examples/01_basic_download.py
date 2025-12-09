@@ -9,7 +9,7 @@ import asyncio
 from pathlib import Path
 
 from rheo import DownloadManager
-from rheo.domain import FileConfig
+from rheo.domain import FileConfig, FileExistsStrategy
 
 
 async def main() -> None:
@@ -26,7 +26,10 @@ async def main() -> None:
 
     # Note: Duplicate downloads (same URL+destination) are automatically prevented.
     # If you add the same file twice, only one download will be queued.
-    async with DownloadManager(download_dir=Path("./downloads")) as manager:
+    async with DownloadManager(
+        download_dir=Path("./downloads"),
+        file_exists_strategy=FileExistsStrategy.OVERWRITE,
+    ) as manager:
         await manager.add(files)
         await manager.wait_until_complete()
 
