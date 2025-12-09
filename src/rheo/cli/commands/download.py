@@ -1,8 +1,8 @@
 """Download command implementation."""
 
 import asyncio
-from pathlib import Path
 import typing as t
+from pathlib import Path
 
 import typer
 from pydantic import HttpUrl, ValidationError
