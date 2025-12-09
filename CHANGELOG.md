@@ -7,6 +7,106 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2025-12-09
+
+### ⚠️ BREAKING CHANGES
+
+**Event System Overhaul:**
+
+- Events renamed from `worker.*` to `download.*` namespace (e.g., `worker.started` → `download.started`)
+- Tracker no longer emits events - it's now observe-only (receives events, stores state)
+- Tracker tracking methods are now private (`_track_*`) - use `manager.on()` for event subscription
+- `tracker.on()` removed - subscribe to events via `manager.on()` instead
+
+**Migration:**
+
+```python
+# Before (v0.4.0) - subscribe to tracker events
+tracker.on("worker.completed", handler)
+
+# After (v0.5.0) - subscribe via manager
+manager.on("download.completed", handler)
+
+# Event names changed
+# Before: worker.started, worker.progress, worker.completed, worker.failed
+# After:  download.started, download.progress, download.completed, download.failed
+```
+
+### Added
+
+- **Manager as event facade** (#74):
+
+  - `manager.on(event, handler)` - Subscribe to download events
+  - `manager.off(event, handler)` - Unsubscribe from events
+  - `manager.on("*", handler)` - Wildcard subscription for all events
+  - `manager.get_download_info(id)` - Query download state by ID
+  - `manager.stats` property - Get aggregate download statistics
+
+- **New download lifecycle events**:
+
+  - `download.queued` - Emitted when download is added to queue (#69)
+  - `download.skipped` - Emitted when download is skipped (file exists) (#71)
+  - `download.cancelled` - Emitted when download is cancelled (#71)
+  - `download.validating` - Emitted when hash validation starts (#70)
+  - `download.retrying` - Emitted before retry attempt (#67)
+
+- **New download statuses**: `SKIPPED`, `CANCELLED` with `is_terminal` helper (#71)
+
+- **ValidationResult embedded in events** (#70):
+
+  - `download.completed` and `download.failed` include `validation` field
+  - Self-contained validation context with `is_valid`, `expected_hash`, `calculated_hash`
+
+- **ErrorInfo model** (#67): Structured error information with `exc_type`, `message`, `traceback`
+
+- **destination_path tracking** (#71): Stored on `DownloadInfo` for completed/skipped downloads
+
+- **New examples** (#75):
+
+  - `04_progress_display.py` - Real-time progress bar with speed/ETA
+  - `05_event_logging.py` - Lifecycle event debugging with wildcard subscription
+  - `06_batch_summary.py` - Batch download with summary report
+
+- **CLI progress display restored**: Real-time progress bar with speed/ETA during downloads
+
+### Changed
+
+- **Event classes migrated to Pydantic** (#66):
+
+  - All events inherit from `BaseEvent` with UTC `occurred_at` timestamp
+  - Field validation with `ge=0`/`ge=1` constraints
+  - Immutable (frozen) event instances
+
+- **Tracker refactored to observe-only role** (#67):
+
+  - No longer emits events - workers and queue emit directly
+  - Pure state store with query methods
+  - Tracking methods now private (`_track_queued`, `_track_started`, etc.)
+
+- **Centralised event wiring** (#73):
+
+  - Manager creates and owns all event wiring
+  - WorkerPool is tracker-agnostic, receives `EventWiring` from Manager
+  - New `EventSource` enum (QUEUE/WORKER) for type-safe wiring
+
+- **Shared emitter architecture** (#74):
+
+  - Single `EventEmitter` owned by Manager
+  - Passed through to queue, pool, and all workers
+  - Enables unified event subscription point
+
+- **SpeedMetrics embedded in progress events** (#67): No separate speed event
+
+- **ValidationResult replaces ValidationState** (#70): Simpler, self-contained model
+
+### Removed
+
+- `tracker.on()` / `tracker.off()` - Use `manager.on()` / `manager.off()` instead
+- `tracker.track_*()` public methods - Now private (`_track_*`)
+- `worker.*` event namespace - Replaced by `download.*`
+- Separate `tracker_events.py` - Events consolidated in `events/models/`
+- `ValidationState` model - Replaced by `ValidationResult`
+
 ## [0.4.0] - 2025-12-01
 
 ### ⚠️ BREAKING CHANGES
