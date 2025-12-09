@@ -6,7 +6,9 @@ from pathlib import Path
 import pytest
 from aiohttp import ClientSession
 from aioresponses import aioresponses
+from pytest_mock import MockerFixture
 
+from rheo.domain.downloads import DownloadStats
 from rheo.domain.exceptions import ManagerNotInitializedError, PendingDownloadsError
 from rheo.domain.file_config import FileConfig, FileExistsStrategy
 from rheo.downloads import (
@@ -14,10 +16,19 @@ from rheo.downloads import (
     DownloadWorker,
     PriorityDownloadQueue,
 )
-from rheo.events import EventEmitter, NullEmitter
+from rheo.events import BaseEmitter, EventEmitter, NullEmitter
+from rheo.tracking import BaseTracker
 
 if t.TYPE_CHECKING:
     from loguru import Logger
+
+
+@pytest.fixture
+def mock_tracker(mocker: MockerFixture, mock_emitter: BaseEmitter) -> BaseTracker:
+    """Provide fully mocked DownloadTracker with spec and mock emitter."""
+    mock = mocker.Mock(spec=BaseTracker)
+    mock.emitter = mock_emitter
+    return mock
 
 
 class TestDownloadManagerInitialization:
@@ -48,6 +59,40 @@ class TestDownloadManagerInitialization:
         assert manager.timeout == 30.0
         assert manager.max_concurrent == 5
         assert manager.queue is custom_queue
+
+    def test_get_download_info_delegates_to_tracker(
+        self, mock_logger, mock_tracker: BaseTracker
+    ):
+        """get_download_info should delegate to tracker."""
+        manager = DownloadManager(logger=mock_logger, tracker=mock_tracker)
+        mock_tracker.get_download_info.return_value = "test-info"
+
+        result = manager.get_download_info("test-id")
+        mock_tracker.get_download_info.assert_called_once_with("test-id")
+
+        assert result == "test-info"
+
+    def test_get_download_info_returns_none_when_not_found(
+        self, mock_logger, mock_tracker: BaseTracker
+    ):
+        """get_download_info should return None when download not found."""
+        manager = DownloadManager(logger=mock_logger, tracker=mock_tracker)
+        mock_tracker.get_download_info.return_value = None
+
+        assert manager.get_download_info("nonexistent") is None
+        mock_tracker.get_download_info.assert_called_once_with("nonexistent")
+
+    def test_stats_delegates_to_tracker(self, mock_logger, mock_tracker: BaseTracker):
+        """stats property should delegate to tracker.get_stats()."""
+        manager = DownloadManager(logger=mock_logger, tracker=mock_tracker)
+        stats = DownloadStats(
+            total=1, queued=1, in_progress=1, completed=1, failed=0, completed_bytes=100
+        )
+        mock_tracker.get_stats.return_value = stats
+
+        result = manager.stats
+        assert result == stats
+        mock_tracker.get_stats.assert_called_once()
 
     def test_init_with_provided_client(self, aio_client, mock_logger):
         """Test manager initialization with provided client."""

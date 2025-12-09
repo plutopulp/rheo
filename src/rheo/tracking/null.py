@@ -1,6 +1,6 @@
 """Null object implementation of tracker."""
 
-from ..domain.downloads import DownloadInfo
+from ..domain.downloads import DownloadInfo, DownloadStats
 from ..domain.hash_validation import ValidationResult
 from ..domain.speed import SpeedMetrics
 from .base import BaseTracker
@@ -15,6 +15,17 @@ class NullTracker(BaseTracker):
     def get_download_info(self, download_id: str) -> DownloadInfo | None:
         """No-op: always returns None."""
         return None
+
+    def get_stats(self) -> DownloadStats:
+        """No-op: always returns empty stats (fresh instance)."""
+        return DownloadStats(
+            total=0,
+            queued=0,
+            in_progress=0,
+            completed=0,
+            failed=0,
+            completed_bytes=0,
+        )
 
     async def _track_queued(
         self, download_id: str, url: str, priority: int = 1

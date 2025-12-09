@@ -14,6 +14,7 @@ import aiofiles.os
 import aiohttp
 import certifi
 
+from ..domain.downloads import DownloadInfo, DownloadStats
 from ..domain.exceptions import ManagerNotInitializedError, PendingDownloadsError
 from ..domain.file_config import FileConfig, FileExistsStrategy
 from ..events import EventEmitter
@@ -168,6 +169,35 @@ class DownloadManager:
             ```
         """
         return self._tracker
+
+    def get_download_info(self, download_id: str) -> DownloadInfo | None:
+        """Get current state of a download.
+
+        Args:
+            download_id: The download ID to query (generated during FileConfig creation)
+
+        Returns:
+            DownloadInfo if found, None otherwise
+
+        Example:
+            info = manager.get_download_info("https://example.com/file.zip")
+            if info and info.status == DownloadStatus.COMPLETED:
+                print(f"Downloaded to: {info.destination_path}")
+        """
+        return self._tracker.get_download_info(download_id)
+
+    @property
+    def stats(self) -> DownloadStats:
+        """Get aggregate download statistics.
+
+        Returns:
+            DownloadStats with counts by status and total bytes
+
+        Example:
+            stats = manager.stats
+            print(f"Completed: {stats.completed}/{stats.total}")
+        """
+        return self._tracker.get_stats()
 
     async def __aenter__(self) -> "DownloadManager":
         """Enter the async context manager.
