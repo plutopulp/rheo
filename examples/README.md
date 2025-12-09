@@ -100,6 +100,72 @@ python examples/02_multiple_with_priority.py
 python examples/03_hash_validation.py
 ```
 
+### 04_progress_display.py
+
+**Demonstrates:** Real-time progress bar with speed and ETA via `manager.on()`
+
+**What it does:**
+
+- Subscribes to `download.progress` for live updates
+- Uses `SpeedMetrics` to show average speed and ETA
+- Prints a simple progress bar for a 10MB download
+
+**Key concepts:**
+
+- Event subscription through `DownloadManager`
+- Progress events with embedded speed metrics
+- Basic terminal progress display
+
+**Run it:**
+
+```bash
+python examples/04_progress_display.py
+```
+
+### 05_event_logging.py
+
+**Demonstrates:** Wildcard event subscription and lifecycle logging
+
+**What it does:**
+
+- Subscribes to `"*"` to log all download events
+- Prints queued → started → progress → completed with timestamps
+- Shows event payload fields (priority, size, bytes, errors)
+
+**Key concepts:**
+
+- Wildcard event handling
+- Event model introspection
+- Sequential downloads for clearer logging
+
+**Run it:**
+
+```bash
+python examples/05_event_logging.py
+```
+
+### 06_batch_summary.py
+
+**Demonstrates:** Batch downloads with aggregate and per-file summaries
+
+**What it does:**
+
+- Downloads a batch of files (mix of success/failure)
+- Uses `manager.stats` for totals
+- Uses `manager.get_download_info()` for per-file details
+
+**Key concepts:**
+
+- Aggregate stats via `DownloadStats`
+- Per-download status and error reporting
+- Handling failures in a batch workflow
+
+**Run it:**
+
+```bash
+python examples/06_batch_summary.py
+```
+
 ## What to Expect
 
 Each example will:
