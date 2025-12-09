@@ -2,6 +2,7 @@
 
 import pytest
 
+from rheo.domain.downloads import DownloadStats
 from rheo.tracking import BaseTracker, NullTracker
 
 
@@ -32,3 +33,12 @@ class TestNullTracker:
         await null_tracker._track_failed("id", "url", Exception("test"))
         await null_tracker._track_skipped("id", "url", "reason", "/path")
         await null_tracker._track_cancelled("id", "url")
+        assert null_tracker.get_download_info("id") is None
+        assert null_tracker.get_stats() == DownloadStats(
+            total=0,
+            queued=0,
+            in_progress=0,
+            completed=0,
+            failed=0,
+            completed_bytes=0,
+        )
