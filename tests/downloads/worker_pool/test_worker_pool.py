@@ -13,6 +13,7 @@ from rheo.domain.file_config import FileConfig
 from rheo.downloads.queue import PriorityDownloadQueue
 from rheo.downloads.worker.worker import DownloadWorker
 from rheo.downloads.worker_pool.pool import EventSource, EventWiring, WorkerPool
+from rheo.events import EventEmitter
 from rheo.tracking.tracker import DownloadTracker
 from tests.downloads.conftest import WorkerFactoryMaker
 
@@ -71,6 +72,8 @@ def make_worker_pool(
         queue=None,
         event_wiring=None,
     ) -> WorkerPool:
+        shared_emitter = EventEmitter(mock_logger)
+
         return WorkerPool(
             queue=queue or real_priority_queue,
             worker_factory=worker_factory or DownloadWorker,
@@ -78,6 +81,7 @@ def make_worker_pool(
             download_dir=tmp_path,
             max_workers=max_workers,
             event_wiring=event_wiring or _default_wiring(),
+            emitter=shared_emitter,
         )
 
     return _make_pool
@@ -204,8 +208,9 @@ class TestWorkerPoolIsolation:
 
         created_workers = isolated_mock_worker_factory.created_mocks
         assert len(created_workers) == 3
+        # Workers should share the same emitter
         emitter_ids = {id(worker.emitter) for worker in created_workers}
-        assert len(emitter_ids) == 3, "Expected unique emitter per worker"
+        assert len(emitter_ids) == 1, "Expected shared emitter per pool"
 
         await pool.shutdown(wait_for_current=False)
 

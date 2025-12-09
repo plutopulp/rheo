@@ -7,7 +7,7 @@ Subscribe to events via the manager or worker emitter directly.
 
 from abc import ABC, abstractmethod
 
-from ..domain.downloads import DownloadInfo
+from ..domain.downloads import DownloadInfo, DownloadStats
 from ..domain.hash_validation import ValidationResult
 from ..domain.speed import SpeedMetrics
 
@@ -18,8 +18,8 @@ class BaseTracker(ABC):
     Trackers store state and provide query methods. They are observers that
     receive state updates from the pool's event wiring. They do not emit events.
 
-    For event subscription, use the manager or worker emitter:
-        manager.worker.emitter.on("download.progress", handler)
+    For event subscription, use the manager:
+        manager.on("download.progress", handler)
     """
 
     @abstractmethod
@@ -32,6 +32,11 @@ class BaseTracker(ABC):
         Returns:
             DownloadInfo if found, None otherwise
         """
+        ...
+
+    @abstractmethod
+    def get_stats(self) -> DownloadStats:
+        """Get aggregate download statistics."""
         ...
 
     @abstractmethod

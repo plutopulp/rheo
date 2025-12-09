@@ -6,7 +6,9 @@ from pathlib import Path
 import pytest
 from aiohttp import ClientSession
 from aioresponses import aioresponses
+from pytest_mock import MockerFixture
 
+from rheo.domain.downloads import DownloadStats
 from rheo.domain.exceptions import ManagerNotInitializedError, PendingDownloadsError
 from rheo.domain.file_config import FileConfig, FileExistsStrategy
 from rheo.downloads import (
@@ -14,10 +16,24 @@ from rheo.downloads import (
     DownloadWorker,
     PriorityDownloadQueue,
 )
-from rheo.events import EventEmitter, NullEmitter
+from rheo.events import BaseEmitter, EventEmitter, NullEmitter
+from rheo.events.models import (
+    DownloadCompletedEvent,
+    DownloadQueuedEvent,
+    DownloadStartedEvent,
+)
+from rheo.tracking import BaseTracker
 
 if t.TYPE_CHECKING:
     from loguru import Logger
+
+
+@pytest.fixture
+def mock_tracker(mocker: MockerFixture, mock_emitter: BaseEmitter) -> BaseTracker:
+    """Provide fully mocked DownloadTracker with spec and mock emitter."""
+    mock = mocker.Mock(spec=BaseTracker)
+    mock.emitter = mock_emitter
+    return mock
 
 
 class TestDownloadManagerInitialization:
@@ -49,6 +65,62 @@ class TestDownloadManagerInitialization:
         assert manager.max_concurrent == 5
         assert manager.queue is custom_queue
 
+    def test_manager_creates_shared_emitter(self, mock_logger: "Logger"):
+        """Manager should create a shared EventEmitter."""
+        manager = DownloadManager(logger=mock_logger)
+
+        assert manager._emitter is not None
+        assert isinstance(manager._emitter, EventEmitter)
+        assert manager.queue.emitter is manager._emitter
+
+    def test_custom_emitter_is_used(
+        self,
+        mock_logger: "Logger",
+        mock_emitter: BaseEmitter,
+        mock_aio_client: ClientSession,
+    ):
+        """Custom emitter should be used when provided."""
+        manager = DownloadManager(logger=mock_logger, emitter=mock_emitter)
+
+        assert manager._emitter is mock_emitter
+        assert manager.queue.emitter is mock_emitter
+        worker = manager._worker_pool.create_worker(mock_aio_client)
+        assert worker.emitter is mock_emitter
+
+    def test_get_download_info_delegates_to_tracker(
+        self, mock_logger, mock_tracker: BaseTracker
+    ):
+        """get_download_info should delegate to tracker."""
+        manager = DownloadManager(logger=mock_logger, tracker=mock_tracker)
+        mock_tracker.get_download_info.return_value = "test-info"
+
+        result = manager.get_download_info("test-id")
+        mock_tracker.get_download_info.assert_called_once_with("test-id")
+
+        assert result == "test-info"
+
+    def test_get_download_info_returns_none_when_not_found(
+        self, mock_logger, mock_tracker: BaseTracker
+    ):
+        """get_download_info should return None when download not found."""
+        manager = DownloadManager(logger=mock_logger, tracker=mock_tracker)
+        mock_tracker.get_download_info.return_value = None
+
+        assert manager.get_download_info("nonexistent") is None
+        mock_tracker.get_download_info.assert_called_once_with("nonexistent")
+
+    def test_stats_delegates_to_tracker(self, mock_logger, mock_tracker: BaseTracker):
+        """stats property should delegate to tracker.get_stats()."""
+        manager = DownloadManager(logger=mock_logger, tracker=mock_tracker)
+        stats = DownloadStats(
+            total=1, queued=1, in_progress=1, completed=1, failed=0, completed_bytes=100
+        )
+        mock_tracker.get_stats.return_value = stats
+
+        result = manager.stats
+        assert result == stats
+        mock_tracker.get_stats.assert_called_once()
+
     def test_init_with_provided_client(self, aio_client, mock_logger):
         """Test manager initialization with provided client."""
         manager = DownloadManager(client=aio_client, logger=mock_logger)
@@ -65,6 +137,75 @@ class TestDownloadManagerInitialization:
         manager = DownloadManager(worker_factory=custom_factory, logger=mock_logger)
 
         assert manager._worker_factory is custom_factory
+
+
+class TestDownloadManagerEvents:
+    """Test DownloadManager event subscription helpers."""
+
+    @pytest.mark.asyncio
+    async def test_on_subscribes_to_emitter(self, mock_logger: "Logger") -> None:
+        """manager.on() should subscribe handler to emitter."""
+        manager = DownloadManager(logger=mock_logger)
+        events: list[dict[str, t.Any]] = []
+
+        manager.on("download.completed", lambda e: events.append(e))
+
+        event_data = DownloadCompletedEvent(
+            download_id="test-id",
+            url="https://example.com/file.txt",
+            total_bytes=100,
+            destination_path="test-path",
+        )
+
+        await manager._emitter.emit("download.completed", event_data)
+
+        assert events == [event_data]
+
+    @pytest.mark.asyncio
+    async def test_off_unsubscribes_from_emitter(self, mock_logger: "Logger") -> None:
+        """manager.off() should unsubscribe handler from emitter."""
+        manager = DownloadManager(logger=mock_logger)
+        events: list[dict[str, t.Any]] = []
+
+        def handler(e: t.Any) -> None:
+            events.append(e)
+
+        manager.on("download.completed", handler)
+        manager.off("download.completed", handler)
+        event_data = DownloadCompletedEvent(
+            download_id="test-id",
+            url="https://example.com/file.txt",
+            total_bytes=100,
+            destination_path="test-path",
+        )
+        await manager._emitter.emit("download.completed", event_data)
+
+        assert events == []
+
+    @pytest.mark.asyncio
+    async def test_wildcard_subscription(self, mock_logger: "Logger") -> None:
+        """manager.on('*', ...) should receive all events."""
+        manager = DownloadManager(logger=mock_logger)
+        events: list[dict[str, t.Any]] = []
+
+        manager.on("*", lambda e: events.append(e))
+        started_event = DownloadStartedEvent(
+            download_id="test-id", url="https://example.com/file.txt", total_bytes=100
+        )
+        completed_event = DownloadCompletedEvent(
+            download_id="test-id",
+            url="https://example.com/file.txt",
+            total_bytes=100,
+            destination_path="test-path",
+        )
+        queued_event = DownloadQueuedEvent(
+            download_id="test-id", url="https://example.com/file.txt", priority=1
+        )
+        await manager._emitter.emit("download.queued", queued_event)
+        await manager._emitter.emit("download.started", started_event)
+        await manager._emitter.emit("download.completed", completed_event)
+
+        assert events == [queued_event, started_event, completed_event]
 
     @pytest.mark.asyncio
     async def test_worker_factory_exception_propagates(

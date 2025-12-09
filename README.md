@@ -49,7 +49,7 @@ asyncio.run(main())
 - Retry logic with exponential backoff
 - Real-time speed & ETA tracking
 - File exists handling (skip, overwrite, or error)
-- Event-driven architecture
+- Event-driven architecture with `manager.on()`/`off()`
 - CLI tool (`rheo download`)
 - Full type hints
 
@@ -75,6 +75,25 @@ See [CLI Reference](https://github.com/plutopulp/rheo/blob/main/docs/CLI.md) for
 - **[Architecture](https://github.com/plutopulp/rheo/blob/main/docs/ARCHITECTURE.md)** - System design and patterns
 - **[Contributing](https://github.com/plutopulp/rheo/blob/main/CONTRIBUTING.md)** - Development setup and guidelines
 - **[Roadmap](https://github.com/plutopulp/rheo/blob/main/docs/ROADMAP.md)** - What's next
+
+## Listen to Events
+
+Subscribe directly on the manager (shared emitter facade) to react to lifecycle events:
+
+```python
+from rheo.events.models import DownloadCompletedEvent
+
+def on_completed(event: DownloadCompletedEvent) -> None:
+    print(f"done: {event.download_id}")
+
+
+async with DownloadManager(download_dir=Path("./downloads")) as manager:
+    manager.on("download.completed", on_completed)
+    await manager.add([FileConfig(url="https://example.com/file.zip")])
+    await manager.wait_until_complete()
+```
+
+Use `"*"` to receive all events, and `manager.off()` to unsubscribe.
 
 ## Examples
 

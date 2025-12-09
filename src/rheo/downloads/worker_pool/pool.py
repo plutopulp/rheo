@@ -10,6 +10,7 @@ from aiohttp import ClientSession
 from ...domain.exceptions import WorkerPoolAlreadyStartedError
 from ...domain.file_config import FileConfig, FileExistsStrategy
 from ...events import EventEmitter
+from ...events.base import BaseEmitter
 from ..queue import PriorityDownloadQueue
 from ..worker.base import BaseWorker
 from ..worker.factory import WorkerFactory
@@ -79,6 +80,7 @@ class WorkerPool(BaseWorkerPool):
         max_workers: int = 3,
         event_wiring: EventWiring | None = None,
         file_exists_strategy: FileExistsStrategy = FileExistsStrategy.SKIP,
+        emitter: BaseEmitter | None = None,
     ) -> None:
         """Initialise the worker pool.
 
@@ -95,6 +97,8 @@ class WorkerPool(BaseWorkerPool):
                          are wired.
             file_exists_strategy: Default strategy for handling existing files.
                          Per-file strategy in FileConfig overrides this.
+            emitter: Shared event emitter for queue and worker events. If None,
+                     a new EventEmitter is created.
         """
         self.queue = queue
         self._worker_factory = worker_factory
@@ -109,6 +113,7 @@ class WorkerPool(BaseWorkerPool):
             EventSource.WORKER: {},
         }
         self._file_exists_strategy = file_exists_strategy
+        self._emitter = emitter or EventEmitter(self._logger)
 
     @property
     def active_tasks(self) -> tuple[asyncio.Task[None], ...]:
@@ -143,6 +148,8 @@ class WorkerPool(BaseWorkerPool):
 
         # Wire queue events once at startup
         self._wire_queue_events()
+        # Wire worker events once to shared emitter
+        self._wire_worker_events()
 
         for _ in range(self._max_workers):
             worker = self.create_worker(client)
@@ -176,10 +183,7 @@ class WorkerPool(BaseWorkerPool):
         self._shutdown_event.set()
 
     def create_worker(self, client: ClientSession) -> BaseWorker:
-        """Create a worker instance with isolated emitter and tracker wiring.
-
-        Each worker gets its own EventEmitter to prevent event cross-contamination.
-        The worker's emitter is automatically wired to tracker event handlers.
+        """Create a worker instance with shared emitter.
 
         Args:
             client: HTTP client session to inject into worker
@@ -191,11 +195,7 @@ class WorkerPool(BaseWorkerPool):
             This method is public to support testing and custom worker creation
             scenarios, but is typically called only by start().
         """
-        # TODO: Change this so that event emitter is injected
-        emitter = EventEmitter(self._logger)
-        worker = self._worker_factory(client, self._logger, emitter)
-        self._wire_worker_events(worker)
-        return worker
+        return self._worker_factory(client, self._logger, self._emitter)
 
     def _wire_queue_events(self) -> None:
         """Wire queue events to provided handlers."""
@@ -204,12 +204,12 @@ class WorkerPool(BaseWorkerPool):
         ).items():
             self.queue.emitter.on(event_type, handler)
 
-    def _wire_worker_events(self, worker: BaseWorker) -> None:
-        """Wire worker events to provided handlers."""
+    def _wire_worker_events(self) -> None:
+        """Wire worker events to provided handlers on shared emitter."""
         for event_type, handler in self._event_wiring.get(
             EventSource.WORKER, {}
         ).items():
-            worker.emitter.on(event_type, handler)
+            self._emitter.on(event_type, handler)
 
     async def _process_queue(self, worker: BaseWorker) -> None:
         """Process downloads from queue until shutdown or cancellation.
