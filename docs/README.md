@@ -300,7 +300,8 @@ file_config = FileConfig(
 - Runs in thread pool to avoid blocking event loop
 - Uses constant-time comparison to prevent timing attacks
 - Failed validation deletes corrupted file and raises `HashMismatchError`
-- Emits validation events: `validation_started`, `validation_completed`, `validation_failed`
+- Emits `download.validating` event when validation starts
+- Validation results are embedded in `download.completed` or `download.failed` events via `ValidationResult`
 
 **Track validation results**:
 
@@ -475,21 +476,23 @@ FileConfig(url="...", destination_subdir="../../../etc")
 
 **Alpha/Early Development**: The core library works, but we're still adding features. API might change before 1.0.
 
-Recently completed:
+**What's working:**
 
-- ✅ Retry logic with exponential backoff
-- ✅ Configurable retry policies
-- ✅ Smart error categorization (transient vs permanent)
-- ✅ Graceful shutdown with configurable behavior
-- ✅ Real-time speed and ETA tracking
-- ✅ Hash validation (MD5, SHA256, SHA512)
-- ✅ CLI interface with progress display
+- Concurrent downloads with worker pool
+- Priority queue system
+- Event-driven architecture with `manager.on()`/`off()` subscription
+- Full download lifecycle events (queued, started, progress, completed, failed, skipped, cancelled, retrying, validating)
+- Download tracking and state management
+- Retry logic with exponential backoff
+- Real-time speed and ETA tracking
+- Hash validation (MD5, SHA256, SHA512)
+- File exists handling (skip, overwrite, error)
+- CLI interface with progress display
 
-Current focus:
+**Next up:**
 
 - Download resume support (HTTP Range requests)
 - Multi-segment parallel downloads
-- Custom HTTP headers and authentication
 - Enhanced CLI features (batch downloads, Rich UI progress)
 
 See `docs/ROADMAP.md` for details.
@@ -541,7 +544,7 @@ MIT Licence - see LICENSE file for details.
 
 - **[CLI Reference](CLI.md)** - Complete command-line interface documentation
 - **[Architecture](ARCHITECTURE.md)** - System design and component overview
-- **[Roadmap](ROADMAP.md)** - Feature roadmap and development phases
+- **[Roadmap](ROADMAP.md)** - What's next
 - **[Ideas](IDEAS.md)** - Future ideas and brainstorming
 
 ## Questions?

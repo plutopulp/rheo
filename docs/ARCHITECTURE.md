@@ -582,14 +582,11 @@ Simple and effective:
 
 Things we explicitly didn't build (yet):
 
-- ✅ ~~No retry logic~~ - **Implemented with exponential backoff**
-- ✅ ~~No speed/ETA tracking~~ - **Implemented with moving average and real-time updates**
-- ✅ ~~No hash validation~~ - **Implemented with MD5, SHA256, SHA512 support**
-- No resume support (planned for Phase 1)
-- No multi-segment parallel downloads (planned for Phase 1)
-- No persistent storage (planned for Phase 2)
-- No authentication (planned for Phase 2)
-- No distributed coordination (maybe Phase 3)
+- No resume support (planned)
+- No multi-segment parallel downloads (planned)
+- No persistent storage (considering)
+- No authentication (considering)
+- No distributed coordination (future)
 
 ## Testing Strategy
 

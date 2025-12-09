@@ -1,6 +1,7 @@
 """Download command implementation."""
 
 import asyncio
+import typing as t
 from pathlib import Path
 
 import typer
@@ -11,16 +12,15 @@ from ...domain.file_config import FileConfig
 from ...domain.hash_validation import HashConfig
 from ...downloads import DownloadManager
 from ...tracking.base import BaseTracker
+from ..output.progress import (
+    on_completed,
+    on_failed,
+    on_progress,
+    on_skipped,
+    on_started,
+    on_validating,
+)
 from ..state import CLIState
-
-# TODO: Re-enable event display when manager exposes event subscription interface
-# from ..output.progress import (
-#     display_download_completed,
-#     display_download_failed,
-#     display_download_started,
-#     display_validation_completed,
-#     display_validation_failed,
-# )
 
 
 def validate_url(url_str: str) -> HttpUrl:
@@ -81,18 +81,32 @@ async def download_file(
     Raises:
         typer.Exit: On download failure
     """
-    # TODO: Re-enable real-time event display when manager exposes event subscription
-    # interface. For now, we query final state to determine success/failure.
+    handlers: list[tuple[str, t.Callable[[t.Any], t.Any]]] = [
+        ("download.started", on_started),
+        ("download.progress", on_progress),
+        ("download.completed", on_completed),
+        ("download.failed", on_failed),
+        ("download.validating", on_validating),
+        ("download.skipped", on_skipped),
+    ]
 
-    # Create and queue download
-    file_config = FileConfig(url=url, filename=filename, hash_config=hash_config)
-    await manager.add([file_config])
-    await manager.queue.join()
+    # Wire CLI handlers (and ensure cleanup)
+    for event, handler in handlers:
+        manager.on(event, handler)
 
-    # Query final state to determine exit code
-    info = tracker.get_download_info(file_config.id)
-    if info and info.status == DownloadStatus.FAILED:
-        raise typer.Exit(code=1)
+    try:
+        # Create and queue download
+        file_config = FileConfig(url=url, filename=filename, hash_config=hash_config)
+        await manager.add([file_config])
+        await manager.queue.join()
+
+        # Query final state to determine exit code
+        info = tracker.get_download_info(file_config.id)
+        if info and info.status == DownloadStatus.FAILED:
+            raise typer.Exit(code=1)
+    finally:
+        for event, handler in handlers:
+            manager.off(event, handler)
 
 
 def download(
