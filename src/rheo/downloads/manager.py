@@ -18,6 +18,7 @@ from ..domain.downloads import DownloadInfo, DownloadStats
 from ..domain.exceptions import ManagerNotInitializedError, PendingDownloadsError
 from ..domain.file_config import FileConfig, FileExistsStrategy
 from ..events import EventEmitter
+from ..events.base import BaseEmitter
 from ..infrastructure.logging import get_logger
 from ..tracking.base import BaseTracker
 from ..tracking.tracker import DownloadTracker
@@ -89,6 +90,7 @@ class DownloadManager:
         worker_pool_factory: WorkerPoolFactory | None = None,
         file_exists_strategy: FileExistsStrategy = FileExistsStrategy.SKIP,
         event_wiring: EventWiring | None = None,
+        emitter: BaseEmitter | None = None,
     ) -> None:
         """Initialise the download manager.
 
@@ -111,22 +113,25 @@ class DownloadManager:
                     Defaults to SKIP.
             event_wiring: Optional wiring map for download events to tracker handlers.
                     If None, defaults to internal wiring.
+            emitter: Shared event emitter for queue, workers, and external subscribers.
+                    If None, a new EventEmitter will be created.
         """
         self._client = client
         self._owns_client = False  # Track if we created the client
         self._worker_factory = worker_factory or DownloadWorker
         self._logger = logger
+        self._emitter = emitter or EventEmitter(logger)
         # Auto-create tracker if not provided (always available for observability)
         # Users can pass NullTracker() if tracking is unwanted
         self._tracker = (
             tracker if tracker is not None else DownloadTracker(logger=logger)
         )
 
-        # Create queue with EventEmitter for automatic tracking.
+        # Create queue with shared emitter for automatic tracking.
         # Pool wires queue.emitter to tracker automatically.
         # To disable queue events, pass a queue with NullEmitter.
         self.queue = queue or PriorityDownloadQueue(
-            logger=logger, emitter=EventEmitter(logger)
+            logger=logger, emitter=self._emitter
         )
         self.timeout = timeout
         self.max_concurrent = max_concurrent
@@ -143,6 +148,7 @@ class DownloadManager:
             max_workers=self.max_concurrent,
             event_wiring=self._event_wiring,
             file_exists_strategy=self.file_exists_strategy,
+            emitter=self._emitter,
         )
 
     @property

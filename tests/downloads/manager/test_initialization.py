@@ -60,6 +60,28 @@ class TestDownloadManagerInitialization:
         assert manager.max_concurrent == 5
         assert manager.queue is custom_queue
 
+    def test_manager_creates_shared_emitter(self, mock_logger: "Logger"):
+        """Manager should create a shared EventEmitter."""
+        manager = DownloadManager(logger=mock_logger)
+
+        assert manager._emitter is not None
+        assert isinstance(manager._emitter, EventEmitter)
+        assert manager.queue.emitter is manager._emitter
+
+    def test_custom_emitter_is_used(
+        self,
+        mock_logger: "Logger",
+        mock_emitter: BaseEmitter,
+        mock_aio_client: ClientSession,
+    ):
+        """Custom emitter should be used when provided."""
+        manager = DownloadManager(logger=mock_logger, emitter=mock_emitter)
+
+        assert manager._emitter is mock_emitter
+        assert manager.queue.emitter is mock_emitter
+        worker = manager._worker_pool.create_worker(mock_aio_client)
+        assert worker.emitter is mock_emitter
+
     def test_get_download_info_delegates_to_tracker(
         self, mock_logger, mock_tracker: BaseTracker
     ):

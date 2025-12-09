@@ -3,6 +3,7 @@
 import typing as t
 from pathlib import Path
 
+from ...events.base import BaseEmitter
 from ..queue import PriorityDownloadQueue
 from ..worker.factory import WorkerFactory
 from .base import BaseWorkerPool
@@ -28,6 +29,7 @@ class WorkerPoolFactory(t.Protocol):
         download_dir: Path,
         max_workers: int,
         event_wiring: EventWiring | None,
+        emitter: BaseEmitter | None,
         **kwargs: t.Any,
     ) -> BaseWorkerPool:
         """Create a worker pool instance with the given dependencies.
@@ -39,6 +41,7 @@ class WorkerPoolFactory(t.Protocol):
             download_dir: Directory where downloaded files will be saved
             max_workers: Maximum number of concurrent worker tasks
             event_wiring: Event handlers categorised by source ("queue", "worker")
+            emitter: Shared event emitter for queue and worker events
             **kwargs: Additional optional parameters
 
         Returns:
