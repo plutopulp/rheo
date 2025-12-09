@@ -102,6 +102,9 @@ Check [`examples/`](https://github.com/plutopulp/rheo/tree/main/examples) for wo
 - `01_basic_download.py` - Simple single file download
 - `02_multiple_with_priority.py` - Multiple files with priorities
 - `03_hash_validation.py` - File integrity verification
+- `04_progress_display.py` - Real-time progress bar with speed/ETA
+- `05_event_logging.py` - Lifecycle event debugging
+- `06_batch_summary.py` - Batch download with summary report
 
 ## Project Status
 
@@ -109,7 +112,6 @@ Check [`examples/`](https://github.com/plutopulp/rheo/tree/main/examples) for wo
 
 - Python: 3.12+
 - License: MIT
-- Version: 0.4.0
 
 ## Questions?
 
