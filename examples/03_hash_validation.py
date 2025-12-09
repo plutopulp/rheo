@@ -14,7 +14,7 @@ import asyncio
 from pathlib import Path
 
 from rheo import DownloadManager
-from rheo.domain import DownloadStatus, FileConfig, HashConfig
+from rheo.domain import DownloadStatus, FileConfig, FileExistsStrategy, HashConfig
 
 
 async def main() -> None:
@@ -72,7 +72,10 @@ async def main() -> None:
 
     # Process each file individually to show clear success/failure
     # Note: manager.tracker is automatically available for querying download status
-    async with DownloadManager(download_dir=Path("./downloads")) as manager:
+    async with DownloadManager(
+        download_dir=Path("./downloads"),
+        file_exists_strategy=FileExistsStrategy.OVERWRITE,
+    ) as manager:
         for file_config in files:
             print(f"Downloading: {file_config.description}")
 
