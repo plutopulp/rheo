@@ -87,13 +87,15 @@ Key pieces:
 - Orchestrates high-level download operations
 - Initialises HTTP client
 - Creates and owns all event wiring (queue and worker events to tracker)
+- Creates a single shared `EventEmitter` and exposes it as an event facade via `on()`/`off()`
 - Delegates worker lifecycle to `WorkerPool`
+- Provides read APIs (`get_download_info`, `stats`) backed by tracker
 - Context manager for resource cleanup
 
 **WorkerPool**:
 
 - Encapsulates worker lifecycle management
-- Creates one isolated worker per task
+- Creates one isolated worker per task (all sharing manager's emitter)
 - Applies event wiring (tracker-agnostic, receives `EventWiring` from Manager)
 - Processes queue with timeout-based polling for shutdown responsiveness
 - Handles graceful vs immediate shutdown semantics
@@ -155,6 +157,7 @@ Key pieces:
 - Supports sync and async handlers
 - Typed events via Pydantic models (immutable, validated)
 - Namespaced event names (e.g., `download.progress`)
+- Shared instance created by `DownloadManager` and passed to queue, pool, and workers; subscribe via `manager.on()`/`off()` (or `"*"` for all)
 
 **Event Models**:
 
@@ -329,9 +332,10 @@ config4 = FileConfig(url="https://example.com/file.zip", destination_subdir="dir
 
 ```text
 1. Worker calls emitter.emit("download.progress", DownloadProgressEvent(...))
-2. Emitter finds all registered handlers for that event
-3. Emitter calls each handler (sync or async)
-4. If handler fails, logs error but continues
+2. Queue emits download.queued when items are added
+3. Emitter finds all registered handlers for that event (manager.on/off, tracker wiring)
+4. Emitter calls each handler (sync or async)
+5. If handler fails, logs error but continues
 ```
 
 ### Querying State

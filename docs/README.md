@@ -254,9 +254,7 @@ The library uses event-driven architecture with `download.*` namespaced events:
 - `download.retrying` - Before retry attempt
 - `download.validating` - When hash validation starts (if configured)
 
-Events are emitted by queue and workers, automatically wired to the tracker for state updates. Validation outcomes are embedded in completed/failed events via `ValidationResult`, and the tracker stores `destination_path` and validation results directly on `DownloadInfo`.
-
-**Note**: Direct event subscription API is being redesigned. Currently, use the tracker for state queries after downloads complete. Event subscription will be exposed through the manager in a future release.
+Events are emitted by queue and workers, automatically wired to the tracker for state updates. Validation outcomes are embedded in completed/failed events via `ValidationResult`, and the tracker stores `destination_path` and validation results directly on `DownloadInfo`. Subscribe via the manager's shared emitter (`manager.on(event, handler)`, `manager.off(event, handler)`) or use `manager.on("*", handler)` to observe everything; state queries are available via `manager.get_download_info(id)` and `manager.stats`.
 
 ### Hash Validation
 
