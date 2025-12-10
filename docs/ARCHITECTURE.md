@@ -87,7 +87,7 @@ Key pieces:
 - Orchestrates high-level download operations
 - Initialises HTTP client
 - Creates and owns all event wiring (queue and worker events to tracker)
-- Creates a single shared `EventEmitter` and exposes it as an event facade via `on()`/`off()`
+- Creates a single shared `EventEmitter` and exposes it as an event facade via `on()` (returns `Subscription` handle)
 - Delegates worker lifecycle to `WorkerPool`
 - Provides read APIs (`get_download_info`, `stats`) backed by tracker
 - Context manager for resource cleanup
@@ -157,7 +157,7 @@ Key pieces:
 - Supports sync and async handlers
 - Typed events via Pydantic models (immutable, validated)
 - Namespaced event names (e.g., `download.progress`)
-- Shared instance created by `DownloadManager` and passed to queue, pool, and workers; subscribe via `manager.on()`/`off()` (or `"*"` for all)
+- Shared instance created by `DownloadManager` and passed to queue, pool, and workers; subscribe via `manager.on()` which returns a `Subscription` (call `sub.unsubscribe()` to stop), or use `"*"` for all events
 
 **Event Models**:
 

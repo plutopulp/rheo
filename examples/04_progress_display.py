@@ -16,7 +16,7 @@ from pathlib import Path
 
 from rheo import DownloadManager
 from rheo.domain import FileConfig, FileExistsStrategy
-from rheo.events.models import DownloadCompletedEvent, DownloadProgressEvent
+from rheo.events import DownloadCompletedEvent, DownloadEventType, DownloadProgressEvent
 
 
 def format_bytes(value: int) -> str:
@@ -81,8 +81,8 @@ async def main() -> None:
         download_dir=Path("./downloads"),
         file_exists_strategy=FileExistsStrategy.OVERWRITE,
     ) as manager:
-        manager.on("download.progress", on_progress)
-        manager.on("download.completed", on_completed)
+        manager.on(DownloadEventType.PROGRESS, on_progress)
+        manager.on(DownloadEventType.COMPLETED, on_completed)
 
         await manager.add([file])
         await manager.wait_until_complete()

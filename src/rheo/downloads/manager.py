@@ -17,9 +17,9 @@ import certifi
 from ..domain.downloads import DownloadInfo, DownloadStats
 from ..domain.exceptions import ManagerNotInitializedError, PendingDownloadsError
 from ..domain.file_config import FileConfig, FileExistsStrategy
-from ..events import EventEmitter
+from ..events import EventEmitter, Subscription
 from ..events.base import BaseEmitter
-from ..events.emitter import EventHandler
+from ..events.models.download import EventHandler, EventType
 from ..infrastructure.logging import get_logger
 from ..tracking.base import BaseTracker
 from ..tracking.tracker import DownloadTracker
@@ -206,23 +206,28 @@ class DownloadManager:
         """
         return self._tracker.get_stats()
 
-    def on(self, event_type: str, handler: EventHandler) -> None:
+    def on(self, event_type: EventType, handler: EventHandler) -> Subscription:
         """Subscribe to download events.
 
         Args:
-            event_type: Event to listen for. Use "*" for all events.
-            handler: Callback function (sync or async)
+            event_type: Event to subscribe to. Use DownloadEventType enum for
+                autocomplete (e.g., DownloadEventType.COMPLETED), or "*" for
+                all events.
+            handler: Callback receiving the event (sync or async). Type-hint
+                your handler parameter for autocomplete on event fields.
+
+        Returns:
+            Subscription handle. Call .unsubscribe() to stop receiving events.
+
+        Example:
+            def on_completed(event: DownloadCompletedEvent) -> None:
+                print(f"Downloaded: {event.destination_path}")
+
+            sub = manager.on(DownloadEventType.COMPLETED, on_completed)
+            # later: sub.unsubscribe()
         """
         self._emitter.on(event_type, handler)
-
-    def off(self, event_type: str, handler: EventHandler) -> None:
-        """Unsubscribe from download events.
-
-        Args:
-            event_type: Event to stop listening for
-            handler: The handler function to remove
-        """
-        self._emitter.off(event_type, handler)
+        return Subscription(self._emitter, event_type, handler)
 
     async def __aenter__(self) -> "DownloadManager":
         """Enter the async context manager.

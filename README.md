@@ -78,22 +78,22 @@ See [CLI Reference](https://github.com/plutopulp/rheo/blob/main/docs/CLI.md) for
 
 ## Listen to Events
 
-Subscribe directly on the manager (shared emitter facade) to react to lifecycle events:
+Subscribe to lifecycle events via `manager.on()`, which returns a `Subscription` handle:
 
 ```python
-from rheo.events.models import DownloadCompletedEvent
+from rheo.events import DownloadEventType, DownloadCompletedEvent
 
 def on_completed(event: DownloadCompletedEvent) -> None:
     print(f"done: {event.download_id}")
 
-
 async with DownloadManager(download_dir=Path("./downloads")) as manager:
-    manager.on("download.completed", on_completed)
+    sub = manager.on(DownloadEventType.COMPLETED, on_completed)
     await manager.add([FileConfig(url="https://example.com/file.zip")])
     await manager.wait_until_complete()
+    # sub.unsubscribe() when no longer needed
 ```
 
-Use `"*"` to receive all events, and `manager.off()` to unsubscribe.
+Use `"*"` to receive all events. Type-hint your handler for autocomplete on event fields.
 
 ## Examples
 

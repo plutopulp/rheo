@@ -7,6 +7,7 @@ from .download import (
     DownloadCancelledEvent,
     DownloadCompletedEvent,
     DownloadEvent,
+    DownloadEventType,
     DownloadFailedEvent,
     DownloadProgressEvent,
     DownloadQueuedEvent,
@@ -14,6 +15,9 @@ from .download import (
     DownloadSkippedEvent,
     DownloadStartedEvent,
     DownloadValidatingEvent,
+    EventHandler,
+    EventType,
+    Handler,
 )
 from .error_info import ErrorInfo
 
@@ -21,6 +25,7 @@ __all__ = [
     "BaseEvent",
     "ErrorInfo",
     "DownloadEvent",
+    "DownloadEventType",
     "DownloadQueuedEvent",
     "DownloadStartedEvent",
     "DownloadProgressEvent",
@@ -30,5 +35,8 @@ __all__ = [
     "DownloadCancelledEvent",
     "DownloadRetryingEvent",
     "DownloadValidatingEvent",
+    "EventHandler",
+    "EventType",
+    "Handler",
     "ValidationResult",
 ]
