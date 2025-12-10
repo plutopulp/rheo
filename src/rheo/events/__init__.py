@@ -9,6 +9,7 @@ from .models import (
     DownloadCancelledEvent,
     DownloadCompletedEvent,
     DownloadEvent,
+    DownloadEventType,
     DownloadFailedEvent,
     DownloadProgressEvent,
     DownloadQueuedEvent,
@@ -36,6 +37,7 @@ __all__ = [
     "NullEmitter",
     # Download Events (from models/)
     "DownloadEvent",
+    "DownloadEventType",
     "DownloadQueuedEvent",
     "DownloadSkippedEvent",
     "DownloadCancelledEvent",

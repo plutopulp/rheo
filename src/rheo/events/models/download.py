@@ -1,5 +1,7 @@
 """Download lifecycle events with user-centric naming."""
 
+from enum import StrEnum
+
 from pydantic import Field, computed_field
 
 from rheo.domain.hash_validation import HashAlgorithm, ValidationResult
@@ -7,6 +9,24 @@ from rheo.domain.speed import SpeedMetrics
 
 from .base import BaseEvent
 from .error_info import ErrorInfo
+
+
+class DownloadEventType(StrEnum):
+    """Typed event names for download lifecycle events.
+
+    Use with manager.on() for autocomplete:
+        manager.on(DownloadEventType.COMPLETED, handler)
+    """
+
+    QUEUED = "download.queued"
+    STARTED = "download.started"
+    PROGRESS = "download.progress"
+    COMPLETED = "download.completed"
+    FAILED = "download.failed"
+    SKIPPED = "download.skipped"
+    CANCELLED = "download.cancelled"
+    RETRYING = "download.retrying"
+    VALIDATING = "download.validating"
 
 
 class DownloadEvent(BaseEvent):
