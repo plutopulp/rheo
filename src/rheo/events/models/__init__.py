@@ -15,6 +15,9 @@ from .download import (
     DownloadSkippedEvent,
     DownloadStartedEvent,
     DownloadValidatingEvent,
+    EventHandler,
+    EventType,
+    Handler,
 )
 from .error_info import ErrorInfo
 
@@ -32,5 +35,8 @@ __all__ = [
     "DownloadCancelledEvent",
     "DownloadRetryingEvent",
     "DownloadValidatingEvent",
+    "EventHandler",
+    "EventType",
+    "Handler",
     "ValidationResult",
 ]

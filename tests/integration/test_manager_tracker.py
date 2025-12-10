@@ -307,10 +307,10 @@ class TestManagerEventSubscription:
         assert queued_idx < started_idx < completed_idx
 
     @pytest.mark.asyncio
-    async def test_off_unsubscribes_handler(
+    async def test_subscription_unsubscribe_stops_events(
         self, aio_client: ClientSession, mock_logger: "Logger", tmp_path: Path
     ) -> None:
-        """Unsubscribe via manager.off() should stop receiving events."""
+        """Unsubscribe via subscription.unsubscribe() should stop receiving events."""
         test_url = "https://example.com/file.txt"
         file_config = FileConfig(url=test_url, priority=1)
 
@@ -327,8 +327,8 @@ class TestManagerEventSubscription:
                 logger=mock_logger,
                 download_dir=tmp_path,
             ) as manager:
-                manager.on("download.completed", handler)
-                manager.off("download.completed", handler)
+                subscription = manager.on("download.completed", handler)
+                subscription.unsubscribe()
 
                 await manager.add([file_config])
                 await manager.wait_until_complete()

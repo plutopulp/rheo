@@ -1,7 +1,6 @@
 """Download command implementation."""
 
 import asyncio
-import typing as t
 from pathlib import Path
 
 import typer
@@ -81,18 +80,15 @@ async def download_file(
     Raises:
         typer.Exit: On download failure
     """
-    handlers: list[tuple[str, t.Callable[[t.Any], t.Any]]] = [
-        ("download.started", on_started),
-        ("download.progress", on_progress),
-        ("download.completed", on_completed),
-        ("download.failed", on_failed),
-        ("download.validating", on_validating),
-        ("download.skipped", on_skipped),
+    # Wire CLI handlers (subscriptions cleaned up in finally)
+    subscriptions = [
+        manager.on("download.started", on_started),
+        manager.on("download.progress", on_progress),
+        manager.on("download.completed", on_completed),
+        manager.on("download.failed", on_failed),
+        manager.on("download.validating", on_validating),
+        manager.on("download.skipped", on_skipped),
     ]
-
-    # Wire CLI handlers (and ensure cleanup)
-    for event, handler in handlers:
-        manager.on(event, handler)
 
     try:
         # Create and queue download
@@ -105,8 +101,8 @@ async def download_file(
         if info and info.status == DownloadStatus.FAILED:
             raise typer.Exit(code=1)
     finally:
-        for event, handler in handlers:
-            manager.off(event, handler)
+        for sub in subscriptions:
+            sub.unsubscribe()
 
 
 def download(

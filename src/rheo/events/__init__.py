@@ -18,8 +18,12 @@ from .models import (
     DownloadStartedEvent,
     DownloadValidatingEvent,
     ErrorInfo,
+    EventHandler,
+    EventType,
+    Handler,
 )
 from .null import NullEmitter
+from .subscription import Subscription
 
 # Worker validation events - will be renamed to download.* in Issue #7
 from .worker_events import (
@@ -34,7 +38,11 @@ __all__ = [
     "BaseEvent",
     "ErrorInfo",
     "EventEmitter",
+    "EventHandler",
+    "EventType",
+    "Handler",
     "NullEmitter",
+    "Subscription",
     # Download Events (from models/)
     "DownloadEvent",
     "DownloadEventType",

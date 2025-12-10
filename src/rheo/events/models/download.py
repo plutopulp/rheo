@@ -1,5 +1,6 @@
 """Download lifecycle events with user-centric naming."""
 
+import typing as t
 from enum import StrEnum
 
 from pydantic import Field, computed_field
@@ -159,3 +160,17 @@ class DownloadValidatingEvent(DownloadEvent):
     algorithm: HashAlgorithm = Field(
         description="Hash algorithm used for validation",
     )
+
+
+# Generic event handler type
+# Usage: def my_handler(event: DownloadCompletedEvent) -> None: ...
+E = t.TypeVar("E")
+Handler = t.Callable[[E], t.Union[None, t.Awaitable[None]]]
+
+# Type aliases for event subscription (centralised for maintainability)
+EventType = DownloadEventType | str
+
+# EventHandler uses Any to allow handlers with specific event types (e.g.,
+# DownloadCompletedEvent) without requiring @overload signatures on manager.on().
+# Users should type-hint their handler parameters for autocomplete on event fields.
+EventHandler = Handler[t.Any]

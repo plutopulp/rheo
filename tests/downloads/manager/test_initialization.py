@@ -162,16 +162,16 @@ class TestDownloadManagerEvents:
         assert events == [event_data]
 
     @pytest.mark.asyncio
-    async def test_off_unsubscribes_from_emitter(self, mock_logger: "Logger") -> None:
-        """manager.off() should unsubscribe handler from emitter."""
+    async def test_subscription_unsubscribe(self, mock_logger: "Logger") -> None:
+        """subscription.unsubscribe() should stop receiving events."""
         manager = DownloadManager(logger=mock_logger)
         events: list[dict[str, t.Any]] = []
 
         def handler(e: t.Any) -> None:
             events.append(e)
 
-        manager.on("download.completed", handler)
-        manager.off("download.completed", handler)
+        subscription = manager.on("download.completed", handler)
+        subscription.unsubscribe()
         event_data = DownloadCompletedEvent(
             download_id="test-id",
             url="https://example.com/file.txt",
