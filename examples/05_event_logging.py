@@ -17,7 +17,7 @@ from pathlib import Path
 
 from rheo import DownloadManager
 from rheo.domain import FileConfig, FileExistsStrategy
-from rheo.events.models import DownloadEvent
+from rheo.events import DownloadEvent
 
 
 def on_any_event(event: DownloadEvent) -> None:

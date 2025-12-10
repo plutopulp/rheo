@@ -254,7 +254,7 @@ The library uses event-driven architecture with `download.*` namespaced events:
 - `download.retrying` - Before retry attempt
 - `download.validating` - When hash validation starts (if configured)
 
-Events are emitted by queue and workers, automatically wired to the tracker for state updates. Validation outcomes are embedded in completed/failed events via `ValidationResult`, and the tracker stores `destination_path` and validation results directly on `DownloadInfo`. Subscribe via the manager's shared emitter (`manager.on(event, handler)`, `manager.off(event, handler)`) or use `manager.on("*", handler)` to observe everything; state queries are available via `manager.get_download_info(id)` and `manager.stats`.
+Events are emitted by queue and workers, automatically wired to the tracker for state updates. Validation outcomes are embedded in completed/failed events via `ValidationResult`, and the tracker stores `destination_path` and validation results directly on `DownloadInfo`. Subscribe via `manager.on(event_type, handler)` which returns a `Subscription` handle (call `sub.unsubscribe()` to stop receiving events), or use `manager.on("*", handler)` to observe everything; state queries are available via `manager.get_download_info(id)` and `manager.stats`.
 
 ### Hash Validation
 
@@ -480,7 +480,7 @@ FileConfig(url="...", destination_subdir="../../../etc")
 
 - Concurrent downloads with worker pool
 - Priority queue system
-- Event-driven architecture with `manager.on()`/`off()` subscription
+- Event-driven architecture with `manager.on()` subscription (returns `Subscription` handle)
 - Full download lifecycle events (queued, started, progress, completed, failed, skipped, cancelled, retrying, validating)
 - Download tracking and state management
 - Retry logic with exponential backoff
