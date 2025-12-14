@@ -1,4 +1,4 @@
-"""File existence policy for download destinations."""
+"""Resolve download destinations based on file-exists strategy."""
 
 from pathlib import Path
 
@@ -8,12 +8,14 @@ from ..domain.exceptions import FileExistsError
 from ..domain.file_config import FileExistsStrategy
 
 
-class FileExistsPolicy:
+class DestinationResolver:
     """Centralises file-exists decision logic for downloads.
 
     Encapsulates strategy resolution (per-file override vs default) and file
     existence checks. Returns the path to use for download, or None if the
     download should be skipped. ERROR strategy raises FileExistsError.
+
+    Note: lives in downloads (not domain) because it performs async filesystem I/O.
     """
 
     def __init__(

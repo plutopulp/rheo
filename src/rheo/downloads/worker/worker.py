@@ -15,7 +15,7 @@ import aiofiles.os
 import aiohttp
 from aiofiles.threadpool.binary import AsyncBufferedIOBase
 
-from ...domain.exceptions import FileExistsError, HashMismatchError
+from ...domain.exceptions import HashMismatchError
 from ...domain.file_config import FileExistsStrategy
 from ...domain.hash_validation import HashConfig, ValidationResult
 from ...domain.speed import SpeedCalculator
@@ -32,6 +32,7 @@ from ...events import (
     EventEmitter,
 )
 from ...infrastructure.logging import get_logger
+from ..destination_resolver import DestinationResolver
 from ..retry.base import BaseRetryHandler
 from ..retry.null import NullRetryHandler
 from ..validation.base import BaseFileValidator
@@ -98,6 +99,7 @@ class DownloadWorker(BaseWorker):
         retry_handler: BaseRetryHandler | None = None,
         validator: BaseFileValidator | None = None,
         speed_window_seconds: float = 5.0,
+        destination_resolver: DestinationResolver | None = None,
     ) -> None:
         """Initialize the download worker.
 
@@ -113,6 +115,8 @@ class DownloadWorker(BaseWorker):
             speed_window_seconds: Time window in seconds for moving average speed
                                 calculation. Shorter windows react faster to speed
                                 changes; longer windows provide smoother averages.
+            destination_resolver: Resolves effective destination; kept on the worker
+                                  to reuse defaults across downloads.
         """
         self.client = client
         self.logger = logger
@@ -124,6 +128,8 @@ class DownloadWorker(BaseWorker):
         self.retry_handler = retry_handler or NullRetryHandler()
         self._validator = validator or FileValidator()
         self._speed_window_seconds = speed_window_seconds
+        # Resolver performs async I/O, so it sits here in downloads layer.
+        self._destination_resolver = destination_resolver or DestinationResolver()
 
     @property
     def emitter(self) -> BaseEmitter:
@@ -142,7 +148,7 @@ class DownloadWorker(BaseWorker):
         timeout: float | None = None,
         speed_calculator: SpeedCalculator | None = None,
         hash_config: HashConfig | None = None,
-        file_exists_strategy: FileExistsStrategy = FileExistsStrategy.SKIP,
+        file_exists_strategy: FileExistsStrategy | None = None,
     ) -> None:
         """Download a file from URL to local path with error handling and retry support.
 
@@ -171,8 +177,9 @@ class DownloadWorker(BaseWorker):
                             Provide custom implementation for alternative speed tracking.
             hash_config: Optional hash configuration for post-download validation.
                         If provided, validates file hash matches expected value.
-            file_exists_strategy: How to handle existing destination files.
-                        SKIP (default) skips download, ERROR raises, OVERWRITE replaces.
+            file_exists_strategy: Optional override for handling existing destination
+                        files. None uses policy default; SKIP skips, ERROR raises,
+                        OVERWRITE replaces.
 
         Raises:
             aiohttp.ClientError: For network/HTTP related errors
@@ -193,10 +200,20 @@ class DownloadWorker(BaseWorker):
             ```
         """
         # Check file exists strategy before starting download
-        final_path = await self._handle_existing_file(
-            destination_path, file_exists_strategy, download_id, url
+        resolved_path = await self._destination_resolver.resolve(
+            destination_path, file_exists_strategy
         )
-        if final_path is None:
+        if resolved_path is None:
+            self.logger.debug(f"File exists, skipping: {destination_path}")
+            await self.emitter.emit(
+                "download.skipped",
+                DownloadSkippedEvent(
+                    download_id=download_id,
+                    url=url,
+                    reason="file_exists",
+                    destination_path=str(destination_path),
+                ),
+            )
             return
 
         # Always use retry handler (NullRetryHandler if no retries configured)
@@ -205,7 +222,7 @@ class DownloadWorker(BaseWorker):
         await self.retry_handler.execute_with_retry(
             operation=lambda: self._download_with_cleanup(
                 url,
-                final_path,
+                resolved_path,
                 download_id,
                 chunk_size,
                 timeout,
@@ -678,41 +695,3 @@ class DownloadWorker(BaseWorker):
             self.logger.warning(
                 f"Failed to clean up partial file {file_path}: {cleanup_error}"
             )
-
-    async def _handle_existing_file(
-        self,
-        destination_path: Path,
-        strategy: FileExistsStrategy,
-        download_id: str,
-        url: str,
-    ) -> Path | None:
-        """Check if file exists and handle according to strategy.
-
-        Returns:
-            Path to use for download (may differ for RENAME), or None if skipped.
-
-        Raises:
-            FileExistsError: If file exists and strategy is ERROR.
-        """
-        if not await aiofiles.os.path.exists(destination_path):
-            return destination_path  # Proceed with original path
-
-        match strategy:
-            case FileExistsStrategy.SKIP:
-                self.logger.debug(f"File exists, skipping: {destination_path}")
-                await self.emitter.emit(
-                    "download.skipped",
-                    DownloadSkippedEvent(
-                        download_id=download_id,
-                        url=url,
-                        reason="file_exists",
-                        destination_path=str(destination_path),
-                    ),
-                )
-                return None
-            case FileExistsStrategy.ERROR:
-                raise FileExistsError(destination_path)
-            case FileExistsStrategy.OVERWRITE:
-                return destination_path  # Proceed with original path
-            # case FileExistsStrategy.RENAME:
-            #     return generate_unique_path(destination_path)
