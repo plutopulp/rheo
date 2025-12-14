@@ -6,6 +6,7 @@ from pathlib import Path
 from ...events.base import BaseEmitter
 from ..queue import PriorityDownloadQueue
 from ..worker.factory import WorkerFactory
+from ..worker.worker import DownloadWorker
 from .base import BaseWorkerPool
 from .pool import EventWiring
 
@@ -24,7 +25,7 @@ class WorkerPoolFactory(t.Protocol):
     def __call__(
         self,
         queue: PriorityDownloadQueue,
-        worker_factory: WorkerFactory,
+        worker_factory: WorkerFactory | type[DownloadWorker],
         logger: "loguru.Logger",
         download_dir: Path,
         max_workers: int,

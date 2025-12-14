@@ -4,6 +4,7 @@ import typing as t
 
 import aiohttp
 
+from ...domain.file_config import FileExistsStrategy
 from ...events import BaseEmitter
 from .base import BaseWorker
 
@@ -24,6 +25,7 @@ class WorkerFactory(t.Protocol):
         client: aiohttp.ClientSession,
         logger: "loguru.Logger",
         emitter: BaseEmitter,
+        default_file_exists_strategy: FileExistsStrategy = FileExistsStrategy.SKIP,
     ) -> BaseWorker:
         """Create a worker instance with the given dependencies.
 
@@ -31,6 +33,7 @@ class WorkerFactory(t.Protocol):
             client: HTTP session for making download requests
             logger: Logger instance for recording worker events
             emitter: Event emitter for broadcasting worker events
+            default_file_exists_strategy: Default strategy for existing files
 
         Returns:
             A BaseWorker instance ready to perform downloads

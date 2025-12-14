@@ -14,27 +14,28 @@ runs:
       with:
         python-version: ${{ inputs.python-version }}
 
-    - name: Cache Poetry dependencies
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.cache/pypoetry
-          .venv
-        key: ${{ runner.os }}-poetry-rheo-${{ inputs.python-version }}-${{ hashFiles('poetry.lock') }}
-        restore-keys: |
-          ${{ runner.os }}-poetry-rheo-${{ inputs.python-version }}-
-          ${{ runner.os }}-poetry-rheo-
-
     - name: Install Poetry
       shell: bash
       run: |
         curl -sSL https://install.python-poetry.org | python3 -
         echo "${HOME}/.local/bin" >> $GITHUB_PATH
 
-    - name: Configure Poetry to use in-project virtualenv
+    - name: Configure Poetry
       shell: bash
-      run: poetry config virtualenvs.in-project true
+      run: |
+        poetry --version
+        poetry config virtualenvs.in-project true
+
+    - name: Cache Poetry dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/pypoetry
+          .venv
+        key: ${{ runner.os }}-poetry-${{ inputs.python-version }}-${{ hashFiles('poetry.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-poetry-${{ inputs.python-version }}-
 
     - name: Install dependencies
       shell: bash
-      run: poetry install --no-interaction --no-ansi
+      run: poetry install --no-interaction --no-ansi --extras dev

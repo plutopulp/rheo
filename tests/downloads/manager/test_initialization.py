@@ -131,8 +131,8 @@ class TestDownloadManagerInitialization:
     def test_init_with_provided_worker_factory(self, aio_client, mock_logger):
         """Test manager initialization with provided worker factory."""
 
-        def custom_factory(client, logger, emitter):
-            return DownloadWorker(client, logger, emitter)
+        def custom_factory(client, logger, emitter, **kwargs):
+            return DownloadWorker(client, logger, emitter, **kwargs)
 
         manager = DownloadManager(worker_factory=custom_factory, logger=mock_logger)
 
@@ -213,7 +213,7 @@ class TestDownloadManagerEvents:
     ):
         """Test that exceptions from worker factory are propagated."""
 
-        def broken_factory(client, logger, emitter):
+        def broken_factory(client, logger, emitter, **kwargs):
             raise ValueError("Factory initialization failed!")
 
         manager = DownloadManager(
@@ -275,8 +275,8 @@ class TestDownloadManagerContextManager:
     ):
         """Test that context manager uses provided worker factory."""
 
-        def custom_factory(client, logger, emitter):
-            return DownloadWorker(client, logger, emitter)
+        def custom_factory(client, logger, emitter, **kwargs):
+            return DownloadWorker(client, logger, emitter, **kwargs)
 
         async with DownloadManager(
             client=aio_client, worker_factory=custom_factory, logger=mock_logger

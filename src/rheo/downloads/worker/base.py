@@ -37,7 +37,7 @@ class BaseWorker(ABC):
         timeout: float | None = None,
         speed_calculator: SpeedCalculator | None = None,
         hash_config: HashConfig | None = None,
-        file_exists_strategy: FileExistsStrategy = FileExistsStrategy.SKIP,
+        file_exists_strategy: FileExistsStrategy | None = None,
     ) -> None:
         """Download a file from URL to local path.
 
@@ -49,7 +49,7 @@ class BaseWorker(ABC):
             timeout: HTTP request timeout in seconds
             speed_calculator: Optional speed calculator for this download
             hash_config: Optional hash validation configuration
-            file_exists_strategy: How to handle existing destination files
+            file_exists_strategy: Per-file override; None uses worker default
 
         Raises:
             Various exceptions depending on download failures.

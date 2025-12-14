@@ -79,7 +79,12 @@ def mock_worker_factory(mock_worker: Mock) -> t.Callable[..., WorkerFactory]:
     Note: All tasks will share the same mock, so call counts accumulate.
     """
 
-    def _factory(client, logger, emitter):
+    def _factory(
+        client,
+        logger,
+        emitter,
+        **kwargs: t.Any,  # Accept additional kwargs like default_file_exists_strategy
+    ):
         mock_worker.emitter = emitter  # Use manager's emitter
         return mock_worker
 
@@ -98,7 +103,10 @@ def isolated_mock_worker_factory(
     created_mocks = []
 
     def _factory(
-        client: ClientSession, logger: "Logger", emitter: BaseEmitter
+        client: ClientSession,
+        logger: "Logger",
+        emitter: BaseEmitter,
+        **kwargs: t.Any,  # Accept additional kwargs like default_file_exists_strategy
     ) -> DownloadWorker:
         worker = mocker.Mock(spec=DownloadWorker)
         worker.emitter = emitter  # Required for event wiring in WorkerPool
@@ -136,7 +144,11 @@ def make_mock_worker_factory(mocker: MockerFixture) -> WorkerFactoryMaker:
         """
 
         def _factory(
-            client: ClientSession, logger: "Logger", emitter: BaseEmitter
+            client: ClientSession,
+            logger: "Logger",
+            emitter: BaseEmitter,
+            # Accept additional kwargs like default_file_exists_strategy
+            **kwargs: t.Any,
         ) -> DownloadWorker:
             worker = mocker.Mock(spec=DownloadWorker)
             worker.emitter = emitter
