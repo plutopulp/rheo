@@ -195,7 +195,12 @@ class WorkerPool(BaseWorkerPool):
             This method is public to support testing and custom worker creation
             scenarios, but is typically called only by start().
         """
-        return self._worker_factory(client, self._logger, self._emitter)
+        return self._worker_factory(
+            client,
+            self._logger,
+            self._emitter,
+            default_file_exists_strategy=self._file_exists_strategy,
+        )
 
     def _wire_queue_events(self) -> None:
         """Wire queue events to provided handlers."""
@@ -239,10 +244,6 @@ class WorkerPool(BaseWorkerPool):
                 if await self._handle_shutdown_and_requeue(file_config):
                     break
 
-                # Use per-file strategy if set, otherwise pool default
-                strategy = (
-                    file_config.file_exists_strategy or self._file_exists_strategy
-                )
                 self._logger.debug(
                     f"Downloading {file_config.url} to {destination_path}"
                 )
@@ -251,7 +252,7 @@ class WorkerPool(BaseWorkerPool):
                     destination_path,
                     download_id=file_config.id,
                     hash_config=file_config.hash_config,
-                    file_exists_strategy=strategy,
+                    file_exists_strategy=file_config.file_exists_strategy,
                 )
                 self._logger.debug(
                     f"Downloaded {file_config.url} to {destination_path}"

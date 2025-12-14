@@ -99,7 +99,7 @@ class DownloadWorker(BaseWorker):
         retry_handler: BaseRetryHandler | None = None,
         validator: BaseFileValidator | None = None,
         speed_window_seconds: float = 5.0,
-        destination_resolver: DestinationResolver | None = None,
+        default_file_exists_strategy: FileExistsStrategy = FileExistsStrategy.SKIP,
     ) -> None:
         """Initialize the download worker.
 
@@ -115,8 +115,8 @@ class DownloadWorker(BaseWorker):
             speed_window_seconds: Time window in seconds for moving average speed
                                 calculation. Shorter windows react faster to speed
                                 changes; longer windows provide smoother averages.
-            destination_resolver: Resolves effective destination; kept on the worker
-                                  to reuse defaults across downloads.
+            default_file_exists_strategy: Default strategy when per-file override
+                                          is not provided. Worker owns the resolver.
         """
         self.client = client
         self.logger = logger
@@ -128,8 +128,10 @@ class DownloadWorker(BaseWorker):
         self.retry_handler = retry_handler or NullRetryHandler()
         self._validator = validator or FileValidator()
         self._speed_window_seconds = speed_window_seconds
-        # Resolver performs async I/O, so it sits here in downloads layer.
-        self._destination_resolver = destination_resolver or DestinationResolver()
+        # Worker owns resolver; it performs async I/O so lives in downloads layer.
+        self._destination_resolver = DestinationResolver(
+            default_strategy=default_file_exists_strategy
+        )
 
     @property
     def emitter(self) -> BaseEmitter:
