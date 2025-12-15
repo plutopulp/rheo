@@ -1,5 +1,5 @@
-# Async Downloader - Makefile
-CODE_PATHS := src tests examples scripts
+# Rheo - Makefile
+CODE_PATHS := src tests examples scripts benchmarks
 
 .PHONY: help clean format lint test test-cov test-quick type-check ci docs-cli examples
 
