@@ -1,16 +1,47 @@
-"""Custom exceptions for the async download manager."""
+"""Custom exceptions for the rheo library."""
 
 from pathlib import Path
 
 
-class DownloadManagerError(Exception):
-    """Base exception for DownloadManager errors."""
+class RheoError(Exception):
+    """Base exception for all rheo library errors.
+
+    Catch this to handle any exception raised by the library.
+    """
 
     pass
 
 
-class ManagerNotInitializedError(DownloadManagerError):
-    """Raised when DownloadManager is accessed before proper initialization.
+class DownloadManagerError(RheoError):
+    """Base exception for download manager and orchestration errors."""
+
+    pass
+
+
+class InfrastructureError(RheoError):
+    """Base exception for infrastructure layer errors."""
+
+    pass
+
+
+class HttpClientError(InfrastructureError):
+    """Base exception for HTTP client errors."""
+
+    pass
+
+
+class ClientNotInitialisedError(HttpClientError):
+    """Raised when HTTP client is used before initialisation.
+
+    Call open() or use the client as an async context manager before
+    making requests.
+    """
+
+    pass
+
+
+class ManagerNotInitialisedError(DownloadManagerError):
+    """Raised when DownloadManager is accessed before proper initialisation.
 
     This typically occurs when trying to access manager properties without
     using it as a context manager or providing required dependencies.

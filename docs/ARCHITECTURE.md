@@ -73,7 +73,7 @@ Key pieces:
 - `ValidationResult`: Hash validation result with `is_valid` property (algorithm, expected/calculated hash, duration)
 - `SpeedMetrics`: Real-time speed and ETA snapshot
 - `SpeedCalculator`: Calculates instantaneous and moving average speeds with ETA estimation
-- Custom exceptions: `ValidationError`, `HashMismatchError`, `FileAccessError`, `FileExistsError`, `ManagerNotInitializedError`, `PendingDownloadsError`, etc.
+- Custom exceptions: `ValidationError`, `HashMismatchError`, `FileAccessError`, `FileExistsError`, `ManagerNotInitialisedError`, `PendingDownloadsError`, etc.
 
 **Why**: Keeps business logic separate from infrastructure. These models can be used anywhere without importing heavy dependencies.
 

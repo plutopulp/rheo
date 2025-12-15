@@ -72,10 +72,10 @@ def _normalize_whitespace(filename: str) -> str:
     """Strip leading/trailing whitespace and collapse multiple spaces.
 
     Args:
-        filename: The filename to normalize
+        filename: The filename to normalise
 
     Returns:
-        Filename with normalized whitespace
+        Filename with normalised whitespace
     """
     filename = filename.strip()
     filename = re.sub(r"\s+", " ", filename)
@@ -127,8 +127,8 @@ def _truncate_long_filename(filename: str, max_length: int = 255) -> str:
         return filename[:max_length]
 
 
-def _sanitize_filename(filename: str) -> str:
-    """Sanitize filename for cross-platform filesystem compatibility.
+def _sanitise_filename(filename: str) -> str:
+    """Sanitise filename for cross-platform filesystem compatibility.
 
     - Strips leading/trailing whitespace and collapses multiple spaces
     - Replaces invalid filesystem characters with underscores
@@ -136,10 +136,10 @@ def _sanitize_filename(filename: str) -> str:
     - Truncates if too long (>255 chars), preserving extension
 
     Args:
-        filename: The filename to sanitize
+        filename: The filename to sanitise
 
     Returns:
-        Sanitized filename safe for filesystem use
+        Sanitised filename safe for filesystem use
     """
     filename = _normalize_whitespace(filename)
     filename = _replace_invalid_chars(filename)
@@ -149,7 +149,7 @@ def _sanitize_filename(filename: str) -> str:
 
 
 def _generate_filename_from_url(url: HttpUrl) -> str:
-    """Generate sanitized filename from URL.
+    """Generate sanitised filename from URL.
 
     Format: "domain-filename" or just "domain" if no path.
     Strips query parameters and fragments.
@@ -171,10 +171,10 @@ def _generate_filename_from_url(url: HttpUrl) -> str:
     """
     from urllib.parse import urlparse
 
-    # Convert to string - Pydantic already normalized it (default ports removed)
+    # Convert to string - Pydantic already normalised it (default ports removed)
     url_str = str(url)
 
-    # Parse the normalized string to extract components
+    # Parse the normalised string to extract components
     parsed = urlparse(url_str)
 
     # Get domain (netloc won't have :443 or :80 for default ports)
@@ -191,8 +191,8 @@ def _generate_filename_from_url(url: HttpUrl) -> str:
         # No path, use domain only
         filename = domain
 
-    # Sanitize the generated filename
-    return _sanitize_filename(filename)
+    # Sanitise the generated filename
+    return _sanitise_filename(filename)
 
 
 class FileConfig(BaseModel):
@@ -331,7 +331,7 @@ class FileConfig(BaseModel):
         """Get the destination filename for this download.
 
         Returns the custom filename if provided, otherwise generates
-        one from the URL. Result is always sanitized for filesystem safety.
+        one from the URL. Result is always sanitised for filesystem safety.
 
         Returns:
             The filename to use for saving the downloaded file
@@ -346,8 +346,8 @@ class FileConfig(BaseModel):
             'my_file.txt'
         """
         if self.filename:
-            # Use custom filename, but sanitize it
-            return _sanitize_filename(self.filename)
+            # Use custom filename, but sanitise it
+            return _sanitise_filename(self.filename)
 
         # Generate from URL
         return _generate_filename_from_url(self.url)

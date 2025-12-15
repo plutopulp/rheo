@@ -73,13 +73,13 @@ class HashConfig(BaseModel):
 
     @field_validator("expected_hash")
     @classmethod
-    def _normalize_hash(cls, value: str) -> str:
-        normalized = value.strip().lower()
-        if not normalized:
+    def _normalise_hash(cls, value: str) -> str:
+        normalised = value.strip().lower()
+        if not normalised:
             raise ValueError("Expected hash cannot be empty")
-        if not _HEX_PATTERN.fullmatch(normalized):
+        if not _HEX_PATTERN.fullmatch(normalised):
             raise ValueError("Expected hash must be hexadecimal")
-        return normalized
+        return normalised
 
     @model_validator(mode="after")
     def _validate_length(self) -> "HashConfig":

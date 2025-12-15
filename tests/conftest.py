@@ -5,7 +5,6 @@ import typing as t
 import loguru
 import pytest
 import pytest_asyncio
-from aiohttp import ClientSession
 from blockbuster import BlockBuster, blockbuster_ctx
 from typer.testing import CliRunner
 
@@ -14,6 +13,7 @@ from rheo.cli.app import create_cli_app
 from rheo.config.settings import Environment, LogLevel, Settings
 from rheo.downloads import DownloadManager, PriorityDownloadQueue
 from rheo.events import BaseEmitter, EventEmitter
+from rheo.infrastructure.http import AiohttpClient
 from rheo.infrastructure.logging import reset_logging
 from rheo.tracking import DownloadTracker
 
@@ -102,10 +102,9 @@ def clean_logging_state():
 
 @pytest_asyncio.fixture
 async def aio_client():
-    """Provide a real aiohttp ClientSession for integration testing."""
-    session = ClientSession()
-    yield session
-    await session.close()
+    """Provide a real AiohttpClient for integration testing."""
+    async with AiohttpClient() as client:
+        yield client
 
 
 @pytest.fixture

@@ -24,19 +24,19 @@ def test_worker(aio_client: ClientSession, mock_logger: "Logger") -> DownloadWor
     return DownloadWorker(aio_client, mock_logger)
 
 
-class TestDownloadWorkerInitialization:
-    """Test DownloadWorker initialization and basic setup."""
+class TestDownloadWorkerInitialisation:
+    """Test DownloadWorker initialisation and basic setup."""
 
     def test_init_with_explicit_logger(
         self, aio_client: ClientSession, mock_logger: "Logger"
     ) -> None:
-        """Test worker initialization with explicit logger."""
+        """Test worker initialisation with explicit logger."""
         worker = DownloadWorker(aio_client, mock_logger)
         assert worker.client is aio_client
         assert worker.logger is mock_logger
 
     def test_init_with_default_logger(self, aio_client: ClientSession) -> None:
-        """Test worker initialization with default logger."""
+        """Test worker initialisation with default logger."""
         worker = DownloadWorker(aio_client)
         assert worker.client is aio_client
         assert worker.logger is not None

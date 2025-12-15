@@ -7,7 +7,6 @@ from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
-from aiohttp import ClientSession
 from pytest_mock import MockerFixture
 
 from rheo.domain.file_config import FileConfig
@@ -24,6 +23,7 @@ from rheo.downloads.worker.factory import WorkerFactory
 from rheo.downloads.worker_pool.base import BaseWorkerPool
 from rheo.downloads.worker_pool.factory import WorkerPoolFactory
 from rheo.events import BaseEmitter, EventEmitter
+from rheo.infrastructure.http import AiohttpClient, BaseHttpClient
 
 # Type alias for factory-maker function returned by make_mock_worker_factory
 WorkerFactoryMaker = t.Callable[..., WorkerFactory]
@@ -57,8 +57,8 @@ def calculate_hash():
 
 @pytest.fixture
 def mock_aio_client(mocker: MockerFixture) -> Mock:
-    """Provide a mocked aiohttp ClientSession for unit tests."""
-    mock_client = mocker.Mock(spec=ClientSession)
+    """Provide a mocked BaseHttpClient for unit tests."""
+    mock_client = mocker.Mock(spec=BaseHttpClient)
     mock_client.closed = False
     return mock_client
 
@@ -103,7 +103,7 @@ def isolated_mock_worker_factory(
     created_mocks = []
 
     def _factory(
-        client: ClientSession,
+        client: BaseHttpClient,
         logger: "Logger",
         emitter: BaseEmitter,
         **kwargs: t.Any,  # Accept additional kwargs like default_file_exists_strategy
@@ -144,7 +144,7 @@ def make_mock_worker_factory(mocker: MockerFixture) -> WorkerFactoryMaker:
         """
 
         def _factory(
-            client: ClientSession,
+            client: BaseHttpClient,
             logger: "Logger",
             emitter: BaseEmitter,
             # Accept additional kwargs like default_file_exists_strategy
@@ -162,7 +162,7 @@ def make_mock_worker_factory(mocker: MockerFixture) -> WorkerFactoryMaker:
 
 
 @pytest.fixture
-def test_worker(aio_client: ClientSession, mock_logger: "Logger"):
+def test_worker(aio_client: AiohttpClient, mock_logger: "Logger"):
     """Provide a real DownloadWorker with real client and mocked logger."""
     return DownloadWorker(aio_client, mock_logger)
 
@@ -184,7 +184,7 @@ def fast_retry_config():
 
 @pytest.fixture
 def test_worker_with_retry(
-    aio_client: ClientSession, mock_logger: "Logger", fast_retry_config: RetryConfig
+    aio_client: AiohttpClient, mock_logger: "Logger", fast_retry_config: RetryConfig
 ) -> DownloadWorker:
     """Provide a DownloadWorker with retry handler for validation tests.
 
@@ -209,7 +209,7 @@ def test_worker_with_retry(
 
 @pytest.fixture
 def worker_with_real_events(
-    aio_client: ClientSession, mock_logger: "Logger", fast_retry_config: RetryConfig
+    aio_client: AiohttpClient, mock_logger: "Logger", fast_retry_config: RetryConfig
 ) -> DownloadWorker:
     """Provide a DownloadWorker with retry handler and real EventEmitter.
 
@@ -314,7 +314,7 @@ def mock_worker_pool(mocker: MockerFixture) -> Mock:
     )
 
     # Configure start() to set running to True
-    async def mock_start(client: ClientSession) -> None:
+    async def mock_start(client: BaseHttpClient) -> None:
         running_state["is_running"] = True
 
     pool.start = mocker.AsyncMock(side_effect=mock_start)
@@ -336,7 +336,7 @@ def mock_pool_factory(mock_worker_pool: Mock) -> WorkerPoolFactory:
 
 @pytest.fixture
 def make_shutdown_manager(
-    mock_aio_client: ClientSession,
+    mock_aio_client: BaseHttpClient,
     mock_worker_factory: WorkerFactory,
     real_priority_queue: PriorityDownloadQueue,
     mock_logger: "Logger",
@@ -369,7 +369,7 @@ def make_shutdown_manager(
 
 @pytest.fixture
 def make_manager(
-    mock_aio_client: ClientSession,
+    mock_aio_client: BaseHttpClient,
     make_mock_worker_factory: WorkerFactoryMaker,
     real_priority_queue: PriorityDownloadQueue,
     mock_logger: "Logger",

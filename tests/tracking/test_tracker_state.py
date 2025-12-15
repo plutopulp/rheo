@@ -8,11 +8,11 @@ from rheo.domain.downloads import DownloadStatus
 from rheo.tracking import DownloadTracker
 
 
-class TestDownloadTrackerInitialization:
-    """Test tracker initialization."""
+class TestDownloadTrackerInitialisation:
+    """Test tracker initialisation."""
 
     def test_init_creates_empty_tracker(self, tracker: DownloadTracker):
-        """Test that tracker initializes with empty state."""
+        """Test that tracker initialises with empty state."""
         assert tracker.get_all_downloads() == {}
         assert tracker.get_stats().total == 0
 

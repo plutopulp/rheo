@@ -2,16 +2,20 @@
 
 from .downloads import DownloadInfo, DownloadStats, DownloadStatus
 from .exceptions import (
+    ClientNotInitialisedError,
     DownloadError,
     DownloadManagerError,
     FileAccessError,
     FileExistsError,
     FileValidationError,
     HashMismatchError,
-    ManagerNotInitializedError,
+    HttpClientError,
+    InfrastructureError,
+    ManagerNotInitialisedError,
     ProcessQueueError,
     QueueError,
     RetryError,
+    RheoError,
     ValidationError,
     WorkerError,
 )
@@ -37,10 +41,16 @@ __all__ = [
     "ErrorCategory",
     "RetryConfig",
     "RetryPolicy",
-    # Exceptions
-    "DownloadError",
+    # Exceptions - Base
+    "RheoError",
     "DownloadManagerError",
-    "ManagerNotInitializedError",
+    "InfrastructureError",
+    # Exceptions - Infrastructure
+    "HttpClientError",
+    "ClientNotInitialisedError",
+    # Exceptions - Download Manager
+    "DownloadError",
+    "ManagerNotInitialisedError",
     "ProcessQueueError",
     "QueueError",
     "RetryError",

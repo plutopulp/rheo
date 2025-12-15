@@ -31,6 +31,7 @@ from ...events import (
     ErrorInfo,
     EventEmitter,
 )
+from ...infrastructure.http import BaseHttpClient
 from ...infrastructure.logging import get_logger
 from ..destination_resolver import DestinationResolver
 from ..retry.base import BaseRetryHandler
@@ -85,7 +86,7 @@ class DownloadWorker(BaseWorker):
     - Re-raises exceptions after logging to allow caller-specific error handling
     - Uses aiohttp's raise_for_status() for consistent HTTP error handling
 
-    TODO: Performance Optimization
+    TODO: Performance optimisation
         High-frequency progress events are emitted on every chunk even when no
         listeners are subscribed. Consider adding emitter.has_listeners() check
         before event creation to reduce overhead when events aren't needed.
@@ -93,7 +94,7 @@ class DownloadWorker(BaseWorker):
 
     def __init__(
         self,
-        client: aiohttp.ClientSession,
+        client: BaseHttpClient,
         logger: "loguru.Logger" = get_logger(__name__),
         emitter: BaseEmitter | None = None,
         retry_handler: BaseRetryHandler | None = None,
@@ -101,7 +102,7 @@ class DownloadWorker(BaseWorker):
         speed_window_seconds: float = 5.0,
         default_file_exists_strategy: FileExistsStrategy = FileExistsStrategy.SKIP,
     ) -> None:
-        """Initialize the download worker.
+        """Initialise the download worker.
 
         Args:
             client: Configured aiohttp ClientSession for making HTTP requests

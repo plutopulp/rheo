@@ -13,25 +13,25 @@ if t.TYPE_CHECKING:
     from loguru import Logger
 
 
-class TestPriorityDownloadQueueInitialization:
-    """Test PriorityDownloadQueue initialization."""
+class TestPriorityDownloadQueueInitialisation:
+    """Test PriorityDownloadQueue initialisation."""
 
     def test_init_with_default_logger(self) -> None:
-        """Test queue initialization without explicit logger."""
+        """Test queue initialisation without explicit logger."""
         queue = PriorityDownloadQueue()
 
         assert queue is not None
         assert queue.is_empty()
 
     def test_init_with_custom_logger(self, mock_logger: "Logger") -> None:
-        """Test queue initialization with custom logger."""
+        """Test queue initialisation with custom logger."""
         queue = PriorityDownloadQueue(logger=mock_logger)
 
         assert queue is not None
         assert queue.is_empty()
 
     def test_init_with_injected_queue(self, mock_logger: "Logger") -> None:
-        """Test queue initialization with injected asyncio.PriorityQueue."""
+        """Test queue initialisation with injected asyncio.PriorityQueue."""
         custom_queue = asyncio.PriorityQueue()
         queue = PriorityDownloadQueue(queue=custom_queue, logger=mock_logger)
 

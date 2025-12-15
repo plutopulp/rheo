@@ -2,10 +2,9 @@
 
 import typing as t
 
-import aiohttp
-
 from ...domain.file_config import FileExistsStrategy
 from ...events import BaseEmitter
+from ...infrastructure.http import BaseHttpClient
 from .base import BaseWorker
 
 if t.TYPE_CHECKING:
@@ -22,7 +21,7 @@ class WorkerFactory(t.Protocol):
 
     def __call__(
         self,
-        client: aiohttp.ClientSession,
+        client: BaseHttpClient,
         logger: "loguru.Logger",
         emitter: BaseEmitter,
         default_file_exists_strategy: FileExistsStrategy = FileExistsStrategy.SKIP,
@@ -30,7 +29,7 @@ class WorkerFactory(t.Protocol):
         """Create a worker instance with the given dependencies.
 
         Args:
-            client: HTTP session for making download requests
+            client: HTTP client for making download requests
             logger: Logger instance for recording worker events
             emitter: Event emitter for broadcasting worker events
             default_file_exists_strategy: Default strategy for existing files

@@ -14,11 +14,11 @@ from rheo.downloads.worker_pool.pool import EventSource, WorkerPool
 from tests.downloads.conftest import WorkerFactoryMaker
 
 
-class TestWorkerPoolInitialization:
-    """Test WorkerPool initialization and basic setup."""
+class TestWorkerPoolInitialisation:
+    """Test WorkerPool initialisation and basic setup."""
 
     def test_init_with_defaults(self, make_worker_pool: t.Callable[..., WorkerPool]):
-        """Test pool initialization with default parameters."""
+        """Test pool initialisation with default parameters."""
         pool = make_worker_pool()
 
         assert not pool.is_running
@@ -27,7 +27,7 @@ class TestWorkerPoolInitialization:
     def test_init_with_custom_max_workers(
         self, make_worker_pool: t.Callable[..., WorkerPool]
     ):
-        """Test pool initialization with custom max_workers."""
+        """Test pool initialisation with custom max_workers."""
         pool = make_worker_pool(max_workers=5)
 
         assert not pool.is_running
