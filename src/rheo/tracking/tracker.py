@@ -61,7 +61,7 @@ class DownloadTracker(BaseTracker):
         self._lock = asyncio.Lock()
         self._logger = logger
 
-        self._logger.debug("DownloadTracker initialized")
+        self._logger.debug("DownloadTracker initialised")
 
     async def _track_queued(
         self, download_id: str, url: str, priority: int = 1

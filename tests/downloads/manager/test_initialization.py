@@ -1,4 +1,4 @@
-"""Tests for DownloadManager context manager and initialization."""
+"""Tests for DownloadManager context manager and initialisation."""
 
 import typing as t
 from pathlib import Path
@@ -9,7 +9,7 @@ from aioresponses import aioresponses
 from pytest_mock import MockerFixture
 
 from rheo.domain.downloads import DownloadStats
-from rheo.domain.exceptions import ManagerNotInitializedError, PendingDownloadsError
+from rheo.domain.exceptions import ManagerNotInitialisedError, PendingDownloadsError
 from rheo.domain.file_config import FileConfig, FileExistsStrategy
 from rheo.downloads import (
     DownloadManager,
@@ -36,11 +36,11 @@ def mock_tracker(mocker: MockerFixture, mock_emitter: BaseEmitter) -> BaseTracke
     return mock
 
 
-class TestDownloadManagerInitialization:
-    """Test DownloadManager initialization and basic setup."""
+class TestDownloadManagerInitialisation:
+    """Test DownloadManager initialisation and basic setup."""
 
     def test_init_with_defaults(self, mock_logger):
-        """Test manager initialization with default parameters."""
+        """Test manager initialisation with default parameters."""
         manager = DownloadManager(logger=mock_logger)
 
         # Should have defaults set
@@ -54,7 +54,7 @@ class TestDownloadManagerInitialization:
         assert not manager._owns_client
 
     def test_init_with_custom_params(self, mock_logger):
-        """Test manager initialization with custom parameters."""
+        """Test manager initialisation with custom parameters."""
         custom_queue = PriorityDownloadQueue(logger=mock_logger)
 
         manager = DownloadManager(
@@ -122,14 +122,14 @@ class TestDownloadManagerInitialization:
         mock_tracker.get_stats.assert_called_once()
 
     def test_init_with_provided_client(self, aio_client, mock_logger):
-        """Test manager initialization with provided client."""
+        """Test manager initialisation with provided client."""
         manager = DownloadManager(client=aio_client, logger=mock_logger)
 
         assert manager._client is aio_client
         assert not manager._owns_client  # We didn't create it
 
     def test_init_with_provided_worker_factory(self, aio_client, mock_logger):
-        """Test manager initialization with provided worker factory."""
+        """Test manager initialisation with provided worker factory."""
 
         def custom_factory(client, logger, emitter, **kwargs):
             return DownloadWorker(client, logger, emitter, **kwargs)
@@ -214,7 +214,7 @@ class TestDownloadManagerEvents:
         """Test that exceptions from worker factory are propagated."""
 
         def broken_factory(client, logger, emitter, **kwargs):
-            raise ValueError("Factory initialization failed!")
+            raise ValueError("Factory initialisation failed!")
 
         manager = DownloadManager(
             client=mock_aio_client,
@@ -223,7 +223,7 @@ class TestDownloadManagerEvents:
         )
 
         # Exception should propagate during context entry (start_workers)
-        with pytest.raises(ValueError, match="Factory initialization failed"):
+        with pytest.raises(ValueError, match="Factory initialisation failed"):
             async with manager:
                 pass
 
@@ -349,7 +349,7 @@ class TestDownloadManagerProperties:
         """Test accessing client property before entering context manager."""
         manager = DownloadManager(logger=mock_logger)
 
-        with pytest.raises(ManagerNotInitializedError):
+        with pytest.raises(ManagerNotInitialisedError):
             _ = manager.client
 
     def test_client_property_with_provided_client(self, aio_client, mock_logger):

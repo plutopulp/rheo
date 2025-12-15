@@ -15,7 +15,7 @@ import aiohttp
 import certifi
 
 from ..domain.downloads import DownloadInfo, DownloadStats
-from ..domain.exceptions import ManagerNotInitializedError, PendingDownloadsError
+from ..domain.exceptions import ManagerNotInitialisedError, PendingDownloadsError
 from ..domain.file_config import FileConfig, FileExistsStrategy
 from ..events import EventEmitter, Subscription
 from ..events.base import BaseEmitter
@@ -158,7 +158,7 @@ class DownloadManager:
         to events.
 
         The tracker is always available - if not explicitly provided during
-        initialization, a DownloadTracker is created automatically.
+        initialisation, a DownloadTracker is created automatically.
 
         Returns:
             BaseTracker: The download tracker instance
@@ -277,14 +277,14 @@ class DownloadManager:
             The aiohttp ClientSession for making HTTP requests.
 
         Raises:
-            ManagerNotInitializedError: If accessed before entering context manager
-                or without providing a client during initialization.
+            ManagerNotInitialisedError: If accessed before entering context manager
+                or without providing a client during initialisation.
         """
         if self._client is None:
-            raise ManagerNotInitializedError(
+            raise ManagerNotInitialisedError(
                 (
                     "DownloadManager must be used as a context manager or "
-                    "initialized with a client"
+                    "initialised with a client"
                 )
             )
         return self._client
@@ -296,7 +296,6 @@ class DownloadManager:
         Returns True when the manager has been initialised (via open() or
         context manager entry) and workers are running. Returns False before
         initialisation or after closing.
-
         Note: This indicates readiness to accept downloads, not necessarily
         that downloads are currently in progress.
 

@@ -10,7 +10,7 @@ from rheo.domain.hash_validation import HashAlgorithm, HashConfig
 
 
 class TestFileConfigURLValidation:
-    """Test URL validation in FileConfig initialization."""
+    """Test URL validation in FileConfig initialisation."""
 
     def test_valid_http_url(self):
         """Test that valid HTTP URL is accepted."""
@@ -149,22 +149,22 @@ class TestFileConfigCustomFilename:
         config = FileConfig(url="https://example.com/file.txt", filename=None)
         assert config.get_destination_filename() == "example.com-file.txt"
 
-    def test_custom_filename_is_sanitized(self):
-        """Test that custom filename is sanitized for invalid characters."""
+    def test_custom_filename_is_sanitised(self):
+        """Test that custom filename is sanitised for invalid characters."""
         config = FileConfig(
             url="https://example.com/file.txt", filename="my<file>name:test.txt"
         )
-        # Should sanitize invalid characters
+        # Should sanitise invalid characters
         result = config.get_destination_filename()
         assert "<" not in result
         assert ">" not in result
         assert ":" not in result
 
 
-class TestFileConfigSanitization:
-    """Test filename sanitization for filesystem safety."""
+class TestFileConfigSanitisation:
+    """Test filename sanitisation for filesystem safety."""
 
-    def test_sanitize_invalid_characters(self):
+    def test_sanitise_invalid_characters(self):
         """Test that invalid filesystem characters are replaced."""
         # Test with URL containing characters that end up in filename
         config = FileConfig(url="https://example.com/file<name>.txt")
@@ -172,14 +172,14 @@ class TestFileConfigSanitization:
         assert "<" not in result
         assert ">" not in result
 
-    def test_sanitize_colons_in_port(self):
+    def test_sanitise_colons_in_port(self):
         """Test that colons in port numbers are handled."""
         config = FileConfig(url="https://example.com:8080/file.txt")
         result = config.get_destination_filename()
         # Colon should be replaced with underscore
         assert "example.com_8080-file.txt" == result
 
-    def test_sanitize_multiple_spaces(self):
+    def test_sanitise_multiple_spaces(self):
         """Test that multiple consecutive spaces are collapsed."""
         config = FileConfig(
             url="https://example.com/file.txt", filename="my    file.txt   "
@@ -248,8 +248,8 @@ class TestFileConfigPathResolution:
         result = config.get_destination_path(base_dir)
         assert result == Path("/downloads/reports/report.pdf")
 
-    def test_path_with_trailing_slashes_normalized(self):
-        """Test that paths with trailing slashes are normalized."""
+    def test_path_with_trailing_slashes_normalised(self):
+        """Test that paths with trailing slashes are normalised."""
         config = FileConfig(
             url="https://example.com/file.txt", destination_subdir="docs/"
         )
@@ -309,8 +309,8 @@ class TestFileConfigEdgeCases:
             ("https://api.service.com/v1/endpoint", "api.service.com-endpoint"),
         ],
     )
-    def test_parametrized_filename_cases(self, url, expected_filename):
-        """Test multiple URL cases using parametrization."""
+    def test_parameterised_filename_cases(self, url, expected_filename):
+        """Test multiple URL cases using parameterisation."""
         config = FileConfig(url=url)
         assert config.get_destination_filename() == expected_filename
 

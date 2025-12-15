@@ -12,7 +12,7 @@ class TestWorkerEventInjection:
     async def test_worker_accepts_emitter_in_constructor(
         self, aio_client, mock_logger, mocker
     ):
-        """Test that worker can be initialized with a custom emitter."""
+        """Test that worker can be initialised with a custom emitter."""
         mock_emitter = mocker.Mock()
         worker = DownloadWorker(aio_client, mock_logger, emitter=mock_emitter)
 

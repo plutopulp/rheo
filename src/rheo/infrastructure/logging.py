@@ -37,7 +37,7 @@ def configure_logger(
 
     logger.remove()
 
-    # Use colorized format for development, plain for production
+    # Use coloured format for development, plain for production
     format_string = (
         LOG_FORMAT
         if environment == Environment.DEVELOPMENT

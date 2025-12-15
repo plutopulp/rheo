@@ -69,8 +69,8 @@ def worker_without_retry(
     )
 
 
-class TestWorkerRetryInitialization:
-    """Test worker initialization with retry handler."""
+class TestWorkerRetryInitialisation:
+    """Test worker initialisation with retry handler."""
 
     def test_init_with_retry_handler(
         self,
@@ -79,7 +79,7 @@ class TestWorkerRetryInitialization:
         mock_emitter: BaseEmitter,
         retry_handler: RetryHandler,
     ) -> None:
-        """Worker can be initialized with a retry handler."""
+        """Worker can be initialised with a retry handler."""
         worker = DownloadWorker(
             client=aio_client,
             logger=mock_logger,
