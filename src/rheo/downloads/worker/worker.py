@@ -31,6 +31,7 @@ from ...events import (
     ErrorInfo,
     EventEmitter,
 )
+from ...infrastructure.http import BaseHttpClient
 from ...infrastructure.logging import get_logger
 from ..destination_resolver import DestinationResolver
 from ..retry.base import BaseRetryHandler
@@ -93,7 +94,7 @@ class DownloadWorker(BaseWorker):
 
     def __init__(
         self,
-        client: aiohttp.ClientSession,
+        client: BaseHttpClient,
         logger: "loguru.Logger" = get_logger(__name__),
         emitter: BaseEmitter | None = None,
         retry_handler: BaseRetryHandler | None = None,

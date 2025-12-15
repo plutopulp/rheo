@@ -171,7 +171,7 @@ async with DownloadManager(
 
   - Removed I/O from `FileConfig.get_destination_path()`
   - Directory creation moved to `DownloadWorker` (uses async `aiofiles.os.makedirs`)
-  - Examples updated to use `destination_subdir` for organization
+  - Examples updated to use `destination_subdir` for organisation
 
 - **Worker checks file existence** before download using async I/O
 
@@ -262,7 +262,7 @@ async with DownloadManager(max_concurrent=5, worker_factory=my_factory) as manag
   - New `WorkerPool` class for managing worker lifecycle and queue processing
   - `BaseWorkerPool` ABC defining pool interface
   - `WorkerPoolFactory` Protocol for type safety
-  - Comprehensive test suite with 15+ tests covering initialization, lifecycle, shutdown, and error handling
+  - Comprehensive test suite with 15+ tests covering initialisation, lifecycle, shutdown, and error handling
 
 - **Worker isolation improvements (#42):**
 
@@ -278,12 +278,12 @@ async with DownloadManager(max_concurrent=5, worker_factory=my_factory) as manag
 
 ### Changed
 
-- **Package reorganization (#41):**
+- **Package reorganisation (#41):**
 
   - Restructured `downloads/` package into focused subdirectories:
     - `downloads/worker/` - Download worker implementations
     - `downloads/validation/` - Hash validation logic
-    - `downloads/retry/` - Retry handling and error categorization
+    - `downloads/retry/` - Retry handling and error categorisation
   - Improved separation of concerns and extensibility
 
 - **DownloadManager improvements:**
@@ -300,7 +300,7 @@ async with DownloadManager(max_concurrent=5, worker_factory=my_factory) as manag
   - All 5 example files updated with new API
 
 - **Testing:**
-  - Reorganized manager tests by functionality (queue, pool, lifecycle, properties)
+  - Reorganised manager tests by functionality (queue, pool, lifecycle, properties)
   - Created new `test_lifecycle.py` for integration scenarios
   - Removed obsolete `test_worker_isolation.py` (functionality moved to WorkerPool tests)
 
