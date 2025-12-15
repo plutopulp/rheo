@@ -1,12 +1,12 @@
 # Rheo - Makefile
 CODE_PATHS := src tests examples scripts benchmarks
 
-.PHONY: help clean format lint test test-cov test-quick type-check ci docs-cli examples
+.PHONY: help clean format lint test test-cov test-quick type-check ci docs-cli examples benchmark benchmark-compare
 
 .DEFAULT_GOAL := help
 
 help:
-	@echo "Async Downloader - Make Commands"
+	@echo "Rheo - Make Commands"
 	@echo ""
 	@echo "Usage: make <command>"
 	@echo ""
@@ -20,6 +20,8 @@ help:
 	@echo "  make ci                       Run all CI checks locally"
 	@echo "  make docs-cli                 Generate CLI documentation"
 	@echo "  make examples                 Run all example scripts"
+	@echo "  make benchmark                Run performance benchmarks"
+	@echo "  make benchmark-compare        Compare benchmark results"
 	@echo "  make clean                    Clean up build artifacts"
 
 clean:
@@ -76,3 +78,15 @@ docs-cli:
 examples:
 	@echo "Running all examples..."
 	poetry run python scripts/run_examples.py
+
+benchmark:
+	@echo "Running benchmarks..."
+	poetry run pytest benchmarks -v --benchmark-only --benchmark-autosave --benchmark-storage=benchmarks/.results
+
+benchmark-compare:
+	@echo "Comparing benchmark results..."
+	@if ls benchmarks/.results/*/*.json 1>/dev/null 2>&1; then \
+		poetry run pytest-benchmark compare benchmarks/.results/*/*.json --group-by=name; \
+	else \
+		echo "No benchmark results found. Run 'make benchmark' first."; \
+	fi

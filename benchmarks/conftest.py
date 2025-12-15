@@ -28,6 +28,7 @@ class _BenchmarkServer:
         self._thread: threading.Thread | None = None
         self._runner: web.AppRunner | None = None
         self._started = threading.Event()
+        self._error: BaseException | None = None
 
     @property
     def base_url(self) -> str:
@@ -40,8 +41,12 @@ class _BenchmarkServer:
         self._thread = threading.Thread(target=self._run_server, daemon=True)
         self._thread.start()
         self._started.wait(timeout=10)
+        if self._error is not None:
+            raise RuntimeError(
+                f"Server failed to start: {self._error}"
+            ) from self._error
         if self._base_url is None:
-            raise RuntimeError("Server failed to start")
+            raise RuntimeError("Server failed to start (timeout)")
 
     def stop(self) -> None:
         """Stop the server and clean up."""
@@ -64,6 +69,9 @@ class _BenchmarkServer:
             self._loop.run_until_complete(self._start_server())
             self._started.set()
             self._loop.run_forever()
+        except BaseException as e:
+            self._error = e
+            self._started.set()  # Unblock main thread so it can see the error
         finally:
             self._loop.close()
 
