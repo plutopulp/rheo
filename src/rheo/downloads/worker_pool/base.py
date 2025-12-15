@@ -2,8 +2,7 @@
 
 from abc import ABC, abstractmethod
 
-import aiohttp
-
+from ...infrastructure.http import BaseHttpClient
 from ..worker.base import BaseWorker
 
 
@@ -16,7 +15,7 @@ class BaseWorkerPool(ABC):
     """
 
     @abstractmethod
-    async def start(self, client: aiohttp.ClientSession) -> None:
+    async def start(self, client: BaseHttpClient) -> None:
         """Start worker tasks bound to the provided HTTP client.
 
         Implementations should spin up one asyncio Task per configured worker,
@@ -40,5 +39,5 @@ class BaseWorkerPool(ABC):
         """Return True while worker tasks are active."""
 
     @abstractmethod
-    def create_worker(self, client: "aiohttp.ClientSession") -> BaseWorker:
+    def create_worker(self, client: BaseHttpClient) -> BaseWorker:
         """Create a fresh worker with isolated dependencies for each task."""

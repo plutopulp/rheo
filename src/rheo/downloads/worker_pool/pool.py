@@ -5,12 +5,11 @@ import typing as t
 from enum import StrEnum
 from pathlib import Path
 
-from aiohttp import ClientSession
-
 from ...domain.exceptions import WorkerPoolAlreadyStartedError
 from ...domain.file_config import FileConfig, FileExistsStrategy
 from ...events import EventEmitter
 from ...events.base import BaseEmitter
+from ...infrastructure.http import BaseHttpClient
 from ..queue import PriorityDownloadQueue
 from ..worker.base import BaseWorker
 from ..worker.factory import WorkerFactory
@@ -128,14 +127,14 @@ class WorkerPool(BaseWorkerPool):
         """True if pool has been started and not yet stopped."""
         return self._is_running
 
-    async def start(self, client: ClientSession) -> None:
+    async def start(self, client: BaseHttpClient) -> None:
         """Start worker tasks that process the download queue.
 
         Creates max_workers tasks, each with its own worker instance and emitter.
         Workers begin polling the queue immediately.
 
         Args:
-            client: Initialised aiohttp ClientSession for making HTTP requests
+            client: Initialised HTTP client for making requests
 
         Raises:
             WorkerPoolAlreadyStartedError: If pool is already running
@@ -182,11 +181,11 @@ class WorkerPool(BaseWorkerPool):
         """
         self._shutdown_event.set()
 
-    def create_worker(self, client: ClientSession) -> BaseWorker:
+    def create_worker(self, client: BaseHttpClient) -> BaseWorker:
         """Create a worker instance with shared emitter.
 
         Args:
-            client: HTTP client session to inject into worker
+            client: HTTP client to inject into worker
 
         Returns:
             Fully configured worker instance ready to process downloads
