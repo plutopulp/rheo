@@ -5,14 +5,11 @@ download workers, manages HTTP sessions, and handles priority queues.
 """
 
 import asyncio
-import ssl
 import typing as t
 from pathlib import Path
 from types import TracebackType
 
 import aiofiles.os
-import aiohttp
-import certifi
 
 from ..domain.downloads import DownloadInfo, DownloadStats
 from ..domain.exceptions import ManagerNotInitialisedError, PendingDownloadsError
@@ -20,6 +17,7 @@ from ..domain.file_config import FileConfig, FileExistsStrategy
 from ..events import EventEmitter, Subscription
 from ..events.base import BaseEmitter
 from ..events.models.download import EventHandler, EventType
+from ..infrastructure.http import AiohttpClient, BaseHttpClient
 from ..infrastructure.logging import get_logger
 from ..tracking.base import BaseTracker
 from ..tracking.tracker import DownloadTracker
@@ -80,7 +78,7 @@ class DownloadManager:
 
     def __init__(
         self,
-        client: aiohttp.ClientSession | None = None,
+        client: BaseHttpClient | None = None,
         worker_factory: WorkerFactory | None = None,
         queue: PriorityDownloadQueue | None = None,
         tracker: BaseTracker | None = None,
@@ -96,7 +94,7 @@ class DownloadManager:
         """Initialise the download manager.
 
         Args:
-            client: HTTP session for downloads. If None, one will be created.
+            client: HTTP client for downloads. If None, one will be created.
             worker_factory: Factory function for creating workers. If None, defaults
                            to DownloadWorker constructor.
             queue: Priority download queue for tasks. If None, one will be created.
@@ -270,11 +268,11 @@ class DownloadManager:
             raise PendingDownloadsError(pending_count=pending)
 
     @property
-    def client(self) -> aiohttp.ClientSession:
-        """Get the HTTP client session.
+    def client(self) -> BaseHttpClient:
+        """Get the HTTP client.
 
         Returns:
-            The aiohttp ClientSession for making HTTP requests.
+            The HTTP client for making requests.
 
         Raises:
             ManagerNotInitialisedError: If accessed before entering context manager
@@ -364,7 +362,7 @@ class DownloadManager:
             await self.queue.join()
 
     async def open(self) -> None:
-        """Manually initialize the manager.
+        """Manually initialise the manager.
 
         Use this if you need manual control over the manager lifecycle
         instead of using it as a context manager. You must call close()
@@ -372,7 +370,7 @@ class DownloadManager:
 
         This method:
         - Creates the download directory if it doesn't exist
-        - Creates an HTTP client session (if not provided)
+        - Creates an HTTP client (if not provided)
         - Starts worker tasks to process downloads
 
         Example:
@@ -388,11 +386,9 @@ class DownloadManager:
         await aiofiles.os.makedirs(self.download_dir, exist_ok=True)
 
         if self._client is None:
-            # Create SSL context using certifi's certificate bundle
-            ssl_context = ssl.create_default_context(cafile=certifi.where())
-            connector = aiohttp.TCPConnector(ssl=ssl_context)
-            self._client = await aiohttp.ClientSession(connector=connector).__aenter__()
+            self._client = AiohttpClient()
             self._owns_client = True
+            await self._client.open()
 
         await self._worker_pool.start(self.client)
 
@@ -420,6 +416,7 @@ class DownloadManager:
 
         if self._owns_client and self._client is not None:
             await self._client.close()
+            self._client = None
 
     def _create_event_wiring(self) -> EventWiring:
         """Create event wiring for queue and worker events to tracker handlers."""
