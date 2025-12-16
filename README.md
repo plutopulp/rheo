@@ -45,6 +45,7 @@ asyncio.run(main())
 
 - Concurrent downloads with worker pool
 - Priority queue
+- Selective cancellation (cancel individual downloads by ID)
 - Hash validation (MD5, SHA256, SHA512)
 - Retry logic with exponential backoff
 - Real-time speed & ETA tracking

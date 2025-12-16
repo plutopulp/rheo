@@ -46,6 +46,7 @@ That's it. The manager handles worker pools, state tracking, and cleanup automat
 - **Command-line interface**: Simple `rheo download` command with progress display and hash validation
 - **Concurrent downloads**: Worker pool manages multiple downloads simultaneously
 - **Priority queue**: Download urgent files first
+- **Selective cancellation**: Cancel individual downloads by ID (queued or in-progress)
 - **Hash validation**: Verify file integrity with MD5, SHA256, or SHA512 checksums
 - **Retry logic**: Automatic retry with exponential backoff for transient errors
 - **Speed & ETA tracking**: Real-time download speed with moving averages and estimated completion time
@@ -446,6 +447,41 @@ async with DownloadManager(download_dir=Path("./downloads")) as manager:
 
 **Note**: The context manager (`async with`) triggers immediate shutdown on exit. It will raise `PendingDownloadsError` if there are pending downloads that weren't handled. Call `wait_until_complete()` or `close()` explicitly to avoid this.
 
+### Selective Cancellation
+
+Cancel individual downloads by ID while others continue:
+
+```python
+from rheo.domain.cancellation import CancelResult
+
+async with DownloadManager(download_dir=Path("./downloads")) as manager:
+    files = [
+        FileConfig(url="https://example.com/large.zip"),
+        FileConfig(url="https://example.com/small.txt"),
+    ]
+    await manager.add(files)
+
+    # Cancel specific download (works for queued or in-progress)
+    result = await manager.cancel(files[0].id)
+
+    match result:
+        case CancelResult.CANCELLED:
+            print("Download cancelled successfully")
+        case CancelResult.ALREADY_TERMINAL:
+            print("Download already completed/failed")
+        case CancelResult.NOT_FOUND:
+            print("Download ID not found")
+
+    await manager.wait_until_complete()
+```
+
+**Key behaviours**:
+
+- **Queued downloads**: Removed from queue, never start
+- **In-progress downloads**: Task cancelled, partial file cleaned up
+- **Terminal downloads**: Returns `ALREADY_TERMINAL` (file not deleted)
+- **Events**: Emits `download.cancelled` with `cancelled_from` field (QUEUED or IN_PROGRESS)
+
 ## Security Considerations
 
 ### Path Traversal Protection
@@ -480,6 +516,7 @@ FileConfig(url="...", destination_subdir="../../../etc")
 
 - Concurrent downloads with worker pool
 - Priority queue system
+- Selective cancellation (cancel individual downloads by ID)
 - Event-driven architecture with `manager.on()` subscription (returns `Subscription` handle)
 - Full download lifecycle events (queued, started, progress, completed, failed, skipped, cancelled, retrying, validating)
 - Download tracking and state management
