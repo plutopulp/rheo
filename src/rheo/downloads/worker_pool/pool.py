@@ -5,9 +5,10 @@ import typing as t
 from enum import StrEnum
 from pathlib import Path
 
+from ...domain.cancellation import CancelledFrom
 from ...domain.exceptions import WorkerPoolAlreadyStartedError
 from ...domain.file_config import FileConfig, FileExistsStrategy
-from ...events import EventEmitter
+from ...events import DownloadCancelledEvent, EventEmitter
 from ...events.base import BaseEmitter
 from ...infrastructure.http import BaseHttpClient
 from ..queue import PriorityDownloadQueue
@@ -115,6 +116,8 @@ class WorkerPool(BaseWorkerPool):
         self._emitter = emitter or EventEmitter(self._logger)
         # Track active download tasks by download_id, used for cancellation.
         self._active_download_tasks: dict[str, asyncio.Task[None]] = {}
+        # IDs of downloads cancelled while queued, checked before starting download.
+        self._cancelled_ids: set[str] = set()
 
     @property
     def active_tasks(self) -> tuple[asyncio.Task[None], ...]:
@@ -252,6 +255,10 @@ class WorkerPool(BaseWorkerPool):
                 if await self._handle_shutdown_and_requeue(file_config):
                     break
 
+                # Check if this download was cancelled while queued
+                if await self._handle_cancelled_queued(file_config):
+                    continue
+
                 self._logger.debug(
                     f"Downloading {file_config.url} to {destination_path}"
                 )
@@ -333,6 +340,36 @@ class WorkerPool(BaseWorkerPool):
             await self.queue.add([file_config])
             self.queue.task_done(file_config.id)
         return shutdown_is_set
+
+    async def _handle_cancelled_queued(self, file_config: FileConfig) -> bool:
+        """Check if download was cancelled while queued and handle if so.
+
+        If the download ID is in _cancelled_ids, emits a cancelled event,
+        and signals caller to skip this download.
+
+        Args:
+            file_config: The file configuration to check
+
+        Returns:
+            True if download was cancelled (caller should continue), False otherwise
+        """
+        if file_config.id not in self._cancelled_ids:
+            return False
+
+        self._cancelled_ids.discard(file_config.id)
+
+        self._logger.debug(f"Skipping cancelled download: {file_config.url}")
+
+        await self._emitter.emit(
+            "download.cancelled",
+            DownloadCancelledEvent(
+                download_id=file_config.id,
+                url=str(file_config.url),
+                cancelled_from=CancelledFrom.QUEUED,
+            ),
+        )
+
+        return True
 
     async def _wait_for_workers_and_clear(self) -> None:
         """Wait for all worker tasks to complete and clear the task list.
