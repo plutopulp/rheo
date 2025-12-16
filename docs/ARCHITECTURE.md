@@ -67,7 +67,9 @@ Key pieces:
 - `FileExistsStrategy`: Enum for handling existing files (SKIP, OVERWRITE, ERROR)
 - `DownloadInfo`: Current state of a download (includes final average speed and validation state)
 - `DownloadStatus`: Enum for states (queued, pending, in_progress, completed, failed, skipped, cancelled)
-- `DownloadStats`: Aggregated statistics
+- `DownloadStats`: Aggregated statistics (includes cancelled count)
+- `CancelResult`: Enum for cancel operation results (CANCELLED, NOT_FOUND, ALREADY_TERMINAL)
+- `CancelledFrom`: Enum indicating cancellation source (QUEUED, IN_PROGRESS)
 - `HashConfig`: Hash validation configuration (algorithm and expected hash)
 - `HashAlgorithm`: Supported hash algorithms (MD5, SHA256, SHA512)
 - `ValidationResult`: Hash validation result with `is_valid` property (algorithm, expected/calculated hash, duration)
@@ -101,6 +103,7 @@ Key pieces:
 - Handles graceful vs immediate shutdown semantics
 - Re-queues unstarted downloads during shutdown
 - Maintains task lifecycle and cleanup
+- Supports selective cancellation of individual downloads (queued or in-progress)
 
 **DownloadWorker**:
 
@@ -170,7 +173,7 @@ Key pieces:
   - `DownloadCompletedEvent` - Success (includes destination_path, elapsed_seconds, average_speed_bps, optional `ValidationResult`)
   - `DownloadFailedEvent` - Failure (includes `ErrorInfo`, optional `ValidationResult` for hash mismatches)
   - `DownloadSkippedEvent` - Skipped due to file-exists strategy (includes reason, destination_path)
-  - `DownloadCancelledEvent` - Cancelled by caller
+  - `DownloadCancelledEvent` - Cancelled by caller (includes `cancelled_from`: QUEUED or IN_PROGRESS)
   - `DownloadRetryingEvent` - Before retry (with retry count, delay, `ErrorInfo`)
   - `DownloadValidatingEvent` - Validation started (algorithm)
 - `ErrorInfo`: Structured error model with `exc_type`, `message`, optional `traceback`
@@ -388,6 +391,36 @@ config4 = FileConfig(url="https://example.com/file.zip", destination_subdir="dir
 ```
 
 Note: Validation events still use `worker.*` namespace and will be renamed to `download.*` in a future release.
+
+### Cancellation Flow
+
+Selective cancellation allows stopping individual downloads without affecting others:
+
+```text
+1. User calls manager.cancel(download_id)
+2. Manager delegates to pool.cancel(download_id)
+3. Pool checks if download is in-progress:
+   a. If active task exists → cancel task, return True
+   b. Worker catches CancelledError, cleans up partial file
+   c. Worker emits download.cancelled event (cancelled_from=IN_PROGRESS)
+4. If not in-progress, pool checks if queued:
+   a. If in queue → mark ID in _cancelled_ids set, return True
+   b. When worker dequeues item, checks _cancelled_ids
+   c. If cancelled, emits download.cancelled event (cancelled_from=QUEUED) and skips
+5. If neither → return False (caller checks tracker for terminal state)
+6. Manager maps pool result to CancelResult:
+   - True → CANCELLED
+   - False + terminal in tracker → ALREADY_TERMINAL
+   - False + not in tracker → NOT_FOUND
+```
+
+**Key features**:
+
+- Queued downloads use cooperative cancellation (checked when dequeued)
+- In-progress downloads use task cancellation with cleanup
+- Partial files are automatically deleted on cancellation
+- Events distinguish between queued and in-progress cancellation
+- Terminal downloads are not affected (files preserved)
 
 ### Shutdown Flow
 
