@@ -15,6 +15,7 @@ import aiofiles.os
 import aiohttp
 from aiofiles.threadpool.binary import AsyncBufferedIOBase
 
+from ...domain.cancellation import CancelledFrom
 from ...domain.exceptions import HashMismatchError
 from ...domain.file_config import FileExistsStrategy
 from ...domain.hash_validation import HashConfig, ValidationResult
@@ -291,7 +292,11 @@ class DownloadWorker(BaseWorker):
             self.logger.debug(f"Download cancelled, cleaned up: {destination_path}")
             await self.emitter.emit(
                 "download.cancelled",
-                DownloadCancelledEvent(download_id=download_id, url=url),
+                DownloadCancelledEvent(
+                    download_id=download_id,
+                    url=url,
+                    cancelled_from=CancelledFrom.IN_PROGRESS,
+                ),
             )
             # Must re-raise to propagate cancellation through task hierarchy
             raise

@@ -5,6 +5,7 @@ from enum import StrEnum
 
 from pydantic import Field, computed_field
 
+from rheo.domain.cancellation import CancelledFrom
 from rheo.domain.hash_validation import HashAlgorithm, ValidationResult
 from rheo.domain.speed import SpeedMetrics
 
@@ -129,9 +130,15 @@ class DownloadSkippedEvent(DownloadEvent):
 
 
 class DownloadCancelledEvent(DownloadEvent):
-    """Emitted when download is cancelled."""
+    """Emitted when download is cancelled by user request.
+
+    Provides context about what state the download was in when cancelled.
+    """
 
     event_type: str = Field(default="download.cancelled")
+    cancelled_from: CancelledFrom = Field(
+        description="State the download was in when cancelled (queued or in_progress)"
+    )
 
 
 class DownloadRetryingEvent(DownloadEvent):

@@ -102,6 +102,7 @@ class DownloadStats(BaseModel):
         ge=0, description="Number of successfully completed downloads"
     )
     failed: int = Field(ge=0, description="Number of failed downloads")
+    cancelled: int = Field(ge=0, default=0, description="Number of cancelled downloads")
     completed_bytes: int = Field(
         ge=0,
         description="Total bytes successfully downloaded",

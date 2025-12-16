@@ -313,9 +313,10 @@ class DownloadTracker(BaseTracker):
 
         return DownloadStats(
             total=len(download_infos),
-            queued=statuses.get(DownloadStatus.QUEUED, 0),
-            in_progress=statuses.get(DownloadStatus.IN_PROGRESS, 0),
-            completed=statuses.get(DownloadStatus.COMPLETED, 0),
-            failed=statuses.get(DownloadStatus.FAILED, 0),
+            queued=statuses[DownloadStatus.QUEUED],
+            in_progress=statuses[DownloadStatus.IN_PROGRESS],
+            completed=statuses[DownloadStatus.COMPLETED],
+            failed=statuses[DownloadStatus.FAILED],
+            cancelled=statuses[DownloadStatus.CANCELLED],
             completed_bytes=completed_bytes,
         )

@@ -1,5 +1,6 @@
 """Event data models."""
 
+from rheo.domain.cancellation import CancelledFrom
 from rheo.domain.hash_validation import ValidationResult
 
 from .base import BaseEvent
@@ -39,4 +40,5 @@ __all__ = [
     "EventType",
     "Handler",
     "ValidationResult",
+    "CancelledFrom",
 ]

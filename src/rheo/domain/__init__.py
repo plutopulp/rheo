@@ -1,5 +1,6 @@
 """Domain layer - core business models and exceptions."""
 
+from .cancellation import CancelledFrom, CancelResult
 from .downloads import DownloadInfo, DownloadStats, DownloadStatus
 from .exceptions import (
     ClientNotInitialisedError,
@@ -31,6 +32,9 @@ __all__ = [
     # Download Models
     "FileConfig",
     "FileExistsStrategy",
+    # Cancellation Models
+    "CancelResult",
+    "CancelledFrom",
     "DownloadInfo",
     "DownloadStatus",
     "DownloadStats",

@@ -4,7 +4,7 @@ import asyncio
 
 import pytest
 
-from rheo.domain.downloads import DownloadStatus
+from rheo.domain.downloads import DownloadStats, DownloadStatus
 from rheo.tracking import DownloadTracker
 
 
@@ -437,6 +437,44 @@ class TestDownloadTrackerQueries:
         assert stats.in_progress == 2
         assert stats.completed == 1
         assert stats.failed == 1
+
+    @pytest.mark.asyncio
+    async def test_get_stats_returns_correct_cancelled_count(
+        self, tracker: DownloadTracker
+    ) -> None:
+        """Test that get_stats returns correct cancelled count."""
+
+        await tracker._track_started(
+            "https://example.com/file1.txt", "https://example.com/file1.txt"
+        )
+        await tracker._track_cancelled(
+            "https://example.com/file1.txt", "https://example.com/file1.txt"
+        )
+        await tracker._track_started(
+            "https://example.com/file2.txt", "https://example.com/file2.txt"
+        )
+        await tracker._track_cancelled(
+            "https://example.com/file2.txt", "https://example.com/file2.txt"
+        )
+        await tracker._track_completed(
+            "https://example.com/file3.txt",
+            "https://example.com/file3.txt",
+            total_bytes=100,
+        )
+
+        stats = tracker.get_stats()
+
+        target_stats = DownloadStats(
+            total=3,
+            queued=0,
+            in_progress=0,
+            completed=1,
+            failed=0,
+            cancelled=2,
+            completed_bytes=100,
+        )
+
+        assert stats == target_stats
 
     @pytest.mark.asyncio
     async def test_get_stats_calculates_completed_bytes_correctly(
