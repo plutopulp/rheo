@@ -185,6 +185,34 @@ class WorkerPool(BaseWorkerPool):
         # and clean up task references
         await self._wait_for_workers_and_clear()
 
+    async def cancel(self, download_id: str) -> bool:
+        """Cancel a specific download by ID.
+
+        Handles both in-progress downloads (via task cancellation) and
+        queued downloads (via cooperative cancellation).
+
+        Args:
+            download_id: The download ID to cancel
+
+        Returns:
+            True if download was active or queued and cancelled.
+            False if download_id is not known to the pool (may be terminal or
+            never existed - caller should check tracker).
+        """
+        # Check if download is currently in progress
+        task = self._active_download_tasks.get(download_id)
+        if task is not None:
+            task.cancel()
+            return True
+
+        # Check if download is queued but not yet started
+        if download_id in self.queue._queued_ids:
+            self._cancelled_ids.add(download_id)
+            return True
+
+        # Not in pool's scope so let caller determine why
+        return False
+
     def _request_shutdown(self) -> None:
         """Signal workers to stop accepting new work.
 

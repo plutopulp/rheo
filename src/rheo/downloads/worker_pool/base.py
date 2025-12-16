@@ -41,3 +41,11 @@ class BaseWorkerPool(ABC):
     @abstractmethod
     def create_worker(self, client: BaseHttpClient) -> BaseWorker:
         """Create a fresh worker with isolated dependencies for each task."""
+
+    @abstractmethod
+    async def cancel(self, download_id: str) -> bool:
+        """Cancel a specific download if it is active or queued.
+
+        Returns True if found and cancelled, False if the download is not
+        in the pool's scope (caller should check tracker).
+        """
