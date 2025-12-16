@@ -11,6 +11,7 @@ from types import TracebackType
 
 import aiofiles.os
 
+from ..domain.cancellation import CancelResult
 from ..domain.downloads import DownloadInfo, DownloadStats
 from ..domain.exceptions import ManagerNotInitialisedError, PendingDownloadsError
 from ..domain.file_config import FileConfig, FileExistsStrategy
@@ -360,6 +361,37 @@ class DownloadManager:
             await asyncio.wait_for(self.queue.join(), timeout=timeout)
         else:
             await self.queue.join()
+
+    async def cancel(self, download_id: str) -> CancelResult:
+        """Cancel a specific download by ID.
+
+        Cancels both in-progress and queued downloads. Workers continue
+        processing remaining queue items after cancellation.
+
+        Args:
+            download_id: The ID of the download to cancel (from FileConfig.id)
+
+        Returns:
+            CancelResult indicating what happened:
+            - CANCELLED: Download was found and cancelled
+            - NOT_FOUND: Download ID was never queued
+            - ALREADY_TERMINAL: Download already completed/failed/skipped/cancelled
+
+        Example:
+            result = await manager.cancel(file_config.id)
+            if result == CancelResult.CANCELLED:
+                print("Download stopped")
+        """
+        # Try to cancel via pool (handles active and queued)
+        if await self._worker_pool.cancel(download_id):
+            return CancelResult.CANCELLED
+
+        # Not active or queued - check if it's in a terminal state
+        info = self._tracker.get_download_info(download_id)
+        if info is not None and info.status.is_terminal:
+            return CancelResult.ALREADY_TERMINAL
+
+        return CancelResult.NOT_FOUND
 
     async def open(self) -> None:
         """Manually initialise the manager.
