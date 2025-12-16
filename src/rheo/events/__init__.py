@@ -1,5 +1,6 @@
 """Event infrastructure - event emitter and event types."""
 
+from rheo.domain.cancellation import CancelledFrom
 from rheo.domain.hash_validation import ValidationResult
 
 from .base import BaseEmitter
@@ -55,6 +56,7 @@ __all__ = [
     "DownloadFailedEvent",
     "DownloadRetryingEvent",
     "DownloadValidatingEvent",
+    "CancelledFrom",
     "ValidationResult",
     # Worker validation events (will be renamed in Issue #7)
     "WorkerValidationStartedEvent",

@@ -3,6 +3,7 @@
 import pytest
 from pydantic import ValidationError
 
+from rheo.domain.cancellation import CancelledFrom
 from rheo.domain.hash_validation import HashAlgorithm, ValidationResult
 from rheo.domain.speed import SpeedMetrics
 from rheo.events.models import (
@@ -248,5 +249,22 @@ class TestDownloadCancelledEvent:
 
     def test_default_event_type(self) -> None:
         """Event type should be download.cancelled."""
-        event = DownloadCancelledEvent(download_id="test", url="http://x")
+        event = DownloadCancelledEvent(
+            download_id="test", url="http://x", cancelled_from=CancelledFrom.QUEUED
+        )
         assert event.event_type == "download.cancelled"
+
+    def test_cancelled_from_required(self) -> None:
+        """cancelled_from field is required."""
+        with pytest.raises(ValidationError):
+            DownloadCancelledEvent(download_id="test", url="http://x")
+
+    @pytest.mark.parametrize(
+        "cancelled_from", [CancelledFrom.QUEUED, CancelledFrom.IN_PROGRESS]
+    )
+    def test_cancelled_from_accepts_enum(self, cancelled_from: CancelledFrom) -> None:
+        """cancelled_from accepts enum."""
+        event = DownloadCancelledEvent(
+            download_id="test", url="http://x", cancelled_from=cancelled_from
+        )
+        assert event.cancelled_from == cancelled_from
