@@ -113,6 +113,8 @@ class WorkerPool(BaseWorkerPool):
         }
         self._file_exists_strategy = file_exists_strategy
         self._emitter = emitter or EventEmitter(self._logger)
+        # Track active download tasks by download_id, used for cancellation.
+        self._active_download_tasks: dict[str, asyncio.Task[None]] = {}
 
     @property
     def active_tasks(self) -> tuple[asyncio.Task[None], ...]:
@@ -121,6 +123,11 @@ class WorkerPool(BaseWorkerPool):
         Returns immutable tuple for safe inspection without affecting pool state.
         """
         return tuple(self._worker_tasks)
+
+    @property
+    def active_download_tasks(self) -> dict[str, asyncio.Task[None]]:
+        """Snapshot of currently active download tasks by download_id."""
+        return self._active_download_tasks.copy()
 
     @property
     def is_running(self) -> bool:
@@ -165,7 +172,9 @@ class WorkerPool(BaseWorkerPool):
         self._request_shutdown()
 
         if not wait_for_current:
-            # Cancel all worker tasks for immediate shutdown
+            # Cancel all tasks (downloads and workers) for immediate shutdown
+            for task in self._active_download_tasks.values():
+                task.cancel()
             for task in self._worker_tasks:
                 task.cancel()
 
@@ -246,13 +255,31 @@ class WorkerPool(BaseWorkerPool):
                 self._logger.debug(
                     f"Downloading {file_config.url} to {destination_path}"
                 )
-                await worker.download(
-                    str(file_config.url),
-                    destination_path,
-                    download_id=file_config.id,
-                    hash_config=file_config.hash_config,
-                    file_exists_strategy=file_config.file_exists_strategy,
+
+                # Wrap download in a task to track it and allow cancellation.
+                download_task = asyncio.create_task(
+                    worker.download(
+                        str(file_config.url),
+                        destination_path,
+                        download_id=file_config.id,
+                        hash_config=file_config.hash_config,
+                        file_exists_strategy=file_config.file_exists_strategy,
+                    )
                 )
+                self._active_download_tasks[file_config.id] = download_task
+
+                # Consider moving task creation, execution and cancellation
+                # handling into it's own helper method.
+                try:
+                    await download_task
+                except asyncio.CancelledError:
+                    if download_task.cancelled():
+                        self._logger.debug(f"Download cancelled: {file_config.url}")
+                        continue
+                    raise
+                finally:
+                    self._active_download_tasks.pop(file_config.id, None)
+
                 self._logger.debug(
                     f"Downloaded {file_config.url} to {destination_path}"
                 )
