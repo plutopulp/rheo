@@ -291,29 +291,11 @@ class WorkerPool(BaseWorkerPool):
                     f"Downloading {file_config.url} to {destination_path}"
                 )
 
-                # Wrap download in a task to track it and allow cancellation.
-                download_task = asyncio.create_task(
-                    worker.download(
-                        str(file_config.url),
-                        destination_path,
-                        download_id=file_config.id,
-                        hash_config=file_config.hash_config,
-                        file_exists_strategy=file_config.file_exists_strategy,
-                    )
+                cancelled = await self._execute_download(
+                    worker, file_config, destination_path
                 )
-                self._active_download_tasks[file_config.id] = download_task
-
-                # Consider moving task creation, execution and cancellation
-                # handling into it's own helper method.
-                try:
-                    await download_task
-                except asyncio.CancelledError:
-                    if download_task.cancelled():
-                        self._logger.debug(f"Download cancelled: {file_config.url}")
-                        continue
-                    raise
-                finally:
-                    self._active_download_tasks.pop(file_config.id, None)
+                if cancelled:
+                    continue
 
                 self._logger.debug(
                     f"Downloaded {file_config.url} to {destination_path}"
@@ -398,6 +380,55 @@ class WorkerPool(BaseWorkerPool):
         )
 
         return True
+
+    async def _execute_download(
+        self,
+        worker: BaseWorker,
+        file_config: FileConfig,
+        destination_path: Path,
+    ) -> bool:
+        """Execute download as a tracked task with cancellation support.
+
+        Creates an asyncio task for the download, tracks it in _active_download_tasks,
+        and handles cancellation. Individual download cancellation (via pool.cancel())
+        is distinguished from worker shutdown cancellation.
+
+        Args:
+            worker: The worker instance to use for the download
+            file_config: Configuration for the file to download
+            destination_path: Local path to save the file
+
+        Returns:
+            True if the download was cancelled (caller should continue to next item),
+            False if completed normally
+
+        Raises:
+            asyncio.CancelledError: If the worker task itself was cancelled (shutdown)
+        """
+        download_task = asyncio.create_task(
+            worker.download(
+                str(file_config.url),
+                destination_path,
+                download_id=file_config.id,
+                hash_config=file_config.hash_config,
+                file_exists_strategy=file_config.file_exists_strategy,
+            )
+        )
+        self._active_download_tasks[file_config.id] = download_task
+
+        try:
+            await download_task
+            return False
+        except asyncio.CancelledError:
+            # Distinguish between individual download cancellation and worker shutdown.
+            # If download_task.cancelled() is True, this specific download was cancelled
+            # via pool.cancel(). Otherwise, the worker task itself was cancelled.
+            if download_task.cancelled():
+                self._logger.debug(f"Download cancelled: {file_config.url}")
+                return True
+            raise
+        finally:
+            self._active_download_tasks.pop(file_config.id, None)
 
     async def _wait_for_workers_and_clear(self) -> None:
         """Wait for all worker tasks to complete and clear the task list.
