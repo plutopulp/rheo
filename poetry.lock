@@ -1768,5 +1768,5 @@ dev = ["aioresponses", "black", "blockbuster", "flake8", "isort", "mypy", "pytes
 
 [metadata]
 lock-version = "2.1"
-python-versions = ">=3.12,<4.0"
-content-hash = "143821edeb3f9821b4cd59a7355fd82b36c801ff8eef01ec6e088537b5d41ea3"
+python-versions = ">=3.11,<4.0"
+content-hash = "fdc68f5e26f34d97838a5f3af9f87c7dc57e6699616aac7ad229c5478254a0f4"
