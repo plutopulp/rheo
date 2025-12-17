@@ -88,8 +88,10 @@ Key pieces:
 - Entry point for the library
 - Orchestrates high-level download operations
 - Owns or accepts an injected HTTP client via `BaseHttpClient` (default `AiohttpClient`); only calls `open()`/`close()` on clients it owns
+- Accepts optional `retry_handler` for manager-level retry configuration (passed to workers via pool)
 - Creates and owns all event wiring (queue and worker events to tracker)
 - Creates a single shared `EventEmitter` and exposes it as an event facade via `on()` (returns `Subscription` handle)
+- Wires injected retry handler's emitter to shared emitter for unified event flow
 - Delegates worker lifecycle to `WorkerPool`
 - Provides read APIs (`get_download_info`, `stats`) backed by tracker
 - Context manager for resource cleanup
@@ -105,6 +107,7 @@ Key pieces:
 - Maintains task lifecycle and cleanup
 - Supports selective cancellation of individual downloads (queued or in-progress)
 - Accepts `BaseHttpClient` for workers (manager passes the shared client)
+- Accepts `BaseRetryHandler` for workers (manager passes the shared handler)
 
 **DownloadWorker**:
 
@@ -473,6 +476,7 @@ DownloadManager(
     queue=custom_queue,           # Optional
     tracker=custom_tracker,       # Optional
     logger=custom_logger,         # Optional
+    retry_handler=custom_retry,   # Optional
     worker_factory=custom_worker, # Optional
     worker_pool_factory=custom_pool,  # Optional
 )
