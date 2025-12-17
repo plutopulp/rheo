@@ -572,11 +572,13 @@ poetry install
 poetry run pytest
 ```
 
-### Run Demo
+### Run Examples
 
 ```bash
-poetry run python -m src.rheo.main
+poetry run python examples/01_basic_download.py
 ```
+
+See [`examples/`](../examples/) for more runnable demos.
 
 ## Architecture
 
