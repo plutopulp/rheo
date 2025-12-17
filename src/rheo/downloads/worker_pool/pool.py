@@ -12,6 +12,8 @@ from ...events import DownloadCancelledEvent, EventEmitter
 from ...events.base import BaseEmitter
 from ...infrastructure.http import BaseHttpClient
 from ..queue import PriorityDownloadQueue
+from ..retry.base import BaseRetryHandler
+from ..retry.null import NullRetryHandler
 from ..worker.base import BaseWorker
 from ..worker.factory import WorkerFactory
 from ..worker.worker import DownloadWorker
@@ -81,6 +83,7 @@ class WorkerPool(BaseWorkerPool):
         event_wiring: EventWiring | None = None,
         file_exists_strategy: FileExistsStrategy = FileExistsStrategy.SKIP,
         emitter: BaseEmitter | None = None,
+        retry_handler: BaseRetryHandler | None = None,
     ) -> None:
         """Initialise the worker pool.
 
@@ -114,6 +117,7 @@ class WorkerPool(BaseWorkerPool):
         }
         self._file_exists_strategy = file_exists_strategy
         self._emitter = emitter or EventEmitter(self._logger)
+        self._retry_handler = retry_handler or NullRetryHandler()
         # Track active download tasks by download_id, used for cancellation.
         self._active_download_tasks: dict[str, asyncio.Task[None]] = {}
         # IDs of downloads cancelled while queued, checked before starting download.
@@ -239,6 +243,7 @@ class WorkerPool(BaseWorkerPool):
             self._logger,
             self._emitter,
             default_file_exists_strategy=self._file_exists_strategy,
+            retry_handler=self._retry_handler,
         )
 
     def _wire_queue_events(self) -> None:
