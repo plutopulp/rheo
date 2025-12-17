@@ -1,11 +1,11 @@
 # Rheo
 
 [![PyPI](https://img.shields.io/pypi/v/rheopy)](https://pypi.org/project/rheopy/)
-[![GitHub release](https://img.shields.io/github/v/release/plutopulp/rheo)](https://github.com/plutopulp/rheo/releases)
 [![Python](https://img.shields.io/pypi/pyversions/rheopy)](https://pypi.org/project/rheopy/)
 [![License](https://img.shields.io/pypi/l/rheopy)](https://github.com/plutopulp/rheo/blob/main/LICENSE)
 [![CI](https://github.com/plutopulp/rheo/workflows/CI/badge.svg)](https://github.com/plutopulp/rheo/actions)
 [![codecov](https://codecov.io/gh/plutopulp/rheo/branch/main/graph/badge.svg)](https://codecov.io/gh/plutopulp/rheo)
+[![Commits since release](https://img.shields.io/github/commits-since/plutopulp/rheo/latest)](https://github.com/plutopulp/rheo/compare/latest...main)
 
 Concurrent HTTP download orchestration with async I/O
 
