@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2025-12-17
+
+### ⚠️ BREAKING CHANGES
+
+- **Event subscription API:** `manager.on()` now returns a `Subscription` handle with `unsubscribe()`. The previous `manager.off()` API has been removed. Event names are now a typed `DownloadEventType` `StrEnum`.
+- **HTTP client dependency:** `DownloadManager`, `WorkerPool`, and `DownloadWorker` now depend on a `BaseHttpClient` abstraction (default `AiohttpClient`) instead of raw `aiohttp.ClientSession`. Custom clients must implement `BaseHttpClient`.
+
+### Added
+
+- **Selective cancellation:** `DownloadManager.cancel(download_id) -> CancelResult` with cooperative cancellation for queued downloads and task-level cancellation for in-progress downloads. `DownloadCancelledEvent` now carries `cancelled_from` to distinguish queued vs in-progress cancellations.
+- **Cancellation observability:** `DownloadStats` tracks `cancelled` count for manager.stats.
+- **File exists strategy policy:** `DestinationResolver` + `FileExistsPolicy` centralise file-exists handling with `default_file_exists_strategy`.
+- **Typed events:** `DownloadEventType` enum for event names and `Subscription` handle returned from `manager.on()`.
+- **HTTP client abstraction:** `BaseHttpClient` ABC and `AiohttpClient` implementation with SSL factory helpers; supports context-managed and manual lifecycle.
+- **Benchmarks:** Added minimal `benchmarks/` suite for future extension, with HTTP fixture server, and pytest-benchmark dependency for throughput profiling.
+
+### Changed
+
+- **Worker wiring:** Workers create and own `DestinationResolver`, simplifying pool wiring; skips are emitted when resolver returns `None`.
+- **Exception hierarchy:** New `RheoError` base with `InfrastructureError` → `HttpClientError` → `ClientNotInitialisedError`; `DownloadManagerError` now derives from `RheoError`.
+- **CI:** Poetry 2.x install flags updated (`--all-groups`), reordered cache steps, and added version diagnostics.
+- **Docs & examples:** Updated to show `DownloadEventType`, subscription handles, and selective cancellation usage.
+
+### Removed
+
+- `manager.off()` (superseded by `Subscription.unsubscribe()`).
+
 ## [0.5.0] - 2025-12-09
 
 ### ⚠️ BREAKING CHANGES
