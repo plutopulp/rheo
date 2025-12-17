@@ -361,30 +361,32 @@ files = [
 
 ### Retry on Transient Errors
 
-Automatic retry with exponential backoff - just provide a config:
+Automatic retry with exponential backoff for transient errors (500, 503, timeouts, etc.).
+
+> **Note**: Retry configuration is not yet available at the `DownloadManager` level. Currently, enabling retries requires direct worker instantiation as shown below. Manager-level retry configuration is planned for a future release.
 
 ```python
 from rheo.domain.retry import RetryConfig
 from rheo.downloads import RetryHandler, DownloadWorker
 
-# Simple: just specify retry config (sensible defaults for everything else)
+# Configure retry behaviour
 config = RetryConfig(max_retries=3, base_delay=1.0, max_delay=60.0)
 retry_handler = RetryHandler(config)
 
-# Create worker with retry support
+# Create worker with retry support (bypasses manager)
 async with aiohttp.ClientSession() as session:
     worker = DownloadWorker(
+        client=session,
         retry_handler=retry_handler,
     )
-    # Worker will automatically retry transient errors (500, 503, timeouts, etc.)
-    await worker.download(url, destination_path)
+    await worker.download(url, destination_path, download_id="my-download")
 ```
 
-**Advanced**: Customize retry policy for specific status codes:
+**Advanced**: Customise retry policy for specific status codes:
 
 ```python
 from rheo.domain.retry import RetryConfig, RetryPolicy
-from rheo.downloads import RetryHandler, ErrorCategoriser
+from rheo.downloads import RetryHandler
 
 # Custom policy - treat 404 as transient (normally permanent)
 policy = RetryPolicy(
