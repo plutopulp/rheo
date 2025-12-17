@@ -1,6 +1,6 @@
 # Contributing to Rheo
 
-Thanks for your interest in contributing! We care about code quality and clear communication, but we're not fussy about how you get there. Make the codebase better, and we'll be very happy and grateful.
+Thanks for your interest in contributing! We care about code quality and clear communication, but we're not fussy about how you get there. Make the codebase better, and we'll be very grateful.
 
 ## Development Setup
 
@@ -90,7 +90,7 @@ Don't worry about memorising everything though, reviews will guide you.
 
 ## Commit Messages
 
-Good commit messages are appreciated but not a blocker at all. If you want to follow conventional commits (`feat:`, `fix:`, etc.), great. If not, just be clear about what changed.
+Good commit messages are appreciated but not a blocker at all.
 
 Good enough:
 
@@ -103,7 +103,7 @@ Update README examples
 ## Running Examples
 
 ```bash
-make examples  # Verify examples still work
+poetry run examples/{example_file}.py
 ```
 
 ## Getting Help
