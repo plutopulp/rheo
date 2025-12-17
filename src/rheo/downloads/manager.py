@@ -23,6 +23,8 @@ from ..infrastructure.logging import get_logger
 from ..tracking.base import BaseTracker
 from ..tracking.tracker import DownloadTracker
 from .queue import PriorityDownloadQueue
+from .retry.base import BaseRetryHandler
+from .retry.null import NullRetryHandler
 from .worker.factory import WorkerFactory
 from .worker.worker import DownloadWorker
 from .worker_pool.factory import WorkerPoolFactory
@@ -91,6 +93,7 @@ class DownloadManager:
         file_exists_strategy: FileExistsStrategy = FileExistsStrategy.SKIP,
         event_wiring: EventWiring | None = None,
         emitter: BaseEmitter | None = None,
+        retry_handler: BaseRetryHandler | None = None,
     ) -> None:
         """Initialise the download manager.
 
@@ -115,12 +118,20 @@ class DownloadManager:
                     If None, defaults to internal wiring.
             emitter: Shared event emitter for queue, workers, and external subscribers.
                     If None, a new EventEmitter will be created.
+            retry_handler: Retry handler for automatic retries on transient errors.
+                    If None, NullRetryHandler is used (no retries).
         """
         self._client = client
         self._owns_client = False  # Track if we created the client
         self._worker_factory = worker_factory or DownloadWorker
         self._logger = logger
         self._emitter = emitter or EventEmitter(logger)
+        self._retry_handler = retry_handler or NullRetryHandler()
+        # TODO: Reconsider this pattern - mutating injected dependency is a code smell.
+        # Consider alternative: accept RetryConfig and construct handler internally,
+        # or define a protocol for handlers that need emitter injection.
+        if hasattr(self._retry_handler, "emitter"):
+            self._retry_handler.emitter = self._emitter
         # Auto-create tracker if not provided (always available for observability)
         # Users can pass NullTracker() if tracking is unwanted
         self._tracker = (
@@ -149,6 +160,7 @@ class DownloadManager:
             event_wiring=self._event_wiring,
             file_exists_strategy=self.file_exists_strategy,
             emitter=self._emitter,
+            retry_handler=self._retry_handler,
         )
 
     @property

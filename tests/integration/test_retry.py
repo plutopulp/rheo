@@ -20,8 +20,10 @@ def transient_then_success(fail_count: int, body: bytes = b"content"):
     async def callback(url, **kwargs):
         attempts["count"] += 1
         if attempts["count"] <= fail_count:
-            return CallbackResult(status=500, body=b"Server Error")
-        return CallbackResult(status=200, body=body)
+            return CallbackResult(
+                status=500, body=b"Server Error", reason="Internal Server Error"
+            )
+        return CallbackResult(status=200, body=body, reason="OK")
 
     return callback, attempts
 
@@ -32,7 +34,9 @@ def always_fail():
 
     async def callback(url, **kwargs):
         attempts["count"] += 1
-        return CallbackResult(status=500, body=b"Server Error")
+        return CallbackResult(
+            status=500, body=b"Server Error", reason="Internal Server Error"
+        )
 
     return callback, attempts
 
@@ -84,6 +88,7 @@ class TestManagerWithRetryHandler:
                     DownloadEventType.RETRYING,
                     lambda e: retry_events.append(e),
                 )
+
                 file_config = FileConfig(
                     url="http://example.com/file.txt",
                     filename="file.txt",
@@ -96,9 +101,9 @@ class TestManagerWithRetryHandler:
                 assert info is not None
                 assert info.status == DownloadStatus.COMPLETED
 
-        # Verify exact retry count via callback execution
-        assert len(retry_events) == fail_count
+        # Verify retry count via both callback execution and events
         assert attempts["count"] == fail_count + 1  # fails + 1 success
+        assert len(retry_events) == fail_count
 
     @pytest.mark.asyncio
     async def test_fails_after_max_retries_exhausted(
@@ -215,8 +220,8 @@ class TestManagerWithCustomRetryPolicy:
         async def callback_404(url, **kwargs):
             attempts["count"] += 1
             if attempts["count"] <= 1:
-                return CallbackResult(status=404, body=b"Not Found")
-            return CallbackResult(status=200, body=b"content")
+                return CallbackResult(status=404, body=b"Not Found", reason="Not Found")
+            return CallbackResult(status=200, body=b"content", reason="OK")
 
         custom_policy = RetryPolicy(
             transient_status_codes=frozenset({404, 500, 502, 503}),
