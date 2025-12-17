@@ -166,6 +166,32 @@ python examples/05_event_logging.py
 python examples/06_batch_summary.py
 ```
 
+### 07_retry_handling.py
+
+**Demonstrates:** Automatic retry with exponential backoff
+
+**What it does:**
+
+- Shows manager-level retry handler injection
+- Subscribes to `RETRYING` events for observability
+- Demonstrates custom retry policy (treating 404 as transient)
+- Compares behaviour with and without retry handler
+
+**Key concepts:**
+
+- `RetryHandler` with `RetryConfig` for retry behaviour
+- `RetryPolicy` for customising which errors are transient
+- Event subscription for retry observability
+- Exponential backoff with configurable delays
+
+**Note:** This example intentionally uses failing URLs (httpbin.org/status/500) to demonstrate retry exhaustion behaviour.
+
+**Run it:**
+
+```bash
+python examples/07_retry_handling.py
+```
+
 ## What to Expect
 
 Each example will:
