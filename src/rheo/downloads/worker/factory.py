@@ -5,6 +5,7 @@ import typing as t
 from ...domain.file_config import FileExistsStrategy
 from ...events import BaseEmitter
 from ...infrastructure.http import BaseHttpClient
+from ..retry.base import BaseRetryHandler
 from .base import BaseWorker
 
 if t.TYPE_CHECKING:
@@ -25,6 +26,7 @@ class WorkerFactory(t.Protocol):
         logger: "loguru.Logger",
         emitter: BaseEmitter,
         default_file_exists_strategy: FileExistsStrategy = FileExistsStrategy.SKIP,
+        retry_handler: BaseRetryHandler | None = None,
     ) -> BaseWorker:
         """Create a worker instance with the given dependencies.
 
@@ -33,6 +35,8 @@ class WorkerFactory(t.Protocol):
             logger: Logger instance for recording worker events
             emitter: Event emitter for broadcasting worker events
             default_file_exists_strategy: Default strategy for existing files
+            retry_handler: Retry handler for automatic retries. None uses
+                          NullRetryHandler (no retries).
 
         Returns:
             A BaseWorker instance ready to perform downloads

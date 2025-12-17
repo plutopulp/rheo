@@ -363,26 +363,26 @@ files = [
 
 Automatic retry with exponential backoff for transient errors (500, 503, timeouts, etc.).
 
-> **Note**: Retry configuration is not yet available at the `DownloadManager` level. Currently, enabling retries requires direct worker instantiation as shown below. Manager-level retry configuration is planned for a future release.
-
 ```python
-from rheo.domain.retry import RetryConfig
-from rheo.downloads import RetryHandler, DownloadWorker
+from pathlib import Path
 
-# Configure retry behaviour
-config = RetryConfig(max_retries=3, base_delay=1.0, max_delay=60.0)
-retry_handler = RetryHandler(config)
+from rheo import DownloadManager
+from rheo.domain import FileConfig
+from rheo.domain.retry import RetryConfig, RetryPolicy
+from rheo.downloads import RetryHandler
 
-# Create worker with retry support (bypasses manager)
-async with aiohttp.ClientSession() as session:
-    worker = DownloadWorker(
-        client=session,
-        retry_handler=retry_handler,
-    )
-    await worker.download(url, destination_path, download_id="my-download")
+# Manager-level retry configuration (recommended)
+handler = RetryHandler(RetryConfig(max_retries=3, base_delay=1.0, max_delay=60.0))
+
+async with DownloadManager(
+    download_dir=Path("./downloads"),
+    retry_handler=handler,
+) as manager:
+    await manager.add([FileConfig(url="https://example.com/file.zip")])
+    await manager.wait_until_complete()
 ```
 
-**Advanced**: Customise retry policy for specific status codes:
+**Customise retry policy** for specific status codes:
 
 ```python
 from rheo.domain.retry import RetryConfig, RetryPolicy
@@ -393,11 +393,31 @@ policy = RetryPolicy(
     transient_status_codes=frozenset({404, 408, 429, 500, 502, 503, 504}),
     permanent_status_codes=frozenset({400, 401, 403, 410}),
 )
-config = RetryConfig(max_retries=5, policy=policy)
-retry_handler = RetryHandler(config)
+handler = RetryHandler(RetryConfig(max_retries=5, policy=policy))
+
+async with DownloadManager(
+    download_dir=Path("./downloads"),
+    retry_handler=handler,
+) as manager:
+    ...
 ```
 
-**Note**: `RetryHandler` has sensible defaults - it automatically creates a logger, event emitter, and error categoriser if you don't provide them.
+**Custom retry handler** for advanced scenarios:
+
+```python
+from rheo.downloads.retry import BaseRetryHandler
+
+class MyCircuitBreaker(BaseRetryHandler):
+    async def execute_with_retry(self, operation, url, download_id, max_retries=None):
+        # Custom retry logic
+        ...
+
+async with DownloadManager(
+    download_dir=Path("./downloads"),
+    retry_handler=MyCircuitBreaker(),
+) as manager:
+    ...
+```
 
 ### Error Handling
 

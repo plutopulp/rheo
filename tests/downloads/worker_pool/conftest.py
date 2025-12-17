@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from rheo.domain.file_config import FileExistsStrategy
+from rheo.downloads.retry.base import BaseRetryHandler
 from rheo.downloads.worker.worker import DownloadWorker
 from rheo.downloads.worker_pool.pool import EventSource, EventWiring, WorkerPool
 from rheo.events import EventEmitter
@@ -68,6 +69,7 @@ def make_worker_pool(
         queue=None,
         event_wiring=None,
         file_exists_strategy: FileExistsStrategy = FileExistsStrategy.SKIP,
+        retry_handler: BaseRetryHandler | None = None,
     ) -> WorkerPool:
         shared_emitter = EventEmitter(mock_logger)
 
@@ -80,6 +82,7 @@ def make_worker_pool(
             event_wiring=event_wiring or _default_wiring(),
             emitter=shared_emitter,
             file_exists_strategy=file_exists_strategy,
+            retry_handler=retry_handler,
         )
 
     return _make_pool

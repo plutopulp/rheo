@@ -273,11 +273,6 @@ class FileConfig(BaseModel):
         gt=0,
         description="Per-file timeout override in seconds",
     )
-    max_retries: int = Field(
-        default=0,
-        ge=0,
-        description="Maximum retry attempts for this file",
-    )
     file_exists_strategy: FileExistsStrategy | None = Field(
         default=None,
         description="Strategy for existing files. None uses manager's default.",
