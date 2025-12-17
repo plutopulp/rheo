@@ -52,8 +52,9 @@ That's it. The manager handles worker pools, state tracking, and cleanup automat
 - **Speed & ETA tracking**: Real-time download speed with moving averages and estimated completion time
 - **Graceful shutdown**: Stop downloads cleanly or cancel immediately
 - **File exists handling**: Skip, overwrite, or error when destination exists (configurable per-file or globally)
-- **Event system**: React to download lifecycle events (queued, started, progress, speed, completed, failed, skipped, cancelled, retry, validation)
+- **Event system**: Typed events (`DownloadEventType`) with `Subscription` handles from `manager.on()` (queued, started, progress, completed, failed, skipped, cancelled, retry, validation)
 - **Progress tracking**: Track bytes downloaded, completion status, errors, validation results, destination paths, and final average speeds
+- **HTTP client abstraction**: `BaseHttpClient` with default `AiohttpClient` implementation
 - **Async/await**: Built on asyncio for efficient I/O
 - **Type hints**: Full type annotations throughout
 - **Dependency injection**: Easy to test and customise
@@ -373,7 +374,6 @@ retry_handler = RetryHandler(config)
 # Create worker with retry support
 async with aiohttp.ClientSession() as session:
     worker = DownloadWorker(
-        client=session,
         retry_handler=retry_handler,
     )
     # Worker will automatically retry transient errors (500, 503, timeouts, etc.)

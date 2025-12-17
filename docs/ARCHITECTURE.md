@@ -87,7 +87,7 @@ Key pieces:
 
 - Entry point for the library
 - Orchestrates high-level download operations
-- Initialises HTTP client
+- Owns or accepts an injected HTTP client via `BaseHttpClient` (default `AiohttpClient`); only calls `open()`/`close()` on clients it owns
 - Creates and owns all event wiring (queue and worker events to tracker)
 - Creates a single shared `EventEmitter` and exposes it as an event facade via `on()` (returns `Subscription` handle)
 - Delegates worker lifecycle to `WorkerPool`
@@ -104,6 +104,7 @@ Key pieces:
 - Re-queues unstarted downloads during shutdown
 - Maintains task lifecycle and cleanup
 - Supports selective cancellation of individual downloads (queued or in-progress)
+- Accepts `BaseHttpClient` for workers (manager passes the shared client)
 
 **DownloadWorker**:
 
@@ -253,7 +254,7 @@ config4 = FileConfig(url="https://example.com/file.zip", destination_subdir="dir
 
 ### Infrastructure Layer
 
-**What it does**: Cross-cutting concerns like logging.
+**What it does**: Cross-cutting concerns like logging and HTTP client abstraction.
 
 **Logging**:
 
@@ -262,7 +263,14 @@ config4 = FileConfig(url="https://example.com/file.zip", destination_subdir="dir
 - Injected as dependency (testable)
 - Each component gets its own logger
 
-**Why**: Centralised, consistent logging. Easy to test without output noise.
+**HTTP Client**:
+
+- `BaseHttpClient` ABC defines open/close/closed/get contract
+- Default implementation: `AiohttpClient` with SSL factory helpers
+- Manager only opens/closes clients it owns; injected clients respected
+- Shared across pool and workers for connection reuse
+
+**Why**: Centralised, consistent logging and a swappable HTTP client layer for testability and future client implementations.
 
 ### CLI Layer
 
@@ -372,7 +380,7 @@ config4 = FileConfig(url="https://example.com/file.zip", destination_subdir="dir
 ```text
 1. Worker completes file download successfully
 2. If FileConfig has hash_config:
-   a. Worker emits worker.validation_started event
+   a. Worker emits `download.validating` event
    b. Worker calls validator.validate(file_path, hash_config)
    c. Validator calculates hash in thread pool (via asyncio.to_thread):
       - Opens file in binary mode
@@ -381,16 +389,15 @@ config4 = FileConfig(url="https://example.com/file.zip", destination_subdir="dir
       - Returns hexadecimal hash
    d. Validator compares hashes using hmac.compare_digest (constant-time)
    e. If hashes match:
-      - Worker emits worker.validation_completed event
       - Worker emits download.completed event
    f. If hashes don't match:
-      - Worker emits worker.validation_failed event
+      - Worker emits download.failed event with validation context
       - Worker deletes corrupted file
       - Worker raises HashMismatchError (not retried by default)
 3. Tracker observes validation events, updates DownloadInfo.validation
 ```
 
-Note: Validation events still use `worker.*` namespace and will be renamed to `download.*` in a future release.
+Note: Validation events use the `download.*` namespace.
 
 ### Cancellation Flow
 

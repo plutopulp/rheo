@@ -50,7 +50,8 @@ asyncio.run(main())
 - Retry logic with exponential backoff
 - Real-time speed & ETA tracking
 - File exists handling (skip, overwrite, or error)
-- Event-driven architecture with `manager.on()`/`off()`
+- Event-driven architecture with typed `DownloadEventType` and `Subscription` handles (`manager.on()` returns a handle with `unsubscribe()`)
+- HTTP client abstraction (`BaseHttpClient`, default `AiohttpClient`)
 - CLI tool (`rheo download`)
 - Full type hints
 

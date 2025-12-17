@@ -11,7 +11,7 @@ The library and CLI are working for real use.
 - Concurrent downloads with worker pool
 - Priority queue system
 - Selective cancellation (cancel individual downloads by ID)
-- Event-driven architecture with `manager.on()`/`off()` subscription
+- Event-driven architecture with typed events and `Subscription` handles from `manager.on()`
 - Download tracking and state management
 - Comprehensive error handling
 - Retry logic with exponential backoff
