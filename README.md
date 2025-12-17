@@ -113,7 +113,7 @@ Check [`examples/`](https://github.com/plutopulp/rheo/tree/main/examples) for wo
 
 **Alpha** - Core functionality works, but API may change before 1.0.
 
-- Python: 3.12+
+- Python: 3.10+
 - License: MIT
 
 ## Questions?

@@ -13,7 +13,7 @@ poetry install
 
 **Requirements:**
 
-- Python 3.12+
+- Python 3.10+
 - Poetry
 
 ## Code Quality
@@ -31,7 +31,7 @@ This runs:
 - Type checking (mypy)
 - Tests with coverage
 
-**CI runs automatically on GitHub** when you push or open a PR, testing on Python 3.12, 3.13, and 3.14.
+**CI runs automatically on GitHub** when you push or open a PR, testing on Python 3.10, 3.11, 3.12, 3.13, and 3.14.
 
 ## Testing
 

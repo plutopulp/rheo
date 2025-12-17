@@ -4,7 +4,7 @@ Self-contained, runnable examples demonstrating common use cases for Rheo.
 
 ## Requirements
 
-- Python 3.12+
+- Python 3.10+
 - Rheo installed: `pip install rheopy` (or `poetry install` for development)
 - **Internet connection** (examples use proof.ovh.net for testing)
 
