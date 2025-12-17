@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2025-12-17
+
+### ⚠️ Breaking Changes
+
+- **Minimum Python version is now 3.11+**: Type checking and runtime features (e.g., `StrEnum`, `asyncio.Timeout`, `typing.Unpack`) require Python 3.11 or later. CI and metadata updated accordingly.
+
+### Added
+
+- **Manager-level retry handler configuration**: `DownloadManager` now accepts `retry_handler` and threads it through `WorkerPool` and workers. Retry events flow through the shared emitter. Added integration tests and example `07_retry_handling.py` covering basic retries, custom policies, and no-retry behaviour.
+
+### Changed
+
+- **Docs and badges**: Reordered badges, added "commits since release" badge, and refreshed retry documentation to show manager-level configuration and custom policies.
+- **Tooling**: Mypy target and CI matrix aligned to Python 3.11–3.14; packaging metadata updated.
+
+### Removed
+
+- **Legacy scripts/fixtures**: Deleted unused `src/rheo/main.py` demo script and `tests/fixtures/` data.
+- **Dead config**: Removed `FileConfig.max_retries` field (unused).
+
 ## [0.6.0] - 2025-12-17
 
 ### ⚠️ BREAKING CHANGES
