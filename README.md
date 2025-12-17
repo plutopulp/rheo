@@ -1,6 +1,7 @@
 # Rheo
 
 [![PyPI](https://img.shields.io/pypi/v/rheopy)](https://pypi.org/project/rheopy/)
+[![GitHub release](https://img.shields.io/github/v/release/plutopulp/rheo)](https://github.com/plutopulp/rheo/releases)
 [![Python](https://img.shields.io/pypi/pyversions/rheopy)](https://pypi.org/project/rheopy/)
 [![License](https://img.shields.io/pypi/l/rheopy)](https://github.com/plutopulp/rheo/blob/main/LICENSE)
 [![CI](https://github.com/plutopulp/rheo/workflows/CI/badge.svg)](https://github.com/plutopulp/rheo/actions)
