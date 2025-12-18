@@ -70,9 +70,17 @@ class PriorityDownloadQueue:
         (URL + destination) is already queued, the duplicate will be
         skipped and a warning logged.
 
+        Implementation note: Uses put_nowait() to add all items atomically
+        before yielding control. This ensures priority ordering is respected
+        across the entire batch - workers blocked on get_next() won't wake
+        until all items are queued.
+
         Args:
             file_configs: Sequence of FileConfig objects to add to the queue.
         """
+        # Phase 1: Add all items to queue atomically (no await = no yield)
+        # This ensures workers can't grab items before the batch is complete
+        added_configs: list[FileConfig] = []
         for file_config in file_configs:
             download_id = file_config.id
             # Skip if already queued
@@ -85,16 +93,19 @@ class PriorityDownloadQueue:
 
             self._logger.debug(f"Adding {file_config.url} to the queue")
             # Negate priority for min-heap behavior (higher priority = lower number)
-            # Use counter as tiebreaker to maintain FIFO order for same priority
-            await self._queue.put((-file_config.priority, self._counter, file_config))
+            # and use counter as tiebreaker to maintain FIFO order for same priority.
+            # Note that put_nowait is safe currently as queue size is unbounded.
+            self._queue.put_nowait((-file_config.priority, self._counter, file_config))
             self._queued_ids.add(download_id)
             self._counter += 1
+            added_configs.append(file_config)
 
-            # Emit queued event
+        # Phase 2: Emit events (pool/worders can now process the batch)
+        for file_config in added_configs:
             await self._emitter.emit(
                 "download.queued",
                 DownloadQueuedEvent(
-                    download_id=download_id,
+                    download_id=file_config.id,
                     url=str(file_config.url),
                     priority=file_config.priority,
                 ),
