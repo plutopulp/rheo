@@ -48,7 +48,7 @@ class TestBatchAddPriorityOrdering:
             async with DownloadManager(
                 client=aio_client,
                 download_dir=tmp_path,
-                max_concurrent=2,
+                max_concurrent=1,
                 logger=mock_logger,
             ) as manager:
 
@@ -59,5 +59,4 @@ class TestBatchAddPriorityOrdering:
 
         # High priority should have started first despite being added second
         assert len(started_order) == 2
-        breakpoint()
         assert started_order == [file_configs["high"].id, file_configs["low"].id]
